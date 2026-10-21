@@ -2,7 +2,8 @@
 // IfcProject, IfcSite, an IfcBuilding per building with an IfcBuildingStorey per level; the evaluated
 // shell grouped into IfcWall (sides), IfcSlab (tops, floors, bottoms) and IfcRoof (roofs), and each
 // component as IfcWindow / IfcDoor / IfcStair / IfcRailing / IfcFurniture / IfcBuildingElementProxy,
-// in its storey. Geometry as IfcTriangulatedFaceSet (tessellation), coloured by the finish of the
+// in its storey; the rooms of each floor plan as IfcSpace (name, the free floor extruded to the ceiling,
+// Qto_SpaceBaseQuantities with NetFloorArea and Height), aggregated in their storey. Geometry as IfcTriangulatedFaceSet (tessellation), coloured by the finish of the
 // volume or the part. Coordinates: IFC is Z up (X east, Y north): the scene's (x, y, z) → (x, −z, y).
 // Read back with web-ifc in the tests (test/unit/f3-ifc.test.ts). Needs the loaded kernel.
 import { BRAND } from '../model/brand';
@@ -11,6 +12,10 @@ import { evaluateBuilding } from '../eval/evaluate';
 import { primitiveTris } from '../eval/interior';
 import { apply, type M4 } from '../eval/parts';
 import { family as familyOf } from '../families/index';
+import { floorPlan } from '../eval/floorplan';
+import { SLAB } from '../eval/interior';
+import { interiorWallMeshes } from '../eval/interiorwalls';
+import { FaceTable } from '../eval/faces';
 
 const B64 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$';
 
@@ -140,10 +145,47 @@ export function exportIFC(p: Project3): string {
       const lp = add(`IFCCARTESIANPOINT((0.,0.,${real(l.elevation)}))`);
       const la = add(`IFCAXIS2PLACEMENT3D(${ref(lp)},$,$)`);
       const place = add(`IFCLOCALPLACEMENT(${ref(bPlace)},${ref(la)})`);
-      return { id: add(`IFCBUILDINGSTOREY(${str(ifcGuid('s' + l.id))},$,${str(l.name)},$,$,${ref(place)},$,$,.ELEMENT.,${real(l.elevation)})`), elevation: l.elevation, place, items: [] as number[] };
+      return { id: add(`IFCBUILDINGSTOREY(${str(ifcGuid('s' + l.id))},$,${str(l.name)},$,$,${ref(place)},$,$,.ELEMENT.,${real(l.elevation)})`), elevation: l.elevation, height: l.height, place, items: [] as number[] };
     });
     if (!storeys.length) continue;
     add(`IFCRELAGGREGATES(${str(ifcGuid('agg-b' + b.id))},$,$,$,${ref(bld)},${list(storeys.map((s) => s.id))})`);
+    // Rooms: each piece of free floor of the plan (eval/floorplan.ts), from the slab to the ceiling.
+    storeys.forEach((st, li) => {
+      const lid = levels[li]!.id;
+      let fp;
+      try {
+        fp = floorPlan(b, li, ev.placements);
+      } catch {
+        return;
+      }
+      const spaces: number[] = [];
+      fp.rooms.forEach((r, ri) => {
+        const loops = r.rings.filter((ring) => ring.length >= 3);
+        if (!loops.length) return;
+        const curve = (ring: (typeof loops)[number]) => {
+          const pts = [...ring, ring[0]!].map((q) => add(`IFCCARTESIANPOINT((${real(q[0])},${real(-q[1])}))`));
+          return add(`IFCPOLYLINE(${list(pts)})`);
+        };
+        // The outer ring is the largest; the others are holes in it.
+        const area = (ring: (typeof loops)[number]) => Math.abs(ring.reduce((sum, q, i) => sum + q[0] * ring[(i + 1) % ring.length]![1] - ring[(i + 1) % ring.length]![0] * q[1], 0)) / 2;
+        const sorted = [...loops].sort((x, y) => area(y) - area(x));
+        const outer = curve(sorted[0]!);
+        const prof = sorted.length > 1 ? add(`IFCARBITRARYPROFILEDEFWITHVOIDS(.AREA.,$,${ref(outer)},${list(sorted.slice(1).map(curve))})`) : add(`IFCARBITRARYCLOSEDPROFILEDEF(.AREA.,$,${ref(outer)})`);
+        const h = Math.max(0.1, st.height - SLAB);
+        const at = add(`IFCAXIS2PLACEMENT3D(${ref(add(`IFCCARTESIANPOINT((0.,0.,${real(SLAB)}))`))},$,$)`);
+        const solid = add(`IFCEXTRUDEDAREASOLID(${ref(prof)},${ref(at)},${ref(add('IFCDIRECTION((0.,0.,1.))'))},${real(h)})`);
+        const rep = add(`IFCSHAPEREPRESENTATION(${ref(body)},'Body','SweptSolid',(${ref(solid)}))`);
+        const shape = add(`IFCPRODUCTDEFINITIONSHAPE($,$,(${ref(rep)}))`);
+        const place = add(`IFCLOCALPLACEMENT(${ref(st.place)},${ref(axis)})`);
+        const name = r.name || `${fp.level} ${ri + 1}`;
+        const sp = add(`IFCSPACE(${str(ifcGuid(`space|${b.id}|${lid}|${r.id ?? ri}`))},$,${str(String(ri + 1))},$,$,${ref(place)},${ref(shape)},${str(name.slice(0, 100))},.ELEMENT.,.INTERNAL.,$)`);
+        const q = [add(`IFCQUANTITYAREA('NetFloorArea',$,$,${real(r.area)},$)`), add(`IFCQUANTITYLENGTH('Height',$,$,${real(h)},$)`)];
+        const qto = add(`IFCELEMENTQUANTITY(${str(ifcGuid(`qto|${b.id}|${lid}|${r.id ?? ri}`))},$,'Qto_SpaceBaseQuantities',$,$,${list(q)})`);
+        add(`IFCRELDEFINESBYPROPERTIES(${str(ifcGuid(`qrel|${b.id}|${lid}|${r.id ?? ri}`))},$,$,$,(${ref(sp)}),${ref(qto)})`);
+        spaces.push(sp);
+      });
+      if (spaces.length) add(`IFCRELAGGREGATES(${str(ifcGuid(`agg-sp|${b.id}|${lid}`))},$,$,$,${ref(st.id)},${list(spaces)})`);
+    });
     const storeyAt = (y: number) => [...storeys].reverse().find((s) => s.elevation <= y + 0.05) ?? storeys[0]!;
     // The shell, by element class and volume: triangles in the building frame, then to IFC (Z up), with
     // the storey's elevation taken off (its placement holds it).
@@ -184,6 +226,32 @@ export function exportIFC(p: Project3): string {
       const colour = g.cls === 'IFCROOF' ? s?.materials.roof.color : g.cls === 'IFCSLAB' ? s?.materials.base.color : s?.materials.wall.color;
       const id = product(g.cls, key + b.id, `${s?.name ?? 'Volume'} · ${names[g.cls]}`, st.place, g.tris, colour ?? '#cccccc', tail(g.cls));
       if (id) st.items.push(id);
+    }
+    // Interior walls (drawn in the plan; built apart from the shell): one IfcWall per floor.
+    const iwTable = new FaceTable();
+    const iw = interiorWallMeshes(b, iwTable);
+    if (iw) {
+      const per = new Map<string, Tris>();
+      for (let t = 0; t < iw.tri.length / 3; t++) {
+        const f = iwTable.faces[iw.face[t]!];
+        if (!f || f.kind !== 'innerWall') continue;
+        const lid = f.solid.slice('interior:'.length);
+        let g = per.get(lid);
+        if (!g) per.set(lid, (g = { pos: [], idx: [] }));
+        for (let j = 0; j < 3; j++) {
+          const v = iw.tri[t * 3 + j]!;
+          g.idx.push(g.pos.length / 3);
+          g.pos.push(iw.pos[v * 3]!, -iw.pos[v * 3 + 2]!, iw.pos[v * 3 + 1]!);
+        }
+      }
+      for (const [lid, g] of per) {
+        const li = levels.findIndex((l) => l.id === lid);
+        const st = storeys[li];
+        if (!st) continue;
+        for (let i = 2; i < g.pos.length; i += 3) g.pos[i]! -= st.elevation;
+        const id = product('IFCWALL', `interior|${b.id}|${lid}`, 'Interior walls', st.place, g, '#efe9de', tail('IFCWALL'));
+        if (id) st.items.push(id);
+      }
     }
     // Components: one product per tag (a window, a door, a bench), from its instances and meshes.
     const parts = ev.parts;
