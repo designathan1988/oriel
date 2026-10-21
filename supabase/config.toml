@@ -1,0 +1,6 @@
+# Só o que o Oriel muda do padrão do Supabase CLI (https://supabase.com/docs/guides/functions/function-configuration).
+project_id = "oriel"
+
+# O Stripe não manda token de usuário: a função confere a assinatura do próprio Stripe.
+[functions.stripe-webhook]
+verify_jwt = false

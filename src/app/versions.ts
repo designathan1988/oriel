@@ -1,27 +1,48 @@
 // Versions dialog (project menu → Versions…; app layer: it uses the storage of f3/io): save the project as a named version, see the earlier ones
 // (named and automatic), open one (Ctrl+Z goes back), rename or delete it. Automatic versions every five
-// minutes while the project changes. Storage: io/versions.ts (IndexedDB).
+// minutes while the project changes. Storage: io/versions.ts (IndexedDB). Signed in, a second list shows the
+// versions kept in the cloud (cloud/account.ts): saving a version saves it there too.
 import type { Editor3 } from '../f3/editor/editor';
 import type { Project3 } from '../f3/model/schema';
 import { deleteVersion, listVersions, renameVersion, saveVersion } from '../f3/io/versions';
 import { migrateForma3 } from '../f3/io/migrate';
+import { tr } from '../f3/ui/i18n';
+import type { Account } from './cloud/account';
+import type { CloudVersion } from './cloud/api';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const when = (t: number) => new Date(t).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
 
-export function openVersions(ed: Editor3): void {
+export function openVersions(ed: Editor3, cloud?: { account: Account; id: string }): void {
+  const signed = !!cloud?.account.user();
   const m = document.createElement('div');
   m.className = 'f3-modal';
   m.innerHTML = `<div class="f3-versions" role="dialog" aria-label="Versions"><header><h2>Versions of “${esc(ed.project.name)}”</h2><button class="f3-x" data-close aria-label="Close">×</button></header>
     <div class="row"><input data-vname placeholder="Name of this version" maxlength="60" value="${esc(new Date().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }))}"><button class="f3-btn primary" data-vsave>Save version</button></div>
-    <ul class="list"><li class="empty">…</li></ul>
-    <p class="note">Kept in this browser (IndexedDB). An automatic version every 5 minutes while the project changes (the last 20).</p></div>`;
+    <h3>In this browser</h3><ul class="list" data-local><li class="empty">…</li></ul>
+    ${signed ? '<h3>In the cloud</h3><ul class="list" data-cloud><li class="empty">…</li></ul>' : ''}
+    <p class="note">${signed ? 'Saved versions also go to the cloud, where they open on any computer. An automatic cloud version every 15 minutes while the project changes.' : 'Kept in this browser (IndexedDB). An automatic version every 5 minutes while the project changes (the last 20).'}</p></div>`;
   ed.shell.root.appendChild(m);
-  const list = m.querySelector<HTMLUListElement>('.list')!;
+  const list = m.querySelector<HTMLUListElement>('[data-local]')!;
+  const clist = m.querySelector<HTMLUListElement>('[data-cloud]');
+  let cvs: CloudVersion[] = [];
+  const drawCloud = async () => {
+    const api = await cloud?.account.api();
+    if (!clist || !api) return;
+    try {
+      cvs = await api.listVersions(cloud!.id);
+    } catch {
+      cvs = [];
+    }
+    clist.innerHTML = cvs.length
+      ? cvs.map((v) => `<li data-vid="${v.vid}"><div><b>${esc(v.label)}</b><small><span>${when(v.at)}</span>${v.auto ? ' · <span>automatic</span>' : ''} · <span>${Math.round(v.bytes / 1024)} KB</span></small></div><button class="f3-btn" data-copen>Open</button><button class="f3-btn ic danger" data-cdel aria-label="Delete">×</button></li>`).join('')
+      : '<li class="empty">No version in the cloud yet.</li>';
+  };
+  void drawCloud();
   const draw = async () => {
     const vs = await listVersions(ed.project.name);
     list.innerHTML = vs.length
-      ? vs.map((v) => `<li data-id="${v.id}"><div><input data-rename value="${esc(v.name)}" aria-label="Version name"><small>${when(v.at)} · ${v.buildings} building(s)${v.auto ? ' · automatic' : ''} · ${Math.round(v.json.length / 1024)} KB</small></div><button class="f3-btn" data-open>Open</button><button class="f3-btn ic danger" data-del aria-label="Delete">×</button></li>`).join('')
+      ? vs.map((v) => `<li data-id="${v.id}"><div><input data-rename value="${esc(v.name)}" aria-label="Version name"><small><span>${when(v.at)}</span> · <span>${v.buildings} building(s)</span>${v.auto ? ' · <span>automatic</span>' : ''} · <span>${Math.round(v.json.length / 1024)} KB</span></small></div><button class="f3-btn" data-open>Open</button><button class="f3-btn ic danger" data-del aria-label="Delete">×</button></li>`).join('')
       : '<li class="empty">No version yet: save the first one above.</li>';
   };
   void draw();
@@ -35,8 +56,39 @@ export function openVersions(ed: Editor3): void {
     if (t.closest('[data-vsave]')) {
       const name = m.querySelector<HTMLInputElement>('[data-vname]')!.value.trim() || 'Version';
       await saveVersion(ed.project, name.slice(0, 60));
+      if (signed) {
+        try {
+          await cloud!.account.saveVersion(cloud!.id, name.slice(0, 60), JSON.stringify(ed.project));
+          void drawCloud();
+        } catch (err) {
+          ed.toast(`${tr('Saved in this browser, not in the cloud')}: ${(err as Error).message}`);
+          return void draw();
+        }
+      }
       ed.toast(`Version “${name}” saved.`);
       return void draw();
+    }
+    const cli = t.closest<HTMLElement>('li[data-vid]');
+    const api = cli ? await cloud?.account.api() : null;
+    if (cli && api) {
+      const vid = Number(cli.dataset.vid);
+      const v = cvs.find((x) => x.vid === vid);
+      if (t.closest('[data-cdel]')) {
+        await api.deleteVersion(cloud!.id, vid).catch((err) => ed.toast(`${tr('Failed')}: ${(err as Error).message}`));
+        return void drawCloud();
+      }
+      if (t.closest('[data-copen]') && v) {
+        try {
+          const mig = migrateForma3(JSON.parse(await api.getVersion(cloud!.id, vid)) as Project3);
+          ed.store.replace(mig.project, `Version “${v.label}” opened.`);
+          ed.view.frame();
+          ed.toast(`Version “${v.label}” opened. Ctrl+Z goes back.`);
+          close();
+        } catch (err) {
+          ed.toast(`This version could not be read: ${(err as Error).message}`);
+        }
+      }
+      return;
     }
     const li = t.closest<HTMLElement>('li[data-id]');
     if (!li) return;

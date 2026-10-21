@@ -443,6 +443,35 @@ export const CSS = `
 .f3-versions li div{display:grid;gap:2px;min-width:0}.f3-versions li input{border:0;background:none;color:var(--ink);font-weight:600;min-width:0;padding:2px 0}
 .f3-versions li small{color:var(--muted);font-size:11px}.f3-versions li.empty{color:var(--muted);display:block;border-style:dashed}
 .f3-versions .note{color:var(--faint);font-size:11px;margin:0}
+.f3-versions h3{margin:4px 0 0;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}.f3-versions li div b{font-weight:600;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.f3-acctbtn{margin-left:6px;position:relative;padding:0 5px}.f3-acctbtn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.f3-acctbtn .av{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--accent-2);color:var(--accent-ink);font-weight:700;font-size:11px}
+.f3-acctbtn .pro,.f3-pro{font-style:normal;font-size:9px;font-weight:700;letter-spacing:.04em;padding:1px 4px;border-radius:4px;background:var(--accent);color:#1b0f06;margin-right:4px}
+.f3-acctbtn .cl{display:inline-grid;color:var(--faint)}.f3-acctbtn .cl svg{width:14px;height:14px}
+.f3-acctbtn[data-state=saving] .cl{color:var(--sel)}.f3-acctbtn[data-state=saved] .cl{color:#4fb477}.f3-acctbtn[data-state=local] .cl,.f3-acctbtn[data-state=error] .cl{color:var(--danger)}
+.f3-modal>.f3-acct{width:min(640px,94vw);max-height:88vh;display:grid;gap:12px;padding:20px 22px}
+.f3-acct header{display:flex;align-items:center;justify-content:space-between}.f3-acct h2{margin:0;font-size:17px}
+.f3-acct .f3-x{background:none;border:0;color:var(--muted);font-size:20px;cursor:pointer}
+.f3-acct .lead{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+.f3-acct .why{margin:0;display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:8px;background:var(--accent-2);color:var(--ink);font-size:12.5px}.f3-acct .why svg{flex:none;color:var(--accent-ink)}
+.f3-acct .in{display:flex;gap:6px}.f3-acct .in input{flex:1;height:34px;border:1px solid var(--line);border-radius:7px;background:var(--field);color:var(--ink);padding:0 10px;font-size:13px}
+.f3-acct .f3-btn{height:34px;padding:0 14px;border-radius:7px;font-weight:600;gap:8px;display:inline-flex;align-items:center;justify-content:center}
+.f3-acct .f3-btn.primary{background:var(--accent);color:#1b0f06;border-color:var(--accent)}
+.f3-acct .f3-btn.google{width:100%}.f3-acct .f3-btn.google svg{stroke:none;width:18px;height:18px;fill:initial}
+.f3-acct .f3-btn.busy{opacity:.6;cursor:progress}
+.f3-acct .sent{margin:0;display:flex;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font-size:13px}.f3-acct .sent svg{flex:none;color:#4fb477}
+.f3-acct .me{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
+.f3-acct .me .av{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--accent-2);color:var(--accent-ink);font-weight:700}
+.f3-acct .me div{display:grid;gap:2px;min-width:0}.f3-acct .me b{overflow:hidden;text-overflow:ellipsis}.f3-acct .me small{color:var(--muted);font-size:11.5px}
+.f3-acct .plans{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.f3-acct .plan{display:grid;align-content:start;gap:8px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--field)}
+.f3-acct .plan.pro{border-color:var(--accent);background:linear-gradient(180deg,var(--accent-2),transparent 60%),var(--field)}
+.f3-acct .plan h4{margin:0;font-size:14px;display:flex;align-items:center;gap:8px}.f3-acct .plan h4 em{font-style:normal;font-size:10.5px;font-weight:600;color:var(--accent-ink);background:var(--accent-2);padding:2px 6px;border-radius:99px}
+.f3-acct .price{margin:0;color:var(--muted);font-size:12px}.f3-acct .price b{font-size:22px;color:var(--ink)}.f3-acct .price small{display:block;margin-top:2px}
+.f3-acct .plan ul{margin:0;padding:0 0 0 16px;display:grid;gap:4px;font-size:12.5px;color:var(--ink)}
+.f3-acct .buy{display:grid;gap:6px}.f3-acct .hint{margin:0;color:var(--muted);font-size:11.5px}
+.f3-acct .note{margin:0;color:var(--faint);font-size:11.5px}
+@media (max-width:620px){.f3-acct .plans{grid-template-columns:minmax(0,1fr)}}
 .f3-modal>.f3-start{width:min(1040px,94vw);max-width:none;max-height:92vh;overflow:auto;display:grid;gap:14px;padding:20px 22px}
 .f3-start header{display:flex;align-items:center;justify-content:space-between}.f3-start h2{margin:0;font-size:18px}
 .f3-start .f3-x{background:none;border:0;color:var(--muted);font-size:20px;cursor:pointer}
@@ -456,8 +485,9 @@ export const CSS = `
 .f3-start .tpl b{font-size:13px;font-weight:600;padding:0 11px}.f3-start .tpl small{color:var(--muted);font-size:11.5px;line-height:1.3;padding:0 11px}
 @media (max-width:760px){.f3-start .cols{grid-template-columns:minmax(0,1fr)}.f3-start .tpls{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .f3-start .list{list-style:none;margin:0;padding:0;display:grid;gap:4px;max-height:52vh;overflow:auto}
-.f3-start li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center;padding:6px 8px;border:1px solid var(--line);border-radius:8px}
+.f3-start li{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:6px;align-items:center;padding:6px 8px;border:1px solid var(--line);border-radius:8px}
 .f3-start li.cur{border-color:var(--accent)}
+.f3-start li .th{width:64px;height:40px;border-radius:5px;object-fit:cover;background:var(--field);display:grid;place-items:center;color:var(--muted)}.f3-start li .th svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6}
 .f3-start li div{display:grid;gap:2px;min-width:0}.f3-start li input{border:0;background:none;color:var(--ink);font-weight:600;min-width:0;padding:2px 0}
 .f3-start li small{color:var(--muted);font-size:11px}.f3-start li.empty{color:var(--muted);display:block;border-style:dashed}
 .f3-start .f3-btn.armed{color:#fff;background:var(--danger,#c2321f);border-color:transparent;width:auto;padding:0 8px}
@@ -491,9 +521,10 @@ export const CSS = `
 .f3-help .f3-keys>span{min-width:0;overflow-wrap:anywhere}
 .f3-help .f3-keys{grid-template-columns:auto minmax(0,1fr)}
 .f3-menu{position:absolute;z-index:30;max-height:calc(100vh - 64px);overflow:auto;background:var(--panel-solid);border:1px solid var(--line);border-radius:9px;box-shadow:0 14px 40px #0008;padding:4px;min-width:210px;color:var(--ink)}
-.f3-menu button{display:flex;width:100%;border:0;background:transparent;border-radius:6px;height:30px;padding:0 9px;gap:9px;align-items:center;text-align:left;color:var(--ink);letter-spacing:0;font-weight:400}
+.f3-menu button{display:flex;width:100%;border:0;background:transparent;border-radius:6px;min-height:30px;padding:4px 9px;gap:9px;align-items:center;text-align:left;color:var(--ink);letter-spacing:0;font-weight:400}
 .f3-menu button:hover{background:var(--raise)}
-.f3-menu small,.f3-menu kbd{margin-left:auto;color:var(--faint)}
+.f3-menu small,.f3-menu kbd{margin-left:auto;color:var(--faint);display:inline-flex;align-items:center;white-space:nowrap;padding-left:10px}
+.f3-menu[data-menu-of=export]{width:min(400px,calc(100% - 16px))}
 .f3-menu hr{border:0;border-top:1px solid var(--line);margin:4px 2px}
 .f3-menu .f3-menu-h{font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);padding:8px 9px 3px}
 .f3-pal{width:min(560px,92vw);padding:0 !important;overflow:hidden !important;display:flex;flex-direction:column}

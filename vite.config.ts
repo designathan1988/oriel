@@ -47,6 +47,8 @@ function tourBundle(): Plugin {
 export default defineConfig({
   plugins: [tourBundle()],
   root: at('./src/app'),
+  // .env at the top of the folder (VITE_SUPABASE_URL…), not in src/app (https://vite.dev/config/shared-options#envdir).
+  envDir: at('.'),
   server: { port, strictPort: port !== undefined },
   // PBR textures served next to the app (not embedded in the HTML).
   publicDir: 'public',

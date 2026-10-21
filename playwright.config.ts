@@ -38,6 +38,8 @@ export default defineConfig({
     { name: 'tour', testMatch: 'tour.spec.ts', timeout: 600_000 },
     // Pictures and materials: the render forms its first samples on SwiftShader (tens of seconds).
     { name: 'look', testMatch: 'look.spec.ts', timeout: 600_000 },
+    // Account, plans and cloud saving, with a cloud kept in the page (e2e/cloud.spec.ts).
+    { name: 'cloud', testMatch: 'cloud.spec.ts', timeout: 120_000 },
   ],
   webServer: {
     command: 'npx vite --port 5795 --strictPort --host 127.0.0.1',

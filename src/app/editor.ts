@@ -10,6 +10,8 @@ import { project } from '../f3/model/defaults';
 import { sampleBuildings } from '../f3/model/samples';
 import type { Project3 } from '../f3/model/schema';
 import { autoVersions, openVersions } from './versions';
+import { mountAccount } from './cloud/account';
+import type { ProFeature } from './cloud/plans';
 import { openStart, type ProjectHost } from './projects';
 import { available as storeAvailable, currentProjectId, getProject, newProjectId, putProject, setCurrentProjectId } from '../f3/io/projects';
 import { migrateForma3 } from '../f3/io/migrate';
@@ -77,6 +79,8 @@ mountInteriorView(editor);
 mountPhoto(editor);
 mountWorkspaces(editor);
 mountPlanView(editor);
+// Account and cloud (only when this build has a cloud configured: cloud/api.ts).
+const account = mountAccount(editor, () => currentId!);
 editor.quantitiesRequested = () => openQuantities(editor);
 editor.tourRequested = () => openTour(editor, tourPublish());
 
@@ -138,11 +142,13 @@ function tourPublish(): TourPublish {
       editor.toast('Preview opened in a new tab.');
     },
     site: async () => {
+      if (!account.gate('tour')) return;
       const { tour, data, runtime } = await tourParts();
       download(tour.tourHtml(data, runtime), fileName(editor.project.name + '-tour', 'html'), 'text/html');
       editor.toast('Site ready: open it in any browser, or put it on a host to share the link.');
     },
     app: async () => {
+      if (!account.gate('tour')) return;
       const { tour, data, runtime } = await tourParts();
       const zip = tour.tourApp(data, runtime, { s192: await tourIcon(192), s512: await tourIcon(512) }, tr);
       download(zip as BlobPart, fileName(editor.project.name + '-app', 'zip'), 'application/zip');
@@ -158,9 +164,11 @@ editor.persist = async (json) => {
   if (!storeAvailable()) return localStorage.setItem('forma3_project', json);
   await putProject(currentId!, editor.project, json);
   setCurrentProjectId(currentId!);
+  account.push(currentId!, json);
 };
 if (!firstVisit && storeAvailable()) void Promise.resolve(editor.persist(editor.store.json())).catch(() => undefined);
 const projects: ProjectHost = {
+  account,
   currentId: () => currentId!,
   open(p, id, message) {
     currentId = id ?? newProjectId();
@@ -211,7 +219,7 @@ function exportMenu(anchor: HTMLElement): void {
   m.dataset.menuOf = 'export';
   m.setAttribute('role', 'menu');
   // Grouped by what people deliver: drawings first, then BIM and 3D, the project file, game engines last.
-  const items: [string, string, (() => Promise<void> | void) | null][] = [
+  const items: [string, string, (() => Promise<void> | void) | null, ProFeature?][] = [
     ['Client', '', null],
     ['Virtual tour and site (walk through, share a link, app)…', '.html', () => openTour(editor, tourPublish())],
     ['Photorealistic render of the view (PNG)…', '.png', () => openPhoto(editor)],
@@ -225,14 +233,14 @@ function exportMenu(anchor: HTMLElement): void {
       const html = presentationHtml(editor.project, glb, { t: tr, decimal: pt ? ',' : '.', lang: pt ? 'pt-BR' : 'en' });
       download(html, fileName(editor.project.name + '-presentation', 'html'), 'text/html');
       editor.toast('Presentation ready: send the file to the client; it opens in any browser.');
-    }],
+    }, 'presentation'],
     ['Drawings', '', null],
     ['Drawing set: floor plans, section, area table (PDF)', '.pdf', async () => {
       const b = editor.store.building(editor.sel.building ?? editor.context);
       const { drawingsPdf } = await import('../f3/io/pdf');
       download(await drawingsPdf(editor.project, { sectionAt: b ? b.position[1] : undefined, t: tr, decimal: loadLang() === 'pt-BR' ? ',' : '.' }), fileName(editor.project.name + '-drawings', 'pdf'), 'application/pdf');
     }],
-    ['Plan for CAD (DXF)', '.dxf', () => download(planToCadDxf(editor.project), fileName(editor.project.name + '-plan', 'dxf'), 'application/dxf')],
+    ['Plan for CAD (DXF)', '.dxf', () => download(planToCadDxf(editor.project), fileName(editor.project.name + '-plan', 'dxf'), 'application/dxf'), 'dxf'],
     ['Plan drawing (SVG)', '.svg', () => download(planSvg(editor.project), fileName(editor.project.name + '-plan', 'svg'), 'image/svg+xml')],
     ['Section drawing (SVG)', '.svg', () => {
       // Through the selected building, else through the middle of them all.
@@ -245,12 +253,12 @@ function exportMenu(anchor: HTMLElement): void {
     ['BIM model (IFC4)', '.ifc', async () => {
       const { exportIFC } = await import('../f3/io/ifc');
       download(exportIFC(editor.project), fileName(editor.project.name, 'ifc'), 'application/x-step');
-    }],
+    }, 'ifc'],
     ['3D model (GLB)', '.glb', async () => download(await exportGLB(editor.project), fileName(editor.project.name, 'glb'), 'model/gltf-binary')],
     ['3D model, compact (GLB, meshopt + WebP)', '.glb', async () => {
       const { optimizeGlb } = await import('../f3/io/glbopt');
       download(await optimizeGlb(new Uint8Array(await exportGLB(editor.project)), { maxTexture: 1024, meshopt: true }) as BlobPart, fileName(editor.project.name + '-compact', 'glb'), 'model/gltf-binary');
-    }],
+    }, 'compact'],
     ['Geometry (OBJ)', '.obj', async () => download(await exportOBJ(editor.project), fileName(editor.project.name, 'obj'), 'text/plain')],
     ['For AR on iPhone/iPad (USDZ)', '.usdz', async () => download((await exportUSDZ(editor.project)) as BlobPart, fileName(editor.project.name, 'usdz'), 'model/vnd.usdz+zip')],
     ['View image (PNG)', '.png', () => {
@@ -260,18 +268,22 @@ function exportMenu(anchor: HTMLElement): void {
     ['Project', '', null],
     ['Editable project (JSON)', '.json', () => saveFile(editor.project)],
     ['Game engines', '', null],
-    ['Game engine package (models, ZIP)', '.zip', async () => download(await exportGamePackage(editor.project) as BlobPart, fileName(editor.project.name + '-game', 'zip'), 'application/zip')],
-    ['Game engine data (JSON)', '.json', () => download(exportGameJSON(editor.project), fileName(editor.project.name + '-game', 'json'), 'application/json')],
+    ['Game engine package (models, ZIP)', '.zip', async () => download(await exportGamePackage(editor.project) as BlobPart, fileName(editor.project.name + '-game', 'zip'), 'application/zip'), 'game'],
+    ['Game engine data (JSON)', '.json', () => download(exportGameJSON(editor.project), fileName(editor.project.name + '-game', 'json'), 'application/json'), 'game'],
   ];
-  m.innerHTML = items.map(([l, ext, run], i) => (run ? `<button data-i="${i}">${l}<small>${ext}</small></button>` : `<div class="f3-menu-h">${l}</div>`)).join('');
+  // Pro deliveries carry a badge on the free plan; choosing one opens the plans instead.
+  const locked = (f?: ProFeature) => !!f && account.enabled && account.plan() !== 'pro';
+  m.innerHTML = items.map(([l, ext, run, f], i) => (run ? `<button data-i="${i}">${l}<small>${locked(f) ? '<em class="f3-pro">PRO</em>' : ''}${ext}</small></button>` : `<div class="f3-menu-h">${l}</div>`)).join('');
   root.appendChild(m);
   const r = anchor.getBoundingClientRect(),
     rr = root.getBoundingClientRect();
-  m.style.left = `${Math.min(r.left - rr.left, rr.width - 240)}px`;
+  m.style.left = `${Math.max(8, Math.min(r.left - rr.left, rr.width - m.offsetWidth - 8))}px`;
   m.style.top = `${r.bottom - rr.top + 4}px`;
   m.querySelectorAll<HTMLButtonElement>('button').forEach((b) =>
     b.addEventListener('click', async () => {
       m.remove();
+      const f = items[Number(b.dataset.i)]![3];
+      if (f && !account.gate(f)) return;
       try {
         editor.toast('Exporting…');
         await items[Number(b.dataset.i)]![2]!();
@@ -321,7 +333,7 @@ editor.topCommand = (cmd) => {
     return true;
   }
   if (cmd === 'versions') {
-    openVersions(editor);
+    openVersions(editor, { account, id: currentId! });
     return true;
   }
   return false;
