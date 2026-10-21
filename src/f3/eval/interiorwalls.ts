@@ -263,11 +263,20 @@ export function interiorWallMeshes(b: Building3, table: FaceTable, opts: { hidde
     if (!it || (!it.walls.length && !it.rooms.length)) continue;
     // Room floors with a finish: a 1 cm plate on the slab, one face per room (its material, render/shell.ts).
     for (const r of it.rooms) {
-      if (!r.finish || !r.polygon || r.polygon.length < 3) continue;
-      const rf = table.add({ kind: 'floor', solid: `room:${level.id}:${r.id}` });
+      if (!r.polygon || r.polygon.length < 3) continue;
       const ring = area2(r.polygon) > 0 ? r.polygon : [...r.polygon].reverse();
       const y0 = floorTop(b, level.elevation);
-      heightPrism(mb, ring, [], [], () => y0 + 0.01, y0, { top: () => rf, bottom: rf, side: () => rf });
+      if (r.finish) {
+        const rf = table.add({ kind: 'floor', solid: `room:${level.id}:${r.id}` });
+        heightPrism(mb, ring, [], [], () => y0 + 0.01, y0, { top: () => rf, bottom: rf, side: () => rf });
+      }
+      // A room with its own ceiling height: a lowered ceiling (2 cm board) at that height, under the slab.
+      const top = level.elevation + level.height - SLAB;
+      if (r.ceiling !== undefined && y0 + r.ceiling < top - 0.05) {
+        const cf = table.add({ kind: 'ceiling', solid: `room:${level.id}:${r.id}` });
+        const yc = y0 + r.ceiling;
+        heightPrism(mb, ring, [], [], () => yc + 0.02, yc, { top: () => cf, bottom: cf, side: () => cf });
+      }
     }
     if (!it.walls.length) continue;
     const doors = interiorDoors(it);
@@ -466,4 +475,19 @@ export function interiorDoorFrames(b: Building3): { key: string; o: [number, num
     });
   }
   return out;
+}
+
+/** Floor to ceiling of a room (m): its own height, else from its floor up to under the slab above. */
+export function roomCeiling(b: Building3, levelId: ID, room: { ceiling?: number }): number {
+  const lv = b.levels.find((l) => l.id === levelId);
+  if (!lv) return room.ceiling ?? 2.6;
+  const free = lv.elevation + lv.height - SLAB - floorTop(b, lv.elevation);
+  return Math.round(Math.min(free, room.ceiling ?? free) * 100) / 100;
+}
+
+/** Perimeter of a room outline (m). */
+export function roomPerimeter(poly: Vec2[]): number {
+  let s = 0;
+  for (let i = 0; i < poly.length; i++) s += Math.hypot(poly[(i + 1) % poly.length]![0] - poly[i]![0], poly[(i + 1) % poly.length]![1] - poly[i]![1]);
+  return s;
 }

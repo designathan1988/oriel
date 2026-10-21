@@ -212,10 +212,27 @@ export interface Level {
   height: number;
 }
 
+export const ROOM_USES = ['living', 'bedroom', 'kitchen', 'bathroom', 'circulation', 'service', 'office', 'retail', 'storage', 'other'] as const;
+export type RoomUse = (typeof ROOM_USES)[number];
+/** Names of the room uses (the room schedule groups by them). */
+export const ROOM_USE_NAMES: Record<RoomUse, string> = { living: 'Living', bedroom: 'Bedroom', kitchen: 'Kitchen', bathroom: 'Bathroom', circulation: 'Circulation', service: 'Service', office: 'Office', retail: 'Retail', storage: 'Storage', other: 'Other' };
+
 export interface Interior {
   nodes: { id: ID; p: Vec2 }[];
   walls: { id: ID; a: ID; b: ID; thickness: number; splitFrom?: ID }[];
-  rooms: { id: ID; name: string; wallIds: ID[]; polygon?: Vec2[]; area?: number; /** Floor finish of the room (a plate on the slab). */ finish?: MaterialRef }[];
+  rooms: {
+    id: ID;
+    name: string;
+    wallIds: ID[];
+    polygon?: Vec2[];
+    area?: number;
+    /** Floor finish of the room (a plate on the slab). */
+    finish?: MaterialRef;
+    /** What the room is used for (Revit's occupancy): the room schedule groups by it. */
+    use?: RoomUse;
+    /** Floor to ceiling (m); absent: the floor height less the slab. */
+    ceiling?: number;
+  }[];
   /**
    * Finishes inside this floor (the room side of every wall, the ceilings, the bare floor where a room has
    * no finish of its own); absent: the light matte defaults of the interior view.

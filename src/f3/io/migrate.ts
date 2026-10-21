@@ -24,6 +24,7 @@ import { loadProject } from '../../core';
 import { edgeConfig, massExtent, sortedStoreys, type EdgeConfig } from '../../core/model';
 import { massEdges } from '../../geometry/ring';
 import { validateStylePack } from '../../styles/schema';
+import { ROOM_USES } from '../model/schema';
 import type { Building3, BuildingUse, EdgeSpec, FacadeRule, ID, Interior, Item, Level, ParamValue, PlanVertex, Project3, RoofKind, RoofSpec, Solid, Vec2 } from '../model/schema';
 import { LIMITS3, SCHEMA3 } from '../model/schema';
 import { DEFAULT_MATERIALS, facadeRule, mat, roofSpec, solid } from '../model/defaults';
@@ -696,6 +697,10 @@ function checkBuilding(e: Errors, b: Building3, p: Project3, lotIds: Set<string>
         for (const wl of int.walls) {
           if (!nodes.has(wl.a) || !nodes.has(wl.b)) e.add(w, 'interior wall points to a missing node.');
           if (!fin(wl.thickness) || wl.thickness <= 0) e.add(w, 'invalid interior wall thickness.');
+        }
+        for (const r of int.rooms) {
+          if (r.use !== undefined && !(ROOM_USES as readonly string[]).includes(r.use)) e.add(w, 'invalid room use.');
+          if (r.ceiling !== undefined && (!fin(r.ceiling) || r.ceiling < 1.5 || r.ceiling > 30)) e.add(w, 'invalid room ceiling height (1.5 to 30 m).');
         }
       }
   }

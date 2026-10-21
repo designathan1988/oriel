@@ -189,7 +189,8 @@ Backlog (P1 first):
 - [ ] P1 Slab as an element per level (outline, thickness, holes, cantilever); shafts/atria through slabs.
 - [ ] P1 Pitch per side on hip roofs (weighted skeleton).
 - [ ] P1 Railings on stair, slab edge and terrace (edge host kept by a relation).
-- [ ] P1 Rooms: use/category, ceiling height, volume; area and quantity schedules (CSV).
+- [x] P1 Rooms: use, ceiling height (a lowered ceiling board when below the slab), perimeter and volume;
+      room schedule CSV with totals by use (io/schedule.ts); quantities and areas CSV already there.
 - [x] P1 Terrain from points (modified Shepard, back to 0 within 40 m; Shift+T), pads under buildings and
       streets, lots tinted on it, contours in 3D, site plan and ground floor plans, section and elevations,
       exports (2026-10-21). [ ] From contours; sculpt.

@@ -294,6 +294,11 @@ function exportMenu(anchor: HTMLElement): void {
       download(zipStore(files) as BlobPart, fileName(editor.project.name + '-elevations', 'zip'), 'application/zip');
     }],
     ['Quantities and cost…', '', () => openQuantities(editor)],
+    ['Room schedule', '.csv', async () => {
+      const { roomScheduleCsv } = await import('../f3/io/schedule');
+      // A byte order mark: spreadsheets read the accents as UTF-8.
+      download('﻿' + roomScheduleCsv(editor.project, loadLang() === 'pt-BR' ? ',' : '.', tr), fileName(editor.project.name + '-rooms', 'csv'), 'text/csv');
+    }],
     ['Areas', '.csv', () => download(['building;footprint m2;gross floor area m2;volume m3', ...areasTable(editor.project).map((r) => [r.building, r.footprint, r.gfa, r.volume].join(';'))].join('\n'), fileName(editor.project.name + '-areas', 'csv'), 'text/csv')],
     ['BIM and 3D', '', null],
     ['BIM model', '.ifc', async () => {

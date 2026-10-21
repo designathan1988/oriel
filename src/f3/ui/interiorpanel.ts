@@ -3,8 +3,8 @@
 // selected (name, area, floor finish, delete) and, with neither, the interior defaults (thickness of new
 // walls, the rooms of the floor shown). Data: Building3.interiors (eval/interiorwalls.ts).
 import type { Editor3 } from '../editor/editor';
-import type { Building3, ID, MaterialRef } from '../model/schema';
-import { interiorDoors, roomArea, type InteriorWithDoors } from '../eval/interiorwalls';
+import { ROOM_USES, ROOM_USE_NAMES as USE_NAMES, type Building3, type ID, type MaterialRef, type RoomUse } from '../model/schema';
+import { interiorDoors, roomArea, roomCeiling, roomPerimeter, type InteriorWithDoors } from '../eval/interiorwalls';
 import { floorPlan, sortedLevels } from '../eval/floorplan';
 
 /**
@@ -95,15 +95,19 @@ export function interiorPanel(ed: Editor3, b: Building3): string {
     if (!room) return '';
     const area = planAreas(ed, b, rs.level).get(room.id) ?? (room.polygon ? roomArea(room.polygon) : room.area ?? 0);
     const cur = FLOORS.find(([, , m]) => room.finish && m.finish === room.finish.finish && m.color === room.finish.color)?.[0] ?? (room.finish ? 'custom' : 'none');
-    let per = 0;
-    if (room.polygon) for (let i = 0; i < room.polygon.length; i++) per += Math.hypot(room.polygon[(i + 1) % room.polygon.length]![0] - room.polygon[i]![0], room.polygon[(i + 1) % room.polygon.length]![1] - room.polygon[i]![1]);
+    const per = room.polygon ? roomPerimeter(room.polygon) : 0;
+    const ceil = roomCeiling(b, rs.level, room);
     return `<div class="f3-title"><input data-room="name" value="${esc(room.name)}" aria-label="Room name" maxlength="60"><span class="f3-kind">Room</span></div>
+    <div class="f3-sec"><h3>Room</h3>
+      ${prow('Use', 'room', [selectCell('data-room="use"', 'Use of the room', [['', '—'], ...ROOM_USES.map((u) => [u, USE_NAMES[u]] as const)], room.use ?? '')], { wide: true })}
+      ${prow('Ceiling height', 'floorH', [cell('data-room="ceiling"', 'Floor to ceiling', ceil, gtext('H'), 'm', 0.05)])}
+    </div>
     <div class="f3-sec"><h3>Floor</h3>
       ${prow('Finish', 'material', [selectCell('data-room="finish"', 'Floor finish', [...FLOORS.map(([id, name]) => [id, name] as const), ...(cur === 'custom' ? [['custom', 'Custom'] as const] : [])], cur)], { wide: true })}
       ${room.finish ? prow('Color', 'palette', [`<label class="f3-cell col" title="Floor color"><input type="color" data-room="color" value="${room.finish.color}" aria-label="Floor color"></label>`]) : ''}
       ${room.finish ? `<div class="f3-surface" data-isurf="room">${surfaceRows(ed, room.finish)}</div>` : ''}
     </div>
-    <div class="f3-sec"><h3>Information</h3><dl class="f3-info"><dt>Area</dt><dd>${num(area)} m²</dd><dt>Perimeter</dt><dd>${num(per)} m</dd><dt>Walls</dt><dd>${room.wallIds.length}</dd></dl>
+    <div class="f3-sec"><h3>Information</h3><dl class="f3-info"><dt>Area</dt><dd>${num(area)} m²</dd><dt>Perimeter</dt><dd>${num(per)} m</dd><dt>Volume</dt><dd>${num(area * ceil)} m³</dd><dt>Walls</dt><dd>${room.wallIds.length}</dd></dl>
       <div class="f3-btns n2"><button class="f3-btn danger" data-roomdel>${icon('trash')}Delete room</button></div></div>`;
   }
   if (ed.tool !== 'iwall' && ed.tool !== 'room' && ed.tool !== 'walls') return '';
@@ -248,6 +252,22 @@ export function bindInteriorPanel(ed: Editor3, b: Building3, side: HTMLElement):
   // Room.
   const room = (x: Building3) => (rs ? x.interiors[rs.level]?.rooms.find((r) => r.id === rs.room) : undefined);
   $$<HTMLInputElement>('[data-room="name"]').forEach((el) => el.addEventListener('change', () => ed.change(b.id, (x) => void (room(x)!.name = el.value.trim().slice(0, 60) || 'Room'), '', false)));
+  $$<HTMLSelectElement>('[data-room="use"]').forEach((el) =>
+    el.addEventListener('change', () =>
+      ed.change(b.id, (x) => {
+        const r = room(x)!;
+        if (el.value) r.use = el.value as RoomUse;
+        else delete r.use;
+      }, el.value ? `Use: ${USE_NAMES[el.value as RoomUse]}.` : ''),
+    ),
+  );
+  $$<HTMLInputElement>('[data-room="ceiling"]').forEach((el) =>
+    el.addEventListener('change', () => {
+      const v = evalExpr(el.value);
+      if (v === null || v < 1.5 || v > 30) return ed.toast('A ceiling is 1.5 to 30 m high.');
+      ed.change(b.id, (x) => void (room(x)!.ceiling = Math.round(v * 100) / 100), `Ceiling ${num(v)} m.`);
+    }),
+  );
   $$<HTMLSelectElement>('[data-room="finish"]').forEach((el) =>
     el.addEventListener('change', () => {
       const f = FLOORS.find(([id]) => id === el.value);
