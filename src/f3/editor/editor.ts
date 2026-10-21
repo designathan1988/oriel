@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import type { Building3, ID, Item, MaterialRef, Project3, Solid, Vec2, Vec3 } from '../model/schema';
 import { building as newBuilding, circlePlan, facadeRule, levelsFor, planVertices, project as newProject, roofSpec, solid as newSolid, uid } from '../model/defaults';
-import { bendEdge, cloneBuilding, locateVertex, cloneSolid, dirToLocal, edgeNormal, findSolid, mirrorSolid, moveVertex, planCenter, planValid as planValidOps, pushEdge, removeVertex, rotateSolid, splitEdge, toLocal, topRing, toWorld, topAt, translateSolid } from '../model/ops';
+import { bendEdge, cloneBuilding, inside, locateVertex, cloneSolid, dirToLocal, edgeNormal, findSolid, mirrorSolid, moveVertex, planCenter, planValid as planValidOps, pushEdge, removeVertex, rotateSolid, splitEdge, toLocal, topRing, toWorld, topAt, translateSolid } from '../model/ops';
 import { solidRings } from '../eval/body';
 import { adoptOffsetSides, sideCurve, stackOnTop, edgeLength, extrudeSide, hostedFrame, insetSide, insetTop, offsetCopy, offsetSolid, setSideDepth, setSolidSize, splitAtHeight, splitByLine, splitSideAt } from '../model/modeling';
 import { activeLayer, buildingHidden, buildingLocked, ensureLayers, explodeGap, itemHidden, itemLocked, solidHidden, solidLocked, viewOf } from '../model/layers';
@@ -3093,6 +3093,131 @@ export class Editor3 {
     this.shell.status.vcbLabel.textContent = label;
   }
 
+  /**
+   * What a typed value means while a drawing is in progress (SketchUp's VCB, Revit's typed length, Sweet
+   * Home 3D's editable tooltip): the length of the next wall or side towards the cursor, the size of the
+   * rectangle (10x8, or 10 for a square side along the cursor), the radius of the circle. It wins over a
+   * pending measure of the last action, and the digits never switch the selection mode meanwhile.
+   */
+  private draftInput(): Measure | null {
+    if (this.tool === 'walls' && this.wallsTool.busy) return { label: 'Length', apply: (t) => this.wallsTool.typed(parseLength(t) ?? NaN) };
+    if (this.tool === 'slab' && this.slabTool.busy) return { label: 'Length', apply: (t) => this.slabTool.typed(parseLength(t) ?? NaN) };
+    if ((this.tool === 'iwall' || this.tool === 'walls') && this.iwallLast) return { label: 'Length', apply: (t) => this.iwallTyped(parseLength(t) ?? NaN) };
+    const dr = this.draft;
+    if (!dr || !dr.points.length) return null;
+    const a = dr.points[0]!;
+    const last = dr.points[dr.points.length - 1]!;
+    const toward = (len: number): THREE.Vector3 => {
+      const d = (dr.hover ?? last.clone().add(new THREE.Vector3(1, 0, 0))).clone().sub(last);
+      d.y = 0;
+      if (d.lengthSq() < 1e-9) d.set(1, 0, 0);
+      return last.clone().addScaledVector(d.normalize(), len);
+    };
+    if (this.tool === 'rect') {
+      return {
+        label: 'Dimensions',
+        apply: (t) => {
+          const m = /^\s*([\d.,]+)\s*(?:[;x×*/]|\s)\s*([\d.,]+)\s*$/i.exec(t);
+          const w = parseLength(m ? m[1]! : t);
+          const d = m ? parseLength(m[2]!) : w;
+          if (!w || !d || w <= 0 || d <= 0) return false;
+          const [ax, az] = this.infer.axes();
+          const h = (dr.hover ?? a).clone().sub(a);
+          const su = Math.sign(h.dot(ax!)) || 1,
+            sv = Math.sign(h.dot(az!)) || 1;
+          dr.points.push(a.clone().addScaledVector(ax!, su * w).addScaledVector(az!, sv * d));
+          this.finishShape();
+          return true;
+        },
+      };
+    }
+    if (this.tool === 'circle') {
+      return {
+        label: 'Radius',
+        apply: (t) => {
+          const r = parseLength(t);
+          if (!r || r <= 0) return false;
+          dr.points.push(toward(r));
+          this.finishShape();
+          return true;
+        },
+      };
+    }
+    if (this.tool === 'polygon' || this.tool === 'spline' || (this.tool === 'arc' && dr.points.length < 2)) {
+      return {
+        label: 'Length',
+        apply: (t) => {
+          const len = parseLength(t);
+          if (!len || len <= 0) return false;
+          const p = toward(len);
+          if (dr.points.length >= 3 && p.distanceTo(a) < 0.02) {
+            this.finishPolygon();
+            return true;
+          }
+          dr.points.push(p);
+          dr.hover = toward(1);
+          this.drawDraft();
+          return true;
+        },
+      };
+    }
+    return null;
+  }
+
+  /**
+   * The building whose floor the cursor is over (on the plane of the floor shown), for the wall tool:
+   * inside an outline, a new wall divides that floor. Hidden and locked buildings are left alone.
+   */
+  private buildingUnderWall(e: { clientX: number; clientY: number }): Building3 | null {
+    for (const b of this.project.buildings) {
+      if (buildingHidden(this.project, b) || buildingLocked(this.project, b)) continue;
+      const lv = this.workLevel(b);
+      const w = this.view.onPlane(e, (lv?.elevation ?? 0) + (b.elevation ?? 0));
+      if (!w) continue;
+      const l = toLocal(b, [w.x, w.z]);
+      for (const so of b.solids) {
+        if (so.op !== 'add' || so.hidden) continue;
+        const ring = sampleRing(so.plan.outer).pts;
+        if (inside(l, ring)) return b;
+      }
+    }
+    return null;
+  }
+
+  private iwallHint(): string {
+    return 'Click to start a wall inside this floor';
+  }
+
+  /**
+   * The floor the new walls go on is cut open (1.2 m above it, the roof hidden) so they are seen while
+   * they are drawn: the plan cut of ArchiCAD and Revit, the automatic cutaway of Chief Architect.
+   */
+  private openFloorFor(b: Building3): void {
+    this.context = b.id;
+    const v = viewOf(this.store.project);
+    if (v.cutLevel !== undefined) return;
+    v.cutLevel = 0;
+    this.store.commit(null, '', false);
+    this.toast('Floor cut open: the walls you draw divide it. Esc ends; the eye button shows the whole building again.');
+  }
+
+  /** A typed length for the interior wall being drawn: from its last point towards the cursor. */
+  private iwallTyped(len: number): boolean {
+    const b = this.store.building(this.context) ?? this.activeBuilding();
+    const lv = b && this.workLevel(b);
+    const from = this.iwallLast;
+    if (!b || !lv || !from || !(len > 0)) return false;
+    const h = this.iwallHover ?? [from[0] + 1, from[1]];
+    let dx = h[0] - from[0],
+      dz = h[1] - from[1];
+    const l = Math.hypot(dx, dz);
+    [dx, dz] = l < 1e-6 ? [1, 0] : [dx / l, dz / l];
+    const to: Vec2 = [Math.round((from[0] + dx * len) * 1e6) / 1e6, Math.round((from[1] + dz * len) * 1e6) / 1e6];
+    this.iwallLast = to;
+    this.iwallHover = [to[0] + dx, to[1] + dz];
+    return this.change(b.id, (x) => void addInteriorWall(x, lv.id, from, to, this.iwallThickness, uid), `Interior wall ${fmt(len)} m (floor ${lv.elevation.toFixed(1)} m).`);
+  }
+
   /** Nothing to correct by typing any more: the box goes back to its idle state (and loses half-typed text). */
   private clearMeasure(): void {
     this.measure = null;
@@ -3362,7 +3487,22 @@ export class Editor3 {
       return this.iwallAt(e, true);
     }
     if (this.tool === 'stair') return this.stair.down(e);
-    if (this.tool === 'walls') return this.wallsTool.down(e);
+    if (this.tool === 'walls') {
+      // One wall tool (Revit, ArchiCAD, Chief Architect): a chain started inside a building divides its
+      // floor (interior walls of the floor shown, cut open so they can be seen); one started outside
+      // makes walls of their own (closed: a building).
+      if (this.iwallLast) return this.iwallAt(e, true);
+      if (!this.wallsTool.busy) {
+        const h = this.handles.hit(e);
+        if (h?.iwall) return this.beginIwallHandle(h, e);
+        const inside = this.buildingUnderWall(e);
+        if (inside) {
+          this.openFloorFor(inside);
+          return this.iwallAt(e, true);
+        }
+      }
+      return this.wallsTool.down(e);
+    }
     if (this.tool === 'slab') return this.slabTool.down(e);
     if (this.tool === 'column') return this.columnAt(e);
     if (this.tool === 'beam') return this.beamAt(e, true);
@@ -3511,7 +3651,11 @@ export class Editor3 {
     if (this.tool === 'opening') return this.opening.hover(e);
     if (this.tool === 'iwall') return this.iwallAt(e, false);
     if (this.tool === 'stair') return this.stair.move(e);
-    if (this.tool === 'walls') return this.wallsTool.move(e);
+    if (this.tool === 'walls') {
+      if (this.iwallLast) return this.iwallAt(e, false);
+      if (!this.wallsTool.busy && this.buildingUnderWall(e)) return void this.showDim(this.iwallHint(), e);
+      return this.wallsTool.move(e);
+    }
     if (this.tool === 'slab') return this.slabTool.move(e);
     if (this.tool === 'column') return void this.showDim('Click to place a column on the floor shown', e);
     if (this.tool === 'beam') return this.beamAt(e, false);
@@ -5016,6 +5160,8 @@ export class Editor3 {
   }
 
   private iwallLast: Vec2 | null = null;
+  /** The cursor on the floor while drawing interior walls: the direction of a typed length. */
+  private iwallHover: Vec2 | null = null;
 
   /**
    * Interior walls tool: each click on the floor of the level shown adds a wall from the previous
@@ -5031,6 +5177,7 @@ export class Editor3 {
     if (!w) return;
     let l = toLocal(b, [w.x, w.z]);
     if (this.infer.enabled) l = [Math.round(l[0] / this.infer.grid) * this.infer.grid, Math.round(l[1] / this.infer.grid) * this.infer.grid];
+    this.iwallHover = l;
     if (this.iwallLast) {
       const d = Math.hypot(l[0] - this.iwallLast[0], l[1] - this.iwallLast[1]);
       this.showDim(`${fmt(d)} m · Enter ends`, e);
@@ -5184,8 +5331,11 @@ export class Editor3 {
     if (!ringValid(outer, 1)) return this.toast('Those walls cross each other: draw them again.');
     const c: Vec2 = [outer.reduce((a, p) => a + p[0], 0) / outer.length, outer.reduce((a, p) => a + p[1], 0) / outer.length];
     const b = newBuilding({ name: tr(`Building ${this.project.buildings.length + 1}`), position: c, levels: levelsFor(1, 3, 3) });
-    const s = newSolid({ name: tr('Walls'), plan: { outer: planVertices(outer.map((p) => [p[0] - c[0], p[1] - c[1]] as Vec2)), holes: [] }, height: 3, roof: roofSpec('flat', { parapet: 0.3 }) });
+    // Walls and nothing else: no parapet, no stone plinth (a wall drawing is not a massing study); the
+    // roof slab closes the top until a roof is chosen.
+    const s = newSolid({ name: tr('Walls'), plan: { outer: planVertices(outer.map((p) => [p[0] - c[0], p[1] - c[1]] as Vec2)), holes: [] }, height: 3, roof: roofSpec('flat', { parapet: 0 }) });
     s.shell = t;
+    s.plinth = 0;
     b.solids.push(s);
     this.store.project.buildings.push(b);
     if (!this.store.commit([b.id], 'Building from walls.')) return;
@@ -6390,8 +6540,11 @@ export class Editor3 {
     });
     vcb.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
-        const ok = this.measure?.apply(vcb.value) ?? false;
-        if (!ok) this.toast('Value not recognized for ' + (this.measure?.label ?? 'measure') + '.');
+        // A drawing in progress takes the value first (the length of its next side), then the last action.
+        const m = this.draftInput() ?? this.measure;
+        const ok = m?.apply(vcb.value) ?? false;
+        if (!ok) this.toast('Value not recognized for ' + (m?.label ?? 'measure') + '.');
+        this.shell.status.vcbLabel.textContent = this.measure?.label ?? 'Size';
         vcb.value = '';
         this.shell.dim.hidden = true;
         this.view.renderer.domElement.focus();
@@ -6451,12 +6604,14 @@ export class Editor3 {
       }
       // Numbers and separators go to the measure box.
       // 1 / 2 / 3: vertex, edge, face (Blender); the same key again goes back to volumes.
-      if ((e.key === '1' || e.key === '2' || e.key === '3') && !this.measure && !e.altKey) {
+      const typing = this.draftInput();
+      if ((e.key === '1' || e.key === '2' || e.key === '3') && !this.measure && !typing && !e.altKey) {
         this.setElemMode(e.key === '1' ? 'vertex' : e.key === '2' ? 'edge' : 'face');
         e.preventDefault();
         return;
       }
-      if (/^[0-9.,;*/-]$/.test(e.key) && this.measure) {
+      if (/^[0-9.,;*/-]$/.test(e.key) && (this.measure || typing)) {
+        if (typing) this.shell.status.vcbLabel.textContent = typing.label;
         vcb.focus();
         return;
       }
@@ -6469,6 +6624,11 @@ export class Editor3 {
       if (k === 'escape' && this.polyline.active) return this.polyline.cancel();
       if (k === 'enter' && this.tool === 'street' && this.site.enter()) return;
       if (k === 'enter' && this.tool === 'stair' && this.stair.enter()) return;
+      if (k === 'enter' && this.tool === 'walls' && this.iwallLast) {
+        this.iwallLast = null;
+        this.toast('Wall chain ended: click to start another.');
+        return;
+      }
       if (k === 'enter' && this.tool === 'walls' && this.wallsTool.enter()) return;
       if (k === 'enter' && this.tool === 'iwall') {
         this.iwallLast = null;

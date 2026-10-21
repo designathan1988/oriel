@@ -55,6 +55,8 @@ export function lockSegment(from: Vec2, to: Vec2, angleStep: number, lengthStep:
 
 export class WallsTool {
   private pts: Vec2[] = [];
+  /** Where the next point would go (the cursor, locked): the direction of a typed length. */
+  private hover: Vec2 | null = null;
 
   constructor(private readonly h: WallsHost) {}
 
@@ -137,11 +139,39 @@ export class WallsTool {
   move(e: PointerEvent): void {
     const p = this.at(e);
     if (!p) return;
+    this.hover = p;
     const last = this.pts[this.pts.length - 1];
     if (!last) return this.h.showDim(this.h.words?.start ?? `Click the start of the wall (${this.h.thickness()} m thick; type another thickness)`, e);
     const closing = this.onFirst(e);
     this.draw(closing ? [...this.pts, this.pts[0]!] : [...this.pts, p]);
     this.h.showDim(closing ? (this.h.words?.close ?? 'Click: close into a building') : `${Math.round(Math.hypot(p[0] - last[0], p[1] - last[1]) * 100) / 100} m · ${this.h.words?.open ?? 'Enter: free wall'}`, e);
+  }
+
+  /**
+   * A typed length (Revit, SketchUp, Sweet Home 3D: start the wall, point the direction, type the length,
+   * Enter): the next point goes that far from the last one, towards the cursor. False before the first point.
+   */
+  typed(len: number): boolean {
+    const last = this.pts[this.pts.length - 1];
+    if (!last || !(len > 0)) return false;
+    const h = this.hover ?? [last[0] + 1, last[1]];
+    let dx = h[0] - last[0],
+      dz = h[1] - last[1];
+    const l = Math.hypot(dx, dz);
+    if (l < 1e-6) [dx, dz] = [1, 0];
+    else [dx, dz] = [dx / l, dz / l];
+    const q = (v: number) => Math.round(v * 1e6) / 1e6;
+    const p: Vec2 = [q(last[0] + dx * len), q(last[1] + dz * len)];
+    // Back on the first point: the outline closes.
+    const f = this.pts[0]!;
+    if (this.pts.length >= 3 && Math.hypot(p[0] - f[0], p[1] - f[1]) < 0.02) {
+      this.finish(true);
+      return true;
+    }
+    this.pts.push(p);
+    this.hover = [p[0] + dx, p[1] + dz];
+    this.draw([...this.pts, this.hover]);
+    return true;
   }
 
   /** Enter: ends an open line (a free-standing wall). */
@@ -159,6 +189,7 @@ export class WallsTool {
 
   cancel(): void {
     this.pts = [];
+    this.hover = null;
     const o = this.h.overlay.getObjectByName(NAME);
     if (o) {
       this.h.overlay.remove(o);

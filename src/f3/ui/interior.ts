@@ -55,7 +55,7 @@ export function mountInteriorView(ed: Editor3): void {
     const levelOpts: [string, string][] = [['', 'Whole building'], ...Array.from({ length: levelsMax() }, (_, i) => [String(i), i === 0 ? 'Ground floor' : `Floor ${i}`] as [string, string])];
     const gap = explodeGap(p);
     pop.innerHTML = `<div class="hd">Interior view</div>
-      <div class="f3-btns n3"><button class="f3-btn" data-preset="cutaway" title="Cuts away the exterior walls (slabs and walls keep their section) and hides the roofs">${icon('cutaway')}<span>Cutaway</span></button><button class="f3-btn" data-preset="explode" title="Every floor apart, each cut 1.2 m above its floor">${icon('floorUp')}<span>Exploded</span></button><button class="f3-btn" data-preset="all" title="Shows every part and the whole building">${icon('eye')}<span>Show all</span></button></div>
+      <div class="f3-btns n3"><button class="f3-btn" data-preset="cutaway" title="Cuts every wall 1.2 m above the floor shown, like a plan: the rooms, doors and windows in view">${icon('cutaway')}<span>Cutaway</span></button><button class="f3-btn" data-preset="explode" title="Every floor apart, each cut 1.2 m above its floor">${icon('floorUp')}<span>Exploded</span></button><button class="f3-btn" data-preset="all" title="Shows every part and the whole building">${icon('eye')}<span>Show all</span></button></div>
       <div class="f3-interior-list">${rows}</div>
       <div class="f3-interior-ctl">
       ${prow('Apart', 'floorUp', [`<label class="f3-cell rng" title="${p.view?.onlyLevel ? 'One floor is shown: there is nothing to move apart (untick Only this floor)' : 'Floors apart: each floor cut 1.2 m above its floor and lifted by this gap (0 = together)'}"><input type="range" data-explode min="0" max="10" step="0.5" value="${gap}" aria-label="Gap between floors"${p.view?.onlyLevel ? ' disabled' : ''}><output>${gap} m</output></label>`], { wide: true, title: 'Floors apart' })}
@@ -75,7 +75,12 @@ export function mountInteriorView(ed: Editor3): void {
     // Presets replace each other: one look at a time.
     pop.querySelector('[data-preset="cutaway"]')!.addEventListener('click', () => {
       delete viewOf(ed.store.project).explode;
-      setHidden(['walls', 'roofs'], 'Cutaway: exterior walls cut away, roofs hidden.');
+      // A real cutaway (ArchiCAD 3D cutaway, Revit section box): every wall and slab cut 1.2 m above the
+      // floor shown, doors and windows in their walls, nothing above. Hiding the exterior walls instead
+      // left the interior walls floating on the grid.
+      const v = viewOf(ed.store.project);
+      if (v.cutLevel === undefined) v.cutLevel = 0;
+      setHidden([], 'Cutaway: the floor shown is cut 1.2 m above it.');
     });
     pop.querySelector('[data-preset="explode"]')!.addEventListener('click', () => {
       // Walls stay: cut 1.2 m above each floor they show every room like a plan. Every floor: a cut
