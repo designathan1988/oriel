@@ -1,10 +1,13 @@
-// Walls tool (ArchiCAD Wall, Revit Wall, SketchUp drawing walls): click the points of the wall's centre
-// line on the ground. Clicking the first point again closes it: a building whose walls have that
-// thickness (a volume as wide as the outer face, hollow by the thickness: Solid.shell), its height typed
-// after. Enter or a double click ends an open line: a free-standing wall (the masonry wall part).
+// Walls tool (ArchiCAD Wall, Revit Wall chain, SketchUp drawing walls): click the points of the wall's
+// line; with a `segment` host every click builds that piece of wall at once (Revit's chain), Ctrl+Z or
+// Backspace takes the last one back, Enter, Esc or a double click ends the chain. Clicking the first point
+// again closes it (a building, or a closed room inside one). The cursor sticks to the points already
+// clicked; a typed "5" is 5 m towards the cursor, "5<30" is 5 m at 30° (counterclockwise from +x, seen
+// from above). Without a `segment` host (the Slab tool) the outline is only drawn until it closes.
 import * as THREE from 'three';
 import type { Vec2 } from '../../model/schema';
 import type { View } from '../view';
+import { decimal } from '../../ui/i18n';
 
 export interface WallsHost {
   view: View;
@@ -20,10 +23,16 @@ export interface WallsHost {
   angleStep?(): number;
   /** Length step (m) for each new segment (Revit "length dimension snap increments"); absent or 0 = free. */
   lengthStep?(): number;
+  /** Snap on (G, the magnet): off, the points follow the cursor with no axis lock or alignment. */
+  snapOn?(): boolean;
   showDim(text: string, e: { clientX: number; clientY: number }): void;
   hideDim(): void;
   /** The line is done: closed (a building) or open (a free-standing wall). */
   done(points: Vec2[], closed: boolean): void;
+  /** A piece of the chain is made at once, from `a` to `b` (world plan points). */
+  segment?(a: Vec2, b: Vec2): void;
+  /** The last piece made by `segment` is taken back (Ctrl+Z, Backspace while drawing). */
+  unsegment?(): void;
 }
 
 const NAME = 'walls-draft';
@@ -32,6 +41,26 @@ const AXIS_LOCK = (12 * Math.PI) / 180;
 /** Distance (m) within which a locked segment ends in line with an earlier corner. */
 const ALIGN = 0.6;
 const MAT = new THREE.LineBasicMaterial({ color: '#e2702a', depthTest: false });
+/** Screen distance (px) within which the cursor sticks to a point already clicked. */
+const STICK_PX = 20;
+
+/** Direction of a segment in degrees, counterclockwise from +x seen from above (0 to 360). */
+export function planAngle(a: Vec2, b: Vec2): number {
+  const d = (Math.atan2(-(b[1] - a[1]), b[0] - a[0]) * 180) / Math.PI;
+  return Math.round(((d % 360) + 360) % 360 * 10) / 10;
+}
+
+/** "5", "5<30", "5;30", "5 30°": a length and an optional angle (degrees), or null. */
+export function parseLengthAngle(t: string, parseLength: (s: string) => number | null): { len: number; angle: number | null } | null {
+  const m = /^\s*(.+?)\s*(?:[<;@]|\s)\s*(-?[\d.,]+)\s*°?\s*$/.exec(t);
+  if (m) {
+    const len = parseLength(m[1]!);
+    const ang = parseFloat(m[2]!.replace(',', '.'));
+    if (len !== null && len > 0 && Number.isFinite(ang)) return { len, angle: ang };
+  }
+  const len = parseLength(t);
+  return len !== null && len > 0 ? { len, angle: null } : null;
+}
 
 /**
  * The end of a segment drawn from `from` towards `to`: its direction turned to the nearest multiple of
@@ -64,11 +93,26 @@ export class WallsTool {
     return this.pts.length > 0;
   }
 
+  /** A point already clicked within STICK_PX of the cursor on screen (the first one wins). */
+  private stuck(e: { clientX: number; clientY: number }): Vec2 | null {
+    const r = this.h.view.renderer.domElement.getBoundingClientRect();
+    const y = this.h.y?.() ?? 0;
+    const order = this.pts.length >= 3 ? [this.pts[0]!, ...this.pts.slice(1, -1)] : this.pts.slice(0, -1);
+    for (const q of order) {
+      const s = this.h.view.toScreen(new THREE.Vector3(q[0], y, q[1]));
+      if (Math.hypot(s.x + r.left - e.clientX, s.y + r.top - e.clientY) < STICK_PX) return q;
+    }
+    return null;
+  }
+
   private at(e: { clientX: number; clientY: number; altKey?: boolean }): Vec2 | null {
     const p = this.h.view.onPlane(e, this.h.y?.() ?? 0);
     if (!p) return null;
+    const st = this.stuck(e);
+    if (st) return [st[0], st[1]];
     const last = this.pts[this.pts.length - 1];
     if (!last || e.altKey) return this.h.snap([p.x, p.z]);
+    if (this.h.snapOn && !this.h.snapOn()) return [p.x, p.z];
     const step = this.h.lengthStep?.() ?? 0;
     // Axis inference judged on screen (SketchUp: a line drawn close to the red or green axis as seen
     // locks on it; magenta: parallel or perpendicular to the previous edge). In a perspective view a
@@ -124,16 +168,42 @@ export class WallsTool {
     const f = this.pts[0]!;
     const s = this.h.view.toScreen(new THREE.Vector3(f[0], this.h.y?.() ?? 0, f[1]));
     const r = this.h.view.renderer.domElement.getBoundingClientRect();
-    return Math.hypot(s.x + r.left - e.clientX, s.y + r.top - e.clientY) < 14;
+    return Math.hypot(s.x + r.left - e.clientX, s.y + r.top - e.clientY) < STICK_PX;
+  }
+
+  /** The point lands on the first one (snapped there, or typed): the outline closes. */
+  private atFirst(p: Vec2): boolean {
+    const f = this.pts[0];
+    return this.pts.length >= 3 && !!f && Math.hypot(p[0] - f[0], p[1] - f[1]) < 0.3;
   }
 
   down(e: PointerEvent): void {
     if (this.onFirst(e)) return this.finish(true);
     const p = this.at(e);
     if (!p) return;
+    // Snapped onto the start (in line with it on both axes, or within 30 cm): closes, as the line shows.
+    if (this.atFirst(p)) return this.finish(true);
     const last = this.pts[this.pts.length - 1];
     if (last && (e.detail >= 2 || Math.hypot(p[0] - last[0], p[1] - last[1]) < 0.15)) return this.finish(false);
+    this.add(p);
+  }
+
+  /** A new point of the chain: with a live host the piece of wall up to it is made at once. */
+  private add(p: Vec2): void {
+    const last = this.pts[this.pts.length - 1];
     this.pts.push(p);
+    if (last) this.h.segment?.(last, p);
+    this.draw(this.pts);
+  }
+
+  /** Ctrl+Z or Backspace while drawing: the last point (and the piece of wall it made) goes back. */
+  back(): boolean {
+    if (!this.pts.length) return false;
+    if (this.pts.length >= 2) this.h.unsegment?.();
+    this.pts.pop();
+    if (!this.pts.length) this.cancel();
+    else this.draw(this.hover ? [...this.pts, this.hover] : this.pts);
+    return true;
   }
 
   move(e: PointerEvent): void {
@@ -142,23 +212,28 @@ export class WallsTool {
     this.hover = p;
     const last = this.pts[this.pts.length - 1];
     if (!last) return this.h.showDim(this.h.words?.start ?? `Click the start of the wall (${this.h.thickness()} m thick; type another thickness)`, e);
-    const closing = this.onFirst(e);
+    const closing = this.onFirst(e) || this.atFirst(p);
     this.draw(closing ? [...this.pts, this.pts[0]!] : [...this.pts, p]);
-    this.h.showDim(closing ? (this.h.words?.close ?? 'Click: close into a building') : `${Math.round(Math.hypot(p[0] - last[0], p[1] - last[1]) * 100) / 100} m · ${this.h.words?.open ?? 'Enter: free wall'}`, e);
+    const len = Math.round(Math.hypot(p[0] - last[0], p[1] - last[1]) * 100) / 100;
+    this.h.showDim(closing ? (this.h.words?.close ?? 'Click: close into a building') : `${decimal(len)} m · ${decimal(planAngle(last, p))}° · ${this.h.words?.open ?? 'Esc ends'}`, e);
   }
 
   /**
    * A typed length (Revit, SketchUp, Sweet Home 3D: start the wall, point the direction, type the length,
    * Enter): the next point goes that far from the last one, towards the cursor. False before the first point.
    */
-  typed(len: number): boolean {
+  typed(len: number, angle: number | null = null): boolean {
     const last = this.pts[this.pts.length - 1];
     if (!last || !(len > 0)) return false;
     const h = this.hover ?? [last[0] + 1, last[1]];
     let dx = h[0] - last[0],
       dz = h[1] - last[1];
     const l = Math.hypot(dx, dz);
-    if (l < 1e-6) [dx, dz] = [1, 0];
+    if (angle !== null) {
+      // The typed angle: counterclockwise from +x seen from above (the plan's −z is up on screen).
+      const a = (angle * Math.PI) / 180;
+      [dx, dz] = [Math.cos(a), -Math.sin(a)];
+    } else if (l < 1e-6) [dx, dz] = [1, 0];
     else [dx, dz] = [dx / l, dz / l];
     const q = (v: number) => Math.round(v * 1e6) / 1e6;
     const p: Vec2 = [q(last[0] + dx * len), q(last[1] + dz * len)];
@@ -168,15 +243,19 @@ export class WallsTool {
       this.finish(true);
       return true;
     }
-    this.pts.push(p);
     this.hover = [p[0] + dx, p[1] + dz];
+    this.add(p);
     this.draw([...this.pts, this.hover]);
     return true;
   }
 
-  /** Enter: ends an open line (a free-standing wall). */
+  /** Enter or Esc: ends the chain (the walls made stay; an open outline of the Slab tool is dropped). */
   enter(): boolean {
-    if (this.pts.length < 2) return false;
+    if (!this.pts.length) return false;
+    if (this.pts.length < 2) {
+      this.cancel();
+      return true;
+    }
     this.finish(false);
     return true;
   }

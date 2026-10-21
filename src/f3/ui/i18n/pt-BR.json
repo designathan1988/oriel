@@ -3339,5 +3339,12 @@
 "Ground {0} m, others {1} m, height {2} → {3} m": "Térreo {0} m, demais {1} m, altura {2} → {3} m",
 "{0} (copy)": "{0} (cópia)",
 "Leaves open": "Folhas abertas",
-"Open (degrees)": "Abertura (graus)"
+"Open (degrees)": "Abertura (graus)",
+"Wall {0} m · Ctrl+Z takes it back · Esc ends.": "Parede de {0} m · Ctrl+Z desfaz · Esc termina.",
+"Walls made: click a wall with Door (D) or Window (J); W again for more.": "Paredes feitas: clique numa parede com Porta (D) ou Janela (J); W de novo para mais.",
+"Click: close": "Clique: fechar",
+"{0} m · {1}° · Esc ends": "{0} m · {1}° · Esc termina",
+"Length (5 or 5<30°)": "Comprimento (5 ou 5<30°)",
+"Room closed.": "Cômodo fechado.",
+"Esc ends": "Esc termina"
 }

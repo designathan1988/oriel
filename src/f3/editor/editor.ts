@@ -236,9 +236,14 @@ export class Editor3 {
       snap: (p) => (this.infer.enabled ? [Math.round(p[0] / this.infer.grid) * this.infer.grid, Math.round(p[1] / this.infer.grid) * this.infer.grid] : p),
       angleStep: () => (this.infer.enabled ? this.rotSnap : 0),
       lengthStep: () => (this.infer.enabled ? this.infer.grid : 0),
+      snapOn: () => this.infer.enabled,
+      y: () => constructMod.wallChainY(this),
+      words: { start: 'Click the start of the wall', close: 'Click: close', open: 'Esc ends' },
       showDim: (t, e) => this.showDim(t, e),
       hideDim: () => void (this.shell.dim.hidden = true),
-      done: (pts, closed) => this.wallsDone(pts, closed),
+      segment: (a, b) => constructMod.wallSegment(this, a, b),
+      unsegment: () => constructMod.wallUnsegment(this),
+      done: (pts, closed) => constructMod.wallChainDone(this, pts, closed),
     });
     this.slabTool = new WallsTool({
       view: this.view,
@@ -253,6 +258,7 @@ export class Editor3 {
       snap: (p) => (this.infer.enabled ? [Math.round(p[0] / this.infer.grid) * this.infer.grid, Math.round(p[1] / this.infer.grid) * this.infer.grid] : p),
       angleStep: () => (this.infer.enabled ? this.rotSnap : 0),
       lengthStep: () => (this.infer.enabled ? this.infer.grid : 0),
+      snapOn: () => this.infer.enabled,
       showDim: (t, e) => this.showDim(t, e),
       hideDim: () => void (this.shell.dim.hidden = true),
       done: (pts, closed) => this.slabDone(pts, closed),
@@ -2096,6 +2102,8 @@ export class Editor3 {
   }
 
   iwallLast: Vec2 | null = null;
+  /** The wall chain being drawn by the Walls tool (editor/construct.ts). */
+  wallChain: constructMod.WallChain | null = null;
   /** The cursor on the floor while drawing interior walls: the direction of a typed length. */
   iwallHover: Vec2 | null = null;
 

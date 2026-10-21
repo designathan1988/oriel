@@ -14,6 +14,113 @@ import { type Drag, fmt, parseLength, parseFloors } from './support';
 import type { Editor3 } from './editor';
 
 /**
+ * The wall chain being drawn (Walls tool): outside a building every piece is a wall volume of a building
+ * made for the chain; inside one, an interior wall of the floor shown.
+ */
+export interface WallChain {
+  bid: ID | null;
+  levelId: ID | null;
+  interior: boolean;
+}
+
+/** Starts a chain at the first click: inside a building it divides the floor shown. */
+export function startWallChain(ed: Editor3, e: { clientX: number; clientY: number }): void {
+  const inside = ed.buildingUnderWall(e);
+  if (inside) {
+    ed.openFloorFor(inside);
+    ed.wallChain = { bid: inside.id, levelId: ed.workLevel(inside)?.id ?? null, interior: true };
+  } else ed.wallChain = { bid: null, levelId: null, interior: false };
+}
+
+/** Height of the chain's drawing plane (world y): the floor shown inside a building, else the ground. */
+export function wallChainY(ed: Editor3): number {
+  const c = ed.wallChain;
+  const b = c?.interior ? ed.store.building(c.bid) : undefined;
+  const lv = b && b.levels.find((l) => l.id === c!.levelId);
+  return b && lv ? lv.elevation + (b.elevation ?? 0) : 0;
+}
+
+/** One piece of the chain, made at once (from world point `a` to `b`). */
+export function wallSegment(ed: Editor3, a: Vec2, bw: Vec2): void {
+  const c = ed.wallChain;
+  if (!c) return;
+  const len = Math.hypot(bw[0] - a[0], bw[1] - a[1]);
+  if (len < 0.05) return;
+  if (c.interior) {
+    const b = ed.store.building(c.bid);
+    if (!b || !c.levelId) return;
+    const la = toLocal(b, a),
+      lb = toLocal(b, bw);
+    const lid = c.levelId;
+    ed.change(b.id, (x) => void addInteriorWall(x, lid, la, lb, ed.iwallThickness, uid), `Wall ${fmt(len)} m · Ctrl+Z takes it back · Esc ends.`);
+    return;
+  }
+  // A wall volume along the segment, as thick as the wall and long enough to close the corners.
+  const t = ed.wallThickness;
+  let b = c.bid ? ed.store.building(c.bid) : undefined;
+  const fresh = !b;
+  if (!b) {
+    b = newBuilding({ name: tr(`Building ${ed.project.buildings.length + 1}`), position: [a[0], a[1]], levels: levelsFor(1, ed.wallHeight, ed.wallHeight) });
+    c.bid = b.id;
+  }
+  const la = toLocal(b, a),
+    lb = toLocal(b, bw);
+  const dx = (lb[0] - la[0]) / len,
+    dz = (lb[1] - la[1]) / len;
+  const nx = -dz * (t / 2),
+    nz = dx * (t / 2);
+  const ex = dx * (t / 2),
+    ez = dz * (t / 2);
+  const ring: Vec2[] = [
+    [la[0] - ex + nx, la[1] - ez + nz],
+    [lb[0] + ex + nx, lb[1] + ez + nz],
+    [lb[0] + ex - nx, lb[1] + ez - nz],
+    [la[0] - ex - nx, la[1] - ez - nz],
+  ];
+  const s = newSolid({ name: tr('Wall'), plan: { outer: planVertices(signedArea2(ring) > 0 ? ring : [...ring].reverse()), holes: [] }, height: ed.wallHeight, roof: roofSpec('flat', { parapet: 0 }) });
+  s.plinth = 0;
+  if (fresh) {
+    b.solids.push(s);
+    ed.store.project.buildings.push(b);
+    ed.store.commit([b.id], `Wall ${fmt(len)} m · Ctrl+Z takes it back · Esc ends.`);
+  } else ed.change(b.id, (x) => void x.solids.push(s), `Wall ${fmt(len)} m · Ctrl+Z takes it back · Esc ends.`);
+  ed.context = b.id;
+}
+
+/** Ctrl+Z or Backspace while drawing: the last piece goes back. */
+export function wallUnsegment(ed: Editor3): void {
+  ed.store.undo();
+  const c = ed.wallChain;
+  if (c && !c.interior && c.bid && !ed.store.building(c.bid)) c.bid = null;
+}
+
+/** The chain ends: closed outside a building it becomes one building with hollow walls (rooms inside). */
+export function wallChainDone(ed: Editor3, pts: Vec2[], closed: boolean): void {
+  const c = ed.wallChain;
+  ed.wallChain = null;
+  if (!c) return;
+  if (c.interior) {
+    if (closed && pts.length >= 3) {
+      ed.wallChain = c;
+      wallSegment(ed, pts[pts.length - 1]!, pts[0]!);
+      ed.wallChain = null;
+    }
+    ed.toast(closed ? 'Room closed.' : 'Wall chain ended: click to start another.');
+    return;
+  }
+  if (closed && pts.length >= 3) {
+    // The pieces are replaced by one volume hollow by the wall thickness (a building with its rooms).
+    if (c.bid) ed.store.project.buildings = ed.store.project.buildings.filter((x) => x.id !== c.bid);
+    ed.wallsDone(pts, true);
+    return;
+  }
+  if (c.bid && ed.store.building(c.bid)) {
+    ed.select({ building: c.bid });
+    ed.toast('Walls made: click a wall with Door (D) or Window (J); W again for more.');
+  }
+}
+
+/**
  * Interior walls tool: each click on the floor of the level shown adds a wall from the previous
  * point (a new start after Enter); Shift+click on a wall puts a 0.9 m door there. The walls are
  * `Building3.interiors` (eval/interiorwalls.ts), drawn in the interior view.

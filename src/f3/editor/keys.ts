@@ -65,6 +65,8 @@ export function bindKeys(ed: Editor3): void {
       return;
     }
     if (e.ctrlKey || e.metaKey) {
+      if (k === 'z' && !e.shiftKey && ed.tool === 'walls' && ed.wallsTool.back()) return e.preventDefault();
+      if (k === 'z' && !e.shiftKey && ed.tool === 'slab' && ed.slabTool.back()) return e.preventDefault();
       if (k === 'z') ed.command(e.shiftKey ? 'redo' : 'undo');
       else if (k === 'y') ed.command('redo');
       else if (k === 'd') ed.duplicate(e.shiftKey);
@@ -112,7 +114,11 @@ export function bindKeys(ed: Editor3): void {
       ed.toast('Wall chain ended: click to start another.');
       return;
     }
-    if (k === 'enter' && ed.tool === 'walls' && ed.wallsTool.enter()) return;
+    if ((k === 'enter' || k === 'escape') && ed.tool === 'walls' && ed.wallsTool.enter()) return;
+    if (k === 'escape' && ed.tool === 'slab' && ed.slabTool.busy) return ed.slabTool.cancel();
+    // While drawing walls or a slab, Backspace takes the last point (and its wall) back.
+    if (k === 'backspace' && ed.tool === 'walls' && ed.wallsTool.back()) return;
+    if (k === 'backspace' && ed.tool === 'slab' && ed.slabTool.back()) return;
     if (k === 'enter' && ed.tool === 'iwall') {
       ed.iwallLast = null;
       ed.toast('Wall chain ended: click to start another.');

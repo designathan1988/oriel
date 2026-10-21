@@ -15,6 +15,7 @@ import { buildingPassedThrough } from '../model/compose';
 import { adoptLevels, fillLevels } from '../model/quick';
 import { between } from './elements';
 import { type Measure, type Drag, fmt, arcSample, parseLength, parseFloors, floorsHeight, polyArea, screenDist, cutEdgePoint } from './support';
+import { parseLengthAngle } from './tools/walls';
 import type { Editor3 } from './editor';
 
 // ── Drawing ──────────────────────────────────────────────────────────
@@ -508,7 +509,14 @@ export function cutAt(ed: Editor3, e: PointerEvent, commit: boolean): void {
  * pending measure of the last action, and the digits never switch the selection mode meanwhile.
  */
 export function draftInput(ed: Editor3): Measure | null {
-  if (ed.tool === 'walls' && ed.wallsTool.busy) return { label: 'Length', apply: (t) => ed.wallsTool.typed(parseLength(t) ?? NaN) };
+  if (ed.tool === 'walls' && ed.wallsTool.busy)
+    return {
+      label: 'Length (5 or 5<30°)',
+      apply: (t) => {
+        const v = parseLengthAngle(t, parseLength);
+        return !!v && ed.wallsTool.typed(v.len, v.angle);
+      },
+    };
   if (ed.tool === 'slab' && ed.slabTool.busy) return { label: 'Length', apply: (t) => ed.slabTool.typed(parseLength(t) ?? NaN) };
   if (ed.tool === 'beam' && ed.beamFrom) return { label: 'Length', apply: (t) => ed.beamTyped(parseLength(t) ?? NaN) };
   if ((ed.tool === 'iwall' || ed.tool === 'walls') && ed.iwallLast) return { label: 'Length', apply: (t) => ed.iwallTyped(parseLength(t) ?? NaN) };

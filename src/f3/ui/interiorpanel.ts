@@ -114,6 +114,8 @@ export function interiorPanel(ed: Editor3, b: Building3): string {
       <div class="f3-btns n2"><button class="f3-btn danger" data-roomdel>${icon('trash')}Delete room</button></div></div>`;
   }
   if (ed.tool !== 'iwall' && ed.tool !== 'room' && ed.tool !== 'walls') return '';
+  // The Walls tool shows the interior panel only while it divides a floor (not for walls of their own).
+  if (ed.tool === 'walls' && !ed.wallChain?.interior && ed.project.view?.cutLevel === undefined) return '';
   const lvId = [...b.levels].sort((p, q) => p.elevation - q.elevation)[Math.min(b.levels.length - 1, Math.max(0, ed.project.view?.cutLevel ?? 0))]?.id;
   const it = lvId ? b.interiors[lvId] : undefined;
   const rooms = it?.rooms ?? [];

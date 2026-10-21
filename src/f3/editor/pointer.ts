@@ -11,6 +11,7 @@ import { type Hit } from './view';
 import type { FaceInfo } from '../eval/faces';
 import { between, column, row } from './elements';
 import { type Selection, type Mods, type Drag, faceSelOf, simplifyClosed } from './support';
+import { startWallChain } from './construct';
 import type { Editor3 } from './editor';
 
 // ── Pointer ──────────────────────────────────────────────────────────
@@ -285,15 +286,10 @@ export function onDown(ed: Editor3, e: PointerEvent): void {
     // One wall tool (Revit, ArchiCAD, Chief Architect): a chain started inside a building divides its
     // floor (interior walls of the floor shown, cut open so they can be seen); one started outside
     // makes walls of their own (closed: a building).
-    if (ed.iwallLast) return ed.iwallAt(e, true);
     if (!ed.wallsTool.busy) {
       const h = ed.handles.hit(e);
       if (h?.iwall) return ed.beginIwallHandle(h, e);
-      const inside = ed.buildingUnderWall(e);
-      if (inside) {
-        ed.openFloorFor(inside);
-        return ed.iwallAt(e, true);
-      }
+      startWallChain(ed, e);
     }
     return ed.wallsTool.down(e);
   }
@@ -469,7 +465,6 @@ export function onMove(ed: Editor3, e: PointerEvent): void {
   if (ed.tool === 'iwall') return ed.iwallAt(e, false);
   if (ed.tool === 'stair') return ed.stair.move(e);
   if (ed.tool === 'walls') {
-    if (ed.iwallLast) return ed.iwallAt(e, false);
     if (!ed.wallsTool.busy && ed.buildingUnderWall(e)) return void ed.showDim(ed.iwallHint(), e);
     return ed.wallsTool.move(e);
   }
