@@ -6972,6 +6972,52 @@ export class Editor3 {
     this.select({ building: b.id, item: it.id });
   }
 
+  /**
+   * Beams between the columns of a building (Revit's beam system on the grid): each column joined to its
+   * nearest neighbour on the same line (the same x or z, 5 cm of tolerance) up to 8 m away and on the same
+   * floor, at the columns' top; beams already there are not repeated.
+   */
+  beamsBetweenColumns(): void {
+    const b = this.activeBuilding();
+    if (!b) return this.toast('Select a building with columns first.');
+    const cols = b.items
+      .filter((it) => it.host.kind === 'free' && typeById(it.type, this.project)?.family === 'column')
+      .map((it) => {
+        const h = it.host as { p: Vec3 };
+        const t = typeById(it.type, this.project)!;
+        const f = family(t.family)!;
+        const height = Number(resolveParams(f, t.params, it.params).height ?? 3);
+        return { x: h.p[0], y: h.p[1], z: h.p[2], top: h.p[1] + height };
+      });
+    if (cols.length < 2) return this.toast('At least two columns are needed.');
+    const key = (a: Vec3, c: Vec3) => [a, c].map((q) => q.map((v) => Math.round(v * 20)).join(',')).sort().join('|');
+    const have = new Set(b.items.filter((it) => it.type === 'beam' && it.host.kind === 'path').map((it) => key((it.host as { points: Vec3[] }).points[0]!, (it.host as { points: Vec3[] }).points.at(-1)!)));
+    const add: Vec3[][] = [];
+    for (const c of cols)
+      for (const dir of [0, 1] as const) {
+        // The nearest column after this one along x (dir 0) or z (dir 1), on the same line and floor.
+        let best: (typeof cols)[number] | null = null;
+        for (const o of cols) {
+          if (o === c || Math.abs(o.y - c.y) > 0.05) continue;
+          const along = dir === 0 ? o.x - c.x : o.z - c.z,
+            off = dir === 0 ? o.z - c.z : o.x - c.x;
+          if (along <= 0.05 || along > 8 || Math.abs(off) > 0.05) continue;
+          if (!best || along < (dir === 0 ? best.x - c.x : best.z - c.z)) best = o;
+        }
+        if (!best) continue;
+        const top = Math.min(c.top, best.top);
+        const a: Vec3 = [c.x, top, c.z],
+          e: Vec3 = [best.x, top, best.z];
+        if (have.has(key(a, e))) continue;
+        have.add(key(a, e));
+        add.push([a, e]);
+      }
+    if (!add.length) return this.toast('No two columns on a line within 8 m (or their beams are there).');
+    this.change(b.id, (x) => {
+      for (const pts of add) x.items.push({ id: uid(), type: 'beam', params: { align: 'top' }, host: { kind: 'path', points: pts } });
+    }, `${add.length} beam(s) between the columns.`);
+  }
+
   /** A railing around the selected flat top (a terrace, a slab edge), 8 cm in from its edge. */
   railAround(): void {
     const b = this.activeBuilding();
