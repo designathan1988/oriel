@@ -12,7 +12,7 @@ export function mountLevels(ed: Editor3): void {
   const box = document.createElement('label');
   box.className = 'f3-ctl f3-levels';
   box.title = 'Floor worked on (Page Up / Page Down)';
-  box.innerHTML = `${icon('cutaway')}<select data-level aria-label="Floor worked on"></select>`;
+  box.innerHTML = `${icon('level')}<select data-level aria-label="Floor worked on"></select>`;
   // Right under the 2D button, above the view cube.
   const plan = bar.querySelector('.plan2d');
   if (plan) plan.after(box);
