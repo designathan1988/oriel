@@ -27,7 +27,11 @@ import { validateStylePack } from '../../styles/schema';
 import { ROOM_USES } from '../model/schema';
 import type { Building3, BuildingUse, EdgeSpec, FacadeRule, ID, Interior, Item, Level, ParamValue, PlanVertex, Project3, RoofKind, RoofSpec, Solid, Vec2 } from '../model/schema';
 import { LIMITS3, SCHEMA3 } from '../model/schema';
-import { DEFAULT_MATERIALS, facadeRule, mat, roofSpec, solid } from '../model/defaults';
+import { DEFAULT_MATERIALS, facadeRule, mat, planVertices, roofSpec, solid } from '../model/defaults';
+import { addBands } from '../model/modeling';
+import { stairBetween } from '../model/stairs';
+import { signedArea2 } from '../model/plan';
+import type { InteriorWithDoors } from '../eval/interiorwalls';
 import { BUILTIN_TYPES, family, typeById } from '../families/index';
 import { FINISHES } from '../render/finishes';
 
@@ -342,10 +346,17 @@ export function rulesFor(cfg: EdgeConfig, edges: ID[], c: RuleContext): FacadeRu
     }
   }
   if (cfg.balconies && c.balcony) out.push(facadeRule(c.balcony, { ...common, levels: 'upper', mode: 'spacing', value: cfg.spacing }));
+  // forma/2 brises: horizontal louvers over each window bay.
+  if (cfg.brise) {
+    // A louver panel over each window: the window's width and height with a margin, at the same rhythm.
+    const h = Math.max(0.5, Math.min(cfg.windowHeight + 0.3, lh - 0.2));
+    const sill = Math.max(0, Math.min((lh - cfg.windowHeight) * 0.52 - 0.15, lh - 0.1 - h));
+    out.push(facadeRule('brise-h', { ...common, levels: cfg.pattern === 'storefront' ? 'upper' : 'all', mode: 'spacing', value: cfg.spacing, sill: r2(sill), params: { width: r2(cfg.windowWidth + 0.4), height: r2(h) } }));
+  }
   return out;
 }
 
-const configKey = (c: EdgeConfig) => JSON.stringify([c.pattern, c.windowWidth, c.windowHeight, c.spacing, c.trim, c.balconies]);
+const configKey = (c: EdgeConfig) => JSON.stringify([c.pattern, c.windowWidth, c.windowHeight, c.spacing, c.trim, c.balconies, c.brise]);
 
 function openingItem(o: Opening, m: Mass, base: number, storeyElevation: number, trim: string): Item | null {
   if (o.host.kind !== 'massEdge') return null;
@@ -396,6 +407,7 @@ export function fromForma2(p: Project): Migration {
   const notes = new Set<string>();
   const balcony = balconyType();
   const buildings: Building3[] = p.buildings.map((b) => {
+    const corniced = new Set<ID>();
     const storeys = sortedStoreys(b);
     const levels: Level[] = storeys.map((s) => ({ id: s.id, name: s.name, elevation: s.elevation, height: s.height }));
     const items: Item[] = [];
@@ -434,11 +446,11 @@ export function fromForma2(p: Project): Migration {
           g.ids.push(e.id);
         }
         if (cfg.balconies && !balcony) notes.add('forma/2 balconies have no FORMA 3 component yet and were left out.');
-        if (cfg.brise) notes.add('forma/2 brises have no FORMA 3 component yet and were left out.');
         if (Object.keys(spec).length) edges[e.id] = spec;
       }
       const facade = [...rulesFor(base, [], ctx), ...[...groups.values()].flatMap((g) => rulesFor(g.cfg, g.ids, ctx))];
-      if (m.flags.cornice || m.flags.pilotis || m.flags.garden) notes.add('forma/2 cornices, pilotis and roof gardens have no FORMA 3 equivalent and were left out.');
+      if (m.flags.cornice) corniced.add(m.id);
+      if (m.flags.pilotis || m.flags.garden) notes.add('forma/2 pilotis and roof gardens have no FORMA 3 equivalent and were left out.');
       if (m.style) notes.add('The forma/2 per-mass style does not carry over to FORMA 3 (the project style packs were kept).');
       // Manual openings: only valid on sides marked as manual (as in v2).
       const storeyById = new Map(b.storeys.map((s) => [s.id, s]));
@@ -466,10 +478,27 @@ export function fromForma2(p: Project): Migration {
         materials,
       });
     });
-    if (b.openings.some((o) => o.host.kind === 'wall')) notes.add('forma/2 interior doors do not carry over to FORMA 3 yet.');
-    if (b.slabs.length || b.stairs.length) notes.add('forma/2 slabs and stairs do not carry over to FORMA 3 yet.');
     if (b.styleRef) notes.add('The forma/2 building style does not carry over to FORMA 3 (the project style packs were kept).');
-    return {
+    // Slabs: a thin flat volume on their floor, the cut-outs as holes (as the Slab tool makes them).
+    const storeyOf = new Map(b.storeys.map((s) => [s.id, s]));
+    for (const sl of b.slabs) {
+      const st = storeyOf.get(sl.storeyId);
+      if (!st || sl.outline.length < 3) continue;
+      const ring = (pts: Vec2[], ccw: boolean) => {
+        const r = pts.map((q) => [q[0], q[1]] as Vec2);
+        return (signedArea2(r) > 0) === ccw ? r : r.reverse();
+      };
+      solids.push(
+        solid({
+          name: 'Slab',
+          plan: { outer: planVertices(ring(sl.outline, true)), holes: sl.cutouts.filter((h) => h.length >= 3).map((h) => planVertices(ring(h, false))) },
+          base: st.elevation,
+          height: Math.max(0.05, st.slabThickness || 0.2),
+          roof: roofSpec('flat', { parapet: 0 }),
+        }),
+      );
+    }
+    const out: Building3 = {
       id: b.id,
       name: b.name,
       lotId: b.lotId,
@@ -481,6 +510,23 @@ export function fromForma2(p: Project): Migration {
       items,
       interiors: interiorsOf(b),
     };
+    for (const s of out.solids) if (corniced.has(s.id)) addBands(out, s, 'cornice');
+    // Stairs: a straight flight between their floors, from the first point of the path toward the last.
+    for (const st of b.stairs) {
+      const a = st.path[0],
+        z = st.path[st.path.length - 1];
+      if (!a || !z || !storeyOf.has(st.fromStorey) || !storeyOf.has(st.toStorey)) continue;
+      const rot = Math.round(((Math.atan2(z[0] - a[0], z[1] - a[1]) * 180) / Math.PI) * 100) / 100;
+      out.items.push(stairBetween(out, st.fromStorey, st.toStorey, [a[0], a[1]], rot, Math.max(0.6, st.width || 1.1)));
+    }
+    // Doors in interior walls: openings of the wall's own plan (offset from its first node).
+    for (const o of b.openings) {
+      if (o.host.kind !== 'wall') continue;
+      const it = out.interiors[o.host.storeyId] as InteriorWithDoors | undefined;
+      if (!it?.walls.some((w) => w.id === (o.host as { wallId: ID }).wallId)) continue;
+      (it.doors ??= []).push({ wall: o.host.wallId, u: o.offset, width: o.width, height: o.height, ...(o.fill.type === 'void' ? { leaf: false as const } : {}) });
+    }
+    return out;
   });
   const project: Project3 = {
     schema: SCHEMA3,

@@ -202,6 +202,12 @@ export function apportion(n: number, weights: number[]): number[] {
   return out;
 }
 
+/**
+ * Shading in front of the wall (brise-soleil, louvers) that cuts no opening: it may stand over a window
+ * (that is what it is for), so it neither blocks nor is blocked by the parts that pierce the wall.
+ */
+const overlay = (f: Family): boolean => f.category === 'shading' && !f.opening;
+
 /** Removes the occupied intervals from the spans [a, b]. */
 export function carve(spans: { a: number; b: number }[], cuts: [number, number][]): { a: number; b: number }[] {
   let out = spans;
@@ -314,7 +320,7 @@ export function rulePlacements(b: Building3, s: Solid, regions: Map<string, Edge
         // the rule redistributes in what remains beside them, with a gap.
         const GAP = Math.max(0.35, rule.margin * 0.6);
         const blockers = taken
-          .filter((q) => !(q.tag.item && own.has(q.tag.item)))
+          .filter((q) => !(q.tag.item && own.has(q.tag.item)) && overlay(q.family) === overlay(base.family))
           .filter((q) => q.host && q.host.solid === s.id && q.host.edge === r.edge && q.host.y < y + openH / vy + 0.05 && q.host.y + (q.family.size(q.params)[1] ?? 0) > y - 0.05)
           .map((q) => [q.host!.s - q.length / 2 - GAP, q.host!.s + q.length / 2 + GAP] as [number, number]);
         const raw = rowIntervals(r, y, y + openH / vy);
@@ -378,7 +384,7 @@ export function rulePlacements(b: Building3, s: Solid, regions: Map<string, Edge
             return;
           }
           // A free part in the same place has priority: the rule frees the position.
-          if (taken.some((q) => q.host && q.host.solid === s.id && q.host.edge === r.edge && Math.abs(q.host.s - c) < (q.length + ww) / 2 + 0.05 && q.host.y < y + hh + 0.05 && q.host.y + (q.family.size(q.params)[1] ?? 0) > y - 0.05)) {
+          if (taken.some((q) => overlay(q.family) === overlay(t.family) && q.host && q.host.solid === s.id && q.host.edge === r.edge && Math.abs(q.host.s - c) < (q.length + ww) / 2 + 0.05 && q.host.y < y + hh + 0.05 && q.host.y + (q.family.size(q.params)[1] ?? 0) > y - 0.05)) {
             yielded++;
             return;
           }

@@ -308,7 +308,7 @@ only), Müller 2006 CGA, CityEngine docs, Houdini Labs, TestFit, Forma):
       stairs tied to floors, structural grid (columns, `model/structure.ts`), copy a floor's walls up, walk mode.
 
 ### Stage 9: wrap-up
-- [x] Lots and indices; game JSON with every component; building styles. [ ] forma/2 migration of what is left.
+- [x] Lots and indices; game JSON with every component; building styles. [x] forma/2 migration of what is left: brises (a louver panel over each window; shading that cuts no opening may stand over a window), cornices (a cornice band), slabs (thin volumes with their cut-outs), stairs (a flight between their floors) and interior doors (openings of the wall's plan); pilotis and roof gardens stay a note (no equivalent).
 - [x] Sun by date, latitude and north; plans, sections and areas (SVG/DXF); DXF import.
 - [ ] Performance items (material key per face, incremental sync and inference, batched unions,
       reuse of family meshes, LOD); the five validation buildings from scratch; docs.
