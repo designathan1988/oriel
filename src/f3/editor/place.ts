@@ -7,7 +7,7 @@ import { invert } from '../model/selsets';
 import { HANDLE_COLORS } from './handles';
 import { family, typeById } from '../families/index';
 import { resolveParams } from '../families/family';
-import { interiorOf } from '../eval/interiorwalls';
+import { interiorOf, type InteriorWithDoors } from '../eval/interiorwalls';
 import { FINISHES } from '../render/finishes';
 import { emptyParts3, faceMatrix, FrameSink } from '../eval/parts';
 import { buildPartsMesh } from '../render/parts';
@@ -174,6 +174,32 @@ export function clearPathDraft(ed: Editor3): void {
   ed.shell.dim.hidden = true;
 }
 
+/** The interior wall of the floor shown under the pointer (within 40 cm of its line), if any. */
+function interiorWallUnder(ed: Editor3, e: { clientX: number; clientY: number }): { b: Building3; level: ID; wall: ID; u: number; len: number } | null {
+  const b = ed.buildingUnderWall(e);
+  const lv = b && ed.workLevel(b);
+  const it = b && lv ? b.interiors[lv.id] : undefined;
+  if (!b || !lv || !it) return null;
+  const w = ed.view.onPlane(e, lv.elevation + (b.elevation ?? 0) + 1);
+  const g = ed.view.onPlane(e, lv.elevation + (b.elevation ?? 0));
+  if (!w || !g) return null;
+  const node = new Map(it.nodes.map((n) => [n.id, n.p]));
+  let best: { wall: ID; u: number; len: number; d: number } | null = null;
+  // The pointer is on the wall seen at its foot or 1 m up (a door is pointed at on the wall's face).
+  for (const p of [toLocal(b, [g.x, g.z]), toLocal(b, [w.x, w.z])])
+    for (const wl of it.walls) {
+      const a = node.get(wl.a),
+        c = node.get(wl.b);
+      if (!a || !c) continue;
+      const L = Math.hypot(c[0] - a[0], c[1] - a[1]);
+      if (L < 0.5) continue;
+      const u = Math.max(0, Math.min(L, ((p[0] - a[0]) * (c[0] - a[0]) + (p[1] - a[1]) * (c[1] - a[1])) / L));
+      const d = Math.hypot(a[0] + ((c[0] - a[0]) * u) / L - p[0], a[1] + ((c[1] - a[1]) * u) / L - p[1]);
+      if (d < 0.4 && (!best || d < best.d)) best = { wall: wl.id, u, len: L, d };
+    }
+  return best ? { b, level: lv.id, wall: best.wall, u: Math.min(best.len - 0.5, Math.max(0.5, best.u)), len: best.len } : null;
+}
+
 export function placeAt(ed: Editor3, e: PointerEvent): void {
   if (!ed.placing) return;
   const t = typeById(ed.placing, ed.project);
@@ -192,6 +218,24 @@ export function placeAt(ed: Editor3, e: PointerEvent): void {
     return;
   }
   const pl = ed.placementAt(e);
+  // A door on an interior wall (a divider drawn inside the building): an opening of that wall, at its size.
+  if (!pl && f.host === 'face' && f.category === 'doors') {
+    const iw = interiorWallUnder(ed, e);
+    if (iw) {
+      const [w, h] = f.size(resolveParams(f, { ...t.params, ...ed.instanceParams(f) }));
+      ed.change(
+        iw.b.id,
+        (x) => {
+          const it = x.interiors[iw.level] as InteriorWithDoors | undefined;
+          if (!it) return false;
+          (it.doors ??= []).push({ wall: iw.wall, u: Math.round(iw.u * 100) / 100, width: Math.min(w ?? 0.9, Math.max(0.5, iw.len - 0.2)), height: h ?? 2.1 });
+        },
+        `${t.name} placed on the interior wall. Click again for one more; Esc finishes.`,
+      );
+      ed.context = iw.b.id;
+      return;
+    }
+  }
   if (!pl) return ed.toast(f.host === 'face' ? 'Point at a wall.' : 'Point at the ground or a roof.');
   const it: Item = { id: uid(), type: t.id, params: ed.instanceParams(f), host: pl.host };
   ed.removeGhost();

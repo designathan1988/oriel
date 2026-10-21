@@ -3365,5 +3365,6 @@
 "{0} × {1} m · click the other corner or type 20x30": "{0} × {1} m · clique no outro canto ou digite 20x30",
 "{0} buildings": "{0} edificações",
 "{0} elements": "{0} elementos",
-"{0} components": "{0} componentes"
+"{0} components": "{0} componentes",
+"{0} placed on the interior wall. Click again for one more; Esc finishes.": "{0}: na parede interna. Clique de novo para outra; Esc termina."
 }
