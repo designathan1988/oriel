@@ -286,7 +286,9 @@ export function mountActions(ed: Editor3): void {
   const bar = ed.shell.ctxbar;
   let last = '';
   // Drawing tools own the view; with the floors drawn apart nothing can be edited (store guard), so no bar.
-  const busy = () => ed.presenting || ed.tool === 'paint' || ed.tool === 'tape' || ed.tool === 'rect' || ed.tool === 'circle' || ed.tool === 'polygon' || ed.tool === 'place' || explodeGap(ed.project) > 0;
+  // Every tool that clicks on the view (only Select and the transform tools act on the selection): the
+  // bar left over from the last selection sat under the clicks and a click of a Curve hit its Delete.
+  const busy = () => ed.presenting || !ed.selectLike() || explodeGap(ed.project) > 0;
   const render = () => {
     const list = busy() ? [] : actionsFor(ed);
     const all = list.length ? [...transformActions(ed), ...list] : [];

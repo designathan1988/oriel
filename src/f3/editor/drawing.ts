@@ -196,12 +196,11 @@ export function finishShape(ed: Editor3): void {
   // Levels follow the height of the first volume.
   if (!ed.store.commit([b.id], created ? 'Volume created.' : 'Volume added.')) return;
   if (joined) ed.composedNote = `Joined to ${joined.name}: drawn through it, so it is one building now (Separate in the bar keeps it apart).`;
-  // Back to selecting before the measure box is armed: changing tools clears a pending measure, and the
-  // typed 10x8 or 6 was lost (the "1", "2", "3" in it then switched the selection mode).
-  ed.setTool('select');
+  // The tool stays (SketchUp, Revit: draw the next one at once; Esc goes back to selecting). It is not
+  // changed before the measure box is armed: changing tools clears a pending measure.
   ed.context = b.id;
   ed.select({ building: b.id, solids: [s.id], face: { kind: 'top' } });
-  ed.toast(ed.composedNote ?? (sub ? 'Cutter created. Drag the top square for the height.' : isRectTool ? 'Volume created. Type 10x8 (width × depth) or 6 (height) and Enter; or drag the top square.' : 'Volume created. Drag the top square or type the height and Enter.'));
+  ed.toast(ed.composedNote ?? (sub ? 'Cutter created. Type its height and Enter; draw the next one, or Esc.' : isRectTool ? 'Volume created. Type 10x8 (width × depth) or 6 (height) and Enter; draw the next one, or Esc.' : 'Volume created. Type the height and Enter; draw the next one, or Esc.'));
   ed.composedNote = null;
   const bid = b.id,
     sid = s.id;
@@ -537,6 +536,16 @@ export function draftInput(ed: Editor3): Measure | null {
       },
     };
   }
+  if (ed.tool === 'lot' && ed.site.lotStarted)
+    return {
+      label: 'Dimensions',
+      apply: (t) => {
+        const m = /^\s*([\d.,]+)\s*(?:[;x×*/]|\s)\s*([\d.,]+)\s*$/i.exec(t);
+        const w = parseLength(m ? m[1]! : t);
+        const d = m ? parseLength(m[2]!) : w;
+        return !!w && !!d && ed.site.lotTyped(w, d);
+      },
+    };
   if (ed.tool === 'walls' && ed.wallsTool.busy)
     return {
       label: 'Length (5 or 5<30°)',

@@ -91,10 +91,40 @@ export class SiteTools {
     return { ring: signedArea2(ring) >= 0 ? ring : ring.reverse(), w: Math.abs(u), d: Math.abs(v) };
   }
 
+  /** Where the cursor was last (the corner a typed size goes toward). */
+  private lotHover: Vec2 | null = null;
+
+  /** The first corner is placed and the second one awaited (a typed size may give it). */
+  get lotStarted(): boolean {
+    return !!this.lotFrom;
+  }
+
+  /**
+   * A typed size after the first corner ("20x30", like the Rectangle tool): width along the street (or x)
+   * and depth across, toward the cursor's side; the lot no longer depends on how far the view reaches.
+   */
+  lotTyped(w: number, d: number): boolean {
+    const a = this.lotFrom;
+    if (!a || !(w > 0) || !(d > 0)) return false;
+    const t = this.lotDir,
+      n: Vec2 = [-t[1], t[0]];
+    const h = this.lotHover ?? [a[0] + t[0] + n[0], a[1] + t[1] + n[1]];
+    const su = Math.sign((h[0] - a[0]) * t[0] + (h[1] - a[1]) * t[1]) || 1,
+      sv = Math.sign((h[0] - a[0]) * n[0] + (h[1] - a[1]) * n[1]) || 1;
+    this.finishLot([a[0] + t[0] * w * su + n[0] * d * sv, a[1] + t[1] * w * su + n[1] * d * sv]);
+    return true;
+  }
+
   lotMove(e: PointerEvent, pressed: boolean): void {
     const p = this.ground(e);
     if (!p) return;
+    this.lotHover = p;
     if (!this.lotFrom) return this.h.showDim('Drag a rectangle on the ground (or click two corners)', e);
+    if (!pressed && !this.dragged) {
+      const { w, d } = this.lotRect(p);
+      this.draw(this.lotRect(p).ring, true);
+      return this.h.showDim(`${fmt(w)} × ${fmt(d)} m · click the other corner or type 20x30`, e);
+    }
     const { ring, w, d } = this.lotRect(p);
     if (pressed && Math.max(w, d) > 0.5) this.dragged = true;
     this.draw(ring, true);
