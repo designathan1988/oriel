@@ -215,7 +215,8 @@ Backlog (P1 first):
 - [ ] P2 Roof by profile, openings in roofs; stair landings/winders; ramp tool; elevator core.
 - [x] P2 Grid axes with labels (Shift+A; numbered and lettered; 3D, every floor plan, DXF S-GRID).
 - [x] P2 Automatic beams between columns (bar or Ctrl+K → Beams between columns).
-- [ ] P2 Section box; guide lines; loft by
+- [x] P2 Section box as a live section plane (Interior view → Section: front or side, position, flip).
+- [ ] P2 Guide lines; loft by
       several sections; mirror about a drawn axis; transfer properties; component from selection.
 - [x] P2 View styles: realistic, white model, x-ray (Interior view → Style; view.style).
 - [ ] P2 Parking along a path; renovation phases; design options.

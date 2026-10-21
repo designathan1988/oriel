@@ -222,7 +222,9 @@ export class View {
       this.renderer.setPixelRatio(ratio);
       this.resize();
     }
-    this.look.setAO(q !== 'light');
+    this.quality = q;
+    // The ambient occlusion pass draws its own depth, which a live section's clipping does not reach.
+    this.look.setAO(q !== 'light' && !this.sectionKey);
     this.look.setShadowSize(q === 'light' ? 2048 : 4096);
     this.mark();
   }
@@ -415,6 +417,19 @@ export class View {
     if (this.site.sync(p, this.sitePicked)) this.holeGround(this.site.terrainBox);
     if ((p.view?.style ?? null) !== this.style) {
       this.style = p.view?.style ?? null;
+      this.mark();
+    }
+    const sec = p.view?.section;
+    const secKey = sec ? `${sec.axis}|${sec.at}|${!!sec.flip}` : '';
+    if (secKey !== this.sectionKey) {
+      this.sectionKey = secKey;
+      // The plane keeps what is behind it (its normal points to the kept side).
+      if (sec) {
+        const n = sec.axis === 'x' ? new THREE.Vector3(sec.flip ? -1 : 1, 0, 0) : new THREE.Vector3(0, 0, sec.flip ? -1 : 1);
+        this.sectionPlane.set(n, -(sec.at * (sec.flip ? -1 : 1)));
+      }
+      this.renderer.localClippingEnabled = !!sec;
+      this.look.setAO(this.quality !== 'light' && !sec);
       this.mark();
     }
     const wallsOff = p.view?.hiddenBody?.includes('walls'),
@@ -1155,6 +1170,10 @@ export class View {
   /** View style: the buildings drawn in one material (white model) or see-through (x-ray); null = realistic. */
   private style: 'white' | 'xray' | null = null;
   private styleMats: { white: THREE.Material; xray: THREE.Material } | null = null;
+  private sectionKey = '';
+  private quality: 'light' | 'normal' | 'high' = 'normal';
+  private readonly sectionPlane = new THREE.Plane(new THREE.Vector3(1, 0, 0), 0);
+  private readonly sectionClip = [this.sectionPlane];
 
   /**
    * Puts the style's material on every building mesh (the realistic one is kept on the mesh to come back
@@ -1167,10 +1186,22 @@ export class View {
       xray: new THREE.MeshStandardMaterial({ color: '#cfdbe4', roughness: 0.6, transparent: true, opacity: 0.26, depthWrite: false, side: THREE.DoubleSide }),
     });
     const target = this.style ? mats[this.style] : null;
+    // The live section: every building material clips at the section plane (none without a section).
+    const clip = this.sectionKey ? this.sectionClip : null;
+    const clipOf = (mat: THREE.Material) => {
+      if ((mat.clippingPlanes ?? null) !== clip) {
+        mat.clippingPlanes = clip;
+        mat.clipShadows = !!clip;
+        mat.needsUpdate = true;
+      }
+    };
+    for (const m of Object.values(mats)) clipOf(m);
     for (const g of [this.root, this.batcher.root])
       g.traverse((o) => {
         const m = o as THREE.Mesh;
         if (!m.isMesh) return;
+        for (const mat of Array.isArray(m.material) ? m.material : [m.material]) clipOf(mat);
+        if (m.userData.mat0) for (const mat of Array.isArray(m.userData.mat0) ? m.userData.mat0 : [m.userData.mat0]) clipOf(mat as THREE.Material);
         const orig = (m.userData.mat0 ?? m.material) as THREE.Material | THREE.Material[];
         if (!target) {
           if (m.userData.mat0) {

@@ -29,13 +29,34 @@ export function mountInteriorView(ed: Editor3): void {
 
   const commit = (msg: string) => {
     ed.store.commit(null, msg, false);
-    if (ed.store.changed) ed.toast(msg);
+    if (ed.store.changed && msg) ed.toast(msg);
   };
   const setHidden = (list: BodyCategory[], msg: string) => {
     const v = viewOf(ed.store.project);
     if (list.length) v.hiddenBody = list;
     else delete v.hiddenBody;
     commit(msg);
+  };
+  /** The buildings' extent on the ground (world x and z), for the section's slider, with 2 m of margin. */
+  const extent = (): { lo: [number, number]; hi: [number, number] } => {
+    const lo: [number, number] = [Infinity, Infinity],
+      hi: [number, number] = [-Infinity, -Infinity];
+    for (const b of ed.project.buildings) {
+      const bb = ed.boundsOf(b);
+      if (!bb) continue;
+      const a = (b.rotation * Math.PI) / 180;
+      for (const x of [bb.min[0], bb.max[0]])
+        for (const z of [bb.min[2], bb.max[2]]) {
+          const wx = b.position[0] + x * Math.cos(a) + z * Math.sin(a),
+            wz = b.position[1] - x * Math.sin(a) + z * Math.cos(a);
+          lo[0] = Math.min(lo[0], wx);
+          lo[1] = Math.min(lo[1], wz);
+          hi[0] = Math.max(hi[0], wx);
+          hi[1] = Math.max(hi[1], wz);
+        }
+    }
+    if (!Number.isFinite(lo[0])) return { lo: [-20, -20], hi: [20, 20] };
+    return { lo: [Math.floor(lo[0] - 2), Math.floor(lo[1] - 2)], hi: [Math.ceil(hi[0] + 2), Math.ceil(hi[1] + 2)] };
   };
   const levelsMax = () => Math.max(1, ...ed.project.buildings.map((b) => b.levels.length));
 
@@ -44,7 +65,7 @@ export function mountInteriorView(ed: Editor3): void {
     const p = ed.project;
     btn.setAttribute('aria-pressed', String(interiorView(p)));
     if (pop.hidden) return;
-    const key = JSON.stringify([p.view?.hiddenBody, p.view?.cutLevel, p.view?.onlyLevel, p.view?.explode, p.view?.style, levelsMax()]);
+    const key = JSON.stringify([p.view?.hiddenBody, p.view?.cutLevel, p.view?.onlyLevel, p.view?.explode, p.view?.style, p.view?.section?.axis, p.view?.section?.flip, levelsMax()]);
     if (key === last) return;
     last = key;
     const rows = BODY_CATEGORIES.map(([c, name]) => {
@@ -53,11 +74,15 @@ export function mountInteriorView(ed: Editor3): void {
     }).join('');
     const cut = p.view?.cutLevel;
     const gap = explodeGap(p);
+    const sec = p.view?.section;
+    const ext = extent();
     pop.innerHTML = `<div class="hd">Interior view</div>
       <div class="f3-btns n3"><button class="f3-btn" data-preset="cutaway" title="Cut 1.2 m above the floor shown">${icon('cutaway')}<span>Cutaway</span></button><button class="f3-btn" data-preset="explode" title="Floors apart, each cut">${icon('floorUp')}<span>Exploded</span></button><button class="f3-btn" data-preset="all" title="Whole buildings">${icon('eye')}<span>Show all</span></button></div>
       <div class="f3-interior-list">${rows}</div>
       <div class="f3-interior-ctl">
       ${prow('Style', 'palette', [`<div class="f3-seg" role="group" aria-label="View style">${([['', 'Realistic'], ['white', 'White'], ['xray', 'X-ray']] as const).map(([v, l]) => `<button data-style="${v}" aria-pressed="${(p.view?.style ?? '') === v}">${l}</button>`).join('')}</div>`], { wide: true })}
+      ${prow('Section', 'section', [`<div class="f3-seg" role="group" aria-label="Live section">${([['', 'Off'], ['z', 'Front'], ['x', 'Side']] as const).map(([v, l]) => `<button data-sec="${v}" aria-pressed="${(sec?.axis ?? '') === v}">${l}</button>`).join('')}<button data-secflip aria-pressed="${!!sec?.flip}" title="Keep the other side"${sec ? '' : ' disabled'}>⇄</button></div>`], { wide: true })}
+      ${sec ? prow('Position', 'distance', [`<label class="f3-cell rng" title="Where the section cuts"><input type="range" data-secat min="${ext.lo[sec.axis === 'x' ? 0 : 1]}" max="${ext.hi[sec.axis === 'x' ? 0 : 1]}" step="0.1" value="${sec.at}" aria-label="Section position"><output>${Math.round(sec.at * 10) / 10} m</output></label>`], { wide: true }) : ''}
       ${prow('Apart', 'floorUp', [`<label class="f3-cell rng" title="${p.view?.onlyLevel ? 'One floor shown: nothing to move apart' : 'Gap between floors (0 = together)'}"><input type="range" data-explode min="0" max="10" step="0.5" value="${gap}" aria-label="Gap between floors"${p.view?.onlyLevel ? ' disabled' : ''}><output>${gap} m</output></label>`], { wide: true, title: 'Floors apart' })}
       ${prow('Show', 'level', [`<label class="f3-check" title="${cut === undefined ? 'Choose a floor in the floor switcher first' : 'Hides the other floors'}"><input type="checkbox" data-only ${p.view?.onlyLevel ? 'checked' : ''} ${cut === undefined ? 'disabled' : ''}><span>Only this floor</span></label>`], { wide: true })}
       </div>`;
@@ -79,6 +104,37 @@ export function mountInteriorView(ed: Editor3): void {
         commit(b.dataset.style === 'white' ? 'White model.' : b.dataset.style === 'xray' ? 'X-ray.' : 'Realistic.');
       }),
     );
+    pop.querySelectorAll<HTMLButtonElement>('[data-sec]').forEach((b) =>
+      b.addEventListener('click', () => {
+        const v = viewOf(ed.store.project);
+        const axis = b.dataset.sec as 'x' | 'z' | '';
+        if (!axis) delete v.section;
+        else {
+          const i = axis === 'x' ? 0 : 1;
+          const at = Math.round(((ext.lo[i]! + ext.hi[i]!) / 2) * 10) / 10;
+          // The half toward the camera goes: the plane keeps the far side.
+          const cam = ed.view.camera.position;
+          v.section = { axis, at, ...((axis === 'x' ? cam.x : cam.z) > at ? { flip: true } : {}) };
+        }
+        commit(axis ? 'Live section: drag its position.' : 'Section off.');
+      }),
+    );
+    pop.querySelector<HTMLButtonElement>('[data-secflip]')?.addEventListener('click', () => {
+      const v = viewOf(ed.store.project);
+      if (!v.section) return;
+      v.section = { ...v.section, flip: !v.section.flip };
+      commit('');
+    });
+    const at = pop.querySelector<HTMLInputElement>('[data-secat]');
+    at?.addEventListener('input', () => {
+      // Live while dragging (view state only), one step when let go.
+      const v = viewOf(ed.store.project);
+      if (!v.section) return;
+      v.section = { ...v.section, at: Number(at.value) };
+      at.nextElementSibling!.textContent = `${at.value} m`;
+      ed.store.touch([], '');
+    });
+    at?.addEventListener('change', () => commit(''));
     // Presets replace each other: one look at a time.
     pop.querySelector('[data-preset="cutaway"]')!.addEventListener('click', () => {
       delete viewOf(ed.store.project).explode;

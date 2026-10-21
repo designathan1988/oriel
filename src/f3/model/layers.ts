@@ -79,7 +79,7 @@ export const BODY_CATEGORIES: [BodyCategory, string][] = [
 export const bodyHidden = (p: Project3, c: BodyCategory) => !!p.view?.hiddenBody?.includes(c);
 
 /** The view needs hollow buildings: a body part is hidden or the building is cut by floor. */
-export const interiorView = (p: Project3) => !!p.view?.hiddenBody?.length || p.view?.cutLevel !== undefined || explodeGap(p) > 0;
+export const interiorView = (p: Project3) => !!p.view?.hiddenBody?.length || p.view?.cutLevel !== undefined || explodeGap(p) > 0 || !!p.view?.section;
 
 /** Gap between exploded floors (0 = not exploded). */
 export const explodeGap = (p: Project3) => Math.max(0, p.view?.explode ?? 0);

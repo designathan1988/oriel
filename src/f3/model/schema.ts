@@ -114,7 +114,7 @@ export interface Scene {
   /** Orbit camera: what it looks at, how far, its angles (radians) and the projection. */
   camera: { target: Vec3; distance: number; phi: number; theta: number; parallel: boolean };
   /** The view state kept with it (time of day, interior view, floor cut, exploded floors). */
-  view: Pick<ViewState, 'time' | 'hiddenBody' | 'cutLevel' | 'onlyLevel' | 'explode' | 'style'>;
+  view: Pick<ViewState, 'time' | 'hiddenBody' | 'cutLevel' | 'onlyLevel' | 'explode' | 'style' | 'section'>;
   /** Visibility of each layer when it was saved. */
   layers?: Record<ID, boolean>;
 }
@@ -199,6 +199,11 @@ export interface ViewState {
   explode?: number;
   /** View style (SketchUp's face styles, Revit's visual styles): a white model or x-ray; absent = realistic. */
   style?: 'white' | 'xray';
+  /**
+   * Live section (Revit's section box, SketchUp's section plane): the buildings cut by a vertical plane
+   * across x or z at `at` (world, m), the part toward the viewer taken away; `flip` keeps the other side.
+   */
+  section?: { axis: 'x' | 'z'; at: number; flip?: boolean };
 }
 
 /** Profile swept around the volume at a height. */
