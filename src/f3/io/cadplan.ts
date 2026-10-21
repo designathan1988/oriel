@@ -39,21 +39,55 @@ const LAYERS: [string, number][] = [
   ['A-AREA-IDEN', 2],
   ['A-ANNO-DIMS', 1],
   ['A-ANNO-TEXT', 7],
+  // The surroundings of the ground floor (AIA site layers): lot lines, streets, contour lines.
+  ['C-PROP', 8],
+  ['C-ROAD', 9],
+  ['C-TOPO', 34],
 ];
 
+/** A segment cut to a box (Liang–Barsky), or null when it lies outside. */
+function clip(a: Vec2, b: Vec2, x0: number, z0: number, x1: number, z1: number): [Vec2, Vec2] | null {
+  let t0 = 0,
+    t1 = 1;
+  const dx = b[0] - a[0],
+    dz = b[1] - a[1];
+  for (const [p, q] of [[-dx, a[0] - x0], [dx, x1 - a[0]], [-dz, a[1] - z0], [dz, z1 - a[1]]] as const) {
+    if (p === 0) {
+      if (q < 0) return null;
+      continue;
+    }
+    const r = q / p;
+    if (p < 0) t0 = Math.max(t0, r);
+    else t1 = Math.min(t1, r);
+    if (t0 > t1) return null;
+  }
+  return [[a[0] + dx * t0, a[1] + dz * t0], [a[0] + dx * t1, a[1] + dz * t1]];
+}
+
 /** Every floor plan given, side by side (a 6 m gap), as DXF text. `decimal` writes the numbers. */
-export function floorPlansToDxf(plans: { fp: FloorPlan; title: string }[], decimal: (v: string) => string = (v) => v): string {
+export function floorPlansToDxf(plans: { fp: FloorPlan; title: string; site?: SiteContext | null }[], decimal: (v: string) => string = (v) => v): string {
   const dxf = new DxfWriter();
   dxf.setUnits(Units.Meters);
   for (const [n, c] of LAYERS) dxf.addLayer(n, c);
   let dx = 0;
-  for (const { fp, title } of plans) {
+  for (const { fp, title, site } of plans) {
     const { x0, z0, x1, z1 } = fp.bbox;
     const ox = dx - x0;
     const P = (p: Vec2) => point2d(p[0] + ox, -p[1]);
     const P3 = (p: Vec2) => point3d(p[0] + ox, -p[1], 0);
     const line = (a: Vec2, b: Vec2, layerName: string) => dxf.addLine(P3(a), P3(b), { layerName });
     const n2 = (v: number) => decimal(v.toFixed(2));
+    if (site) {
+      // Kept inside the plan's own margin: the next plan starts 6 m away.
+      const M = 2.6;
+      const cut = (a: Vec2, b: Vec2, layer: string) => {
+        const c = clip(a, b, x0 - M, z0 - M, x1 + M, z1 + M);
+        if (c) line(c[0], c[1], layer);
+      };
+      for (const r of site.lots) r.forEach((q, i) => cut(q, r[(i + 1) % r.length]!, 'C-PROP'));
+      for (const r of site.streets) r.forEach((q, i) => cut(q, r[(i + 1) % r.length]!, 'C-ROAD'));
+      for (const c of site.contours) cut(c[0], c[1], 'C-TOPO');
+    }
     for (const r of fp.walls) dxf.addLWPolyline(r.map((q) => ({ point: P(q) })), { flags: LWPolylineFlags.Closed, layerName: 'A-WALL' });
     for (const w of fp.windows) {
       // The glass line in the middle of the wall and the two faces of the opening.
