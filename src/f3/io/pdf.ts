@@ -10,6 +10,7 @@ import { BRAND } from '../model/brand';
 import type { Building3, Project3 } from '../model/schema';
 import { planSvg } from './plansvg';
 import { sectionSvg } from './sectionsvg';
+import { siteContext } from '../eval/sitecontext';
 import { ELEVATION_NAMES, elevationSvg } from './elevationsvg';
 import { evaluateBuilding } from '../eval/evaluate';
 import { floorPlan, sortedLevels, type FloorPlan } from '../eval/floorplan';
@@ -46,8 +47,8 @@ interface Sheet {
 }
 
 /** The floor plans of the project: every visible building with walls, every floor of it. */
-export function projectPlans(p: Project3): { building: string; level: string; plan: FloorPlan; b: Building3 }[] {
-  const out: { building: string; level: string; plan: FloorPlan; b: Building3 }[] = [];
+export function projectPlans(p: Project3): { building: string; level: string; plan: FloorPlan; b: Building3; index: number }[] {
+  const out: { building: string; level: string; plan: FloorPlan; b: Building3; index: number }[] = [];
   for (const b of p.buildings) {
     if (b.hidden || !b.solids.some((s) => s.op === 'add' && !s.hidden)) continue;
     let ev;
@@ -58,7 +59,7 @@ export function projectPlans(p: Project3): { building: string; level: string; pl
     }
     sortedLevels(b).forEach((lv, i) => {
       const plan = floorPlan(b, i, ev.placements);
-      if (plan.walls.length) out.push({ building: b.name, level: lv.name, plan, b });
+      if (plan.walls.length) out.push({ building: b.name, level: lv.name, plan, b, index: i });
     });
   }
   return out;
@@ -76,7 +77,7 @@ export async function drawingsPdf(p: Project3, opts: DrawingSetOptions | number 
 
   const sheets: Sheet[] = [{ title: t('Site plan'), svg: { text: planSvg(p), perMetre: 4 } }];
   for (const f of plans) {
-    sheets.push({ title: `${t('Floor plan')} · ${t(f.level)} · ${f.building}`, svg: { text: floorPlanSvg(f.plan, { decimal: dec, t }).svg, perMetre: 1 } });
+    sheets.push({ title: `${t('Floor plan')} · ${t(f.level)} · ${f.building}`, svg: { text: floorPlanSvg(f.plan, { decimal: dec, t, site: f.index === 0 ? siteContext(p, f.b) : null }).svg, perMetre: 1 } });
   }
   // The four elevations (facades), then the section.
   if (plans.length) for (const side of ['front', 'right', 'back', 'left'] as const) sheets.push({ title: t(ELEVATION_NAMES[side]), svg: { text: elevationSvg(p, side, dec, t), perMetre: 1 } });

@@ -6,6 +6,7 @@
 import { BRAND } from '../model/brand';
 import type { Project3 } from '../model/schema';
 import { floorPlanSvg } from '../eval/floorplansvg';
+import { siteContext } from '../eval/sitecontext';
 import { projectPlans } from './pdf';
 
 const VIEWER = 'https://cdn.jsdelivr.net/npm/@google/model-viewer@4.3.1/dist/model-viewer.min.js';
@@ -33,7 +34,7 @@ export function presentationHtml(p: Project3, glb: Uint8Array, o: PresentationOp
   const date = new Date().toLocaleDateString(o.lang ?? 'pt-BR');
   const planHtml = plans
     .map((f) => {
-      const svg = floorPlanSvg(f.plan, { decimal: dec, t }).svg;
+      const svg = floorPlanSvg(f.plan, { decimal: dec, t, site: f.index === 0 ? siteContext(p, f.b) : null }).svg;
       return `<figure><figcaption>${esc(t('Floor plan'))} · ${esc(t(f.level))} · ${esc(f.building)}</figcaption>${svg}</figure>`;
     })
     .join('');

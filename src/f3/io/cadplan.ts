@@ -7,17 +7,18 @@ import { DxfWriter, LWPolylineFlags, Units, point2d, point3d } from '@tarikjabir
 import type { ID, Project3, Vec2 } from '../model/schema';
 import { floorPlan, sortedLevels, type FloorPlan } from '../eval/floorplan';
 import { floorPlanSvg } from '../eval/floorplansvg';
+import { siteContext, type SiteContext } from '../eval/sitecontext';
 import type { Placement } from '../eval/facade';
 
 /** Every floor of every visible building that has walls cut on it, with its title. */
-export function collectFloorPlans(p: Project3, placementsOf: (id: ID) => Placement[], t: (s: string) => string = (s) => s): { fp: FloorPlan; title: string }[] {
-  const out: { fp: FloorPlan; title: string }[] = [];
+export function collectFloorPlans(p: Project3, placementsOf: (id: ID) => Placement[], t: (s: string) => string = (s) => s): { fp: FloorPlan; title: string; site: SiteContext | null }[] {
+  const out: { fp: FloorPlan; title: string; site: SiteContext | null }[] = [];
   for (const b of p.buildings) {
     if (b.hidden || !b.solids.some((s) => s.op === 'add')) continue;
     sortedLevels(b).forEach((lv, i) => {
       try {
         const fp = floorPlan(b, i, placementsOf(b.id));
-        if (fp.walls.length) out.push({ fp, title: `${b.name} · ${t(lv.name)}` });
+        if (fp.walls.length) out.push({ fp, title: `${b.name} · ${t(lv.name)}`, site: i === 0 ? siteContext(p, b) : null });
       } catch {
         /* a floor that cannot be cut is left out */
       }
@@ -27,8 +28,8 @@ export function collectFloorPlans(p: Project3, placementsOf: (id: ID) => Placeme
 }
 
 /** One floor plan as an SVG file (the drawing of the plan view). */
-export function floorPlanSvgFile(fp: FloorPlan, title: string, decimal: string, t: (s: string) => string): string {
-  return floorPlanSvg(fp, { title, decimal, t }).svg;
+export function floorPlanSvgFile(fp: FloorPlan, title: string, decimal: string, t: (s: string) => string, site: SiteContext | null = null): string {
+  return floorPlanSvg(fp, { title, decimal, t, site }).svg;
 }
 
 const LAYERS: [string, number][] = [

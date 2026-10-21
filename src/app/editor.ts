@@ -272,7 +272,7 @@ function exportMenu(anchor: HTMLElement): void {
       const plans = collectFloorPlans(editor.project, (id) => editor.view.built.get(id)?.ev.placements ?? [], tr);
       const first = plans.find((x) => !sel || x.fp.building === sel.id) ?? plans[0];
       if (!first) return editor.toast('Nothing to draw yet.');
-      download(floorPlanSvgFile(first.fp, first.title, loadLang() === 'pt-BR' ? ',' : '.', tr), fileName(editor.project.name + '-plan', 'svg'), 'image/svg+xml');
+      download(floorPlanSvgFile(first.fp, first.title, loadLang() === 'pt-BR' ? ',' : '.', tr, first.site), fileName(editor.project.name + '-plan', 'svg'), 'image/svg+xml');
     }],
     ['Section', '.svg', () => {
       // Through the selected building, else through the middle of them all.

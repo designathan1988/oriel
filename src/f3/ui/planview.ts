@@ -11,6 +11,7 @@ import { sampleRing } from '../model/plan';
 import { floorPlan, sortedLevels, type FloorPlan } from '../eval/floorplan';
 import { checkFloor, type Check } from '../eval/compliance';
 import { floorPlanSvg } from '../eval/floorplansvg';
+import { siteContext } from '../eval/sitecontext';
 import { icon } from './icons';
 import { loadLang, tr } from './i18n';
 
@@ -156,7 +157,7 @@ export function mountPlanView(ed: Editor3): PlanView {
     empty.hidden = true;
     const lv = sortedLevels(b)[level];
     const title = `${tr('Floor plan')} · ${tr(lv?.name ?? '')} · ${b.name}`;
-    const out = floorPlanSvg(fp, { title, decimal, interactive: true, selectedRoom: room, t: tr });
+    const out = floorPlanSvg(fp, { title, decimal, interactive: true, selectedRoom: room, t: tr, site: level === 0 ? siteContext(ed.project, b) : null });
     svgText = out.svg;
     // A different drawing (another building, floor or a new size) is fitted again; an edit keeps the view.
     if (!fitted || fitted.join() !== out.viewBox.join() || !vb) {

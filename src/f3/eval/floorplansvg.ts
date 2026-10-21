@@ -4,6 +4,7 @@
 // and windows thin, dimensions finest with slashed ticks, each room with its name and area. Pure text.
 import type { Vec2 } from '../model/schema';
 import type { FloorPlan } from './floorplan';
+import type { SiteContext } from './sitecontext';
 
 export interface PlanSvgOptions {
   /** Title over the drawing ("Ground floor plan"); empty: none. */
@@ -16,6 +17,8 @@ export interface PlanSvgOptions {
   interactive?: boolean;
   /** Translation of the words drawn ("UP" on a stair). */
   t?: (english: string) => string;
+  /** The surroundings drawn light under the plan (the ground floor): lots, streets, contours. */
+  site?: SiteContext | null;
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -34,6 +37,12 @@ export function floorPlanSvg(fp: FloorPlan, o: PlanSvgOptions = {}): { svg: stri
   const s: string[] = [];
   s.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb.map(r3).join(' ')}" font-family="Inter, Helvetica, Arial, sans-serif">`);
   s.push('<style>.rm{fill:transparent}.rm:hover{fill:rgba(217,119,87,.08)}.rm.sel{fill:rgba(217,119,87,.14);stroke:#d97757;stroke-width:.04}</style>');
+  // The surroundings first, light and thin (clipped by the sheet): streets, lot lines, contour lines.
+  if (o.site) {
+    if (o.site.streets.length) s.push(`<path d="${path(o.site.streets)}" fill="#eeede9" stroke="#b5b2aa" stroke-width="0.02"/>`);
+    if (o.site.lots.length) s.push(`<path d="${path(o.site.lots)}" fill="none" stroke="#8a8a8a" stroke-width="0.025" stroke-dasharray="0.3 0.15"/>`);
+    if (o.site.contours.length) s.push(`<path d="${o.site.contours.map((c) => `M${pt(c[0])}L${pt(c[1])}`).join('')}" fill="none" stroke="#b9ae93" stroke-width="0.02"/>`);
+  }
   // Rooms (under everything: the floor of each, clickable).
   fp.rooms.forEach((r, i) => {
     const attrs = o.interactive ? ` data-i="${i}"${r.id ? ` data-room="${esc(r.id)}"` : ''}` : '';
