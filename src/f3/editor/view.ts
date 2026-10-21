@@ -411,7 +411,7 @@ export class View {
     const t0 = performance.now();
     const vis = visibilityKeys(p);
     setProjectImages(p.images);
-    this.site.sync(p, this.sitePicked);
+    if (this.site.sync(p, this.sitePicked)) this.holeGround(this.site.terrainBox);
     const wallsOff = p.view?.hiddenBody?.includes('walls'),
       roofsOff = p.view?.hiddenBody?.includes('roofs');
     const partVisible = (b: Building3) => (tag: PartTag) => {
@@ -1025,6 +1025,13 @@ export class View {
   }
 
   /** Point on the horizontal plane y. */
+  /** The ground under the pointer: the shaped ground (terrain) where there is one, else the plane y = 0. */
+  onGround(e: { clientX: number; clientY: number }): THREE.Vector3 | null {
+    const t = this.site.group.getObjectByName('terrain');
+    const hit = t ? this.rayFrom(e).intersectObject(t, false)[0] : undefined;
+    return hit ? hit.point.clone() : this.onPlane(e, 0);
+  }
+
   onPlane(e: { clientX: number; clientY: number }, y = 0): THREE.Vector3 | null {
     const p = new THREE.Vector3();
     return this.rayFrom(e).ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -y), p) ? p : null;
@@ -1106,6 +1113,25 @@ export class View {
       if (ti && itemLocked(p, ti)) continue;
       yield { building: b, point: h.point.clone(), normal, ...(tag ? { part: tag } : {}) };
     }
+  }
+
+  private groundHole = '';
+  /** The flat ground disc, open over the shaped ground's box (its valleys would sink under the disc). */
+  private holeGround(box: [number, number, number, number] | null): void {
+    const key = JSON.stringify(box);
+    if (key === this.groundHole) return;
+    this.groundHole = key;
+    let g: THREE.BufferGeometry;
+    if (!box) g = new THREE.CircleGeometry(3000, 96);
+    else {
+      // In the disc's own plane (rotated −90° about x): shape y is −z of the world.
+      const sh = new THREE.Shape().absarc(0, 0, 3000, 0, Math.PI * 2, false);
+      const [x0, z0, x1, z1] = box;
+      sh.holes.push(new THREE.Path([new THREE.Vector2(x0, -z0), new THREE.Vector2(x0, -z1), new THREE.Vector2(x1, -z1), new THREE.Vector2(x1, -z0)]));
+      g = new THREE.ShapeGeometry(sh, 48);
+    }
+    this.ground.geometry.dispose();
+    this.ground.geometry = g;
   }
 
   toScreen(p: THREE.Vector3): { x: number; y: number; behind: boolean } {

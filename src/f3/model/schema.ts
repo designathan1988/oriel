@@ -29,6 +29,8 @@ export interface Project3 {
   selectionSets?: SelectionSet[];
   /** Streets: a center line with the asphalt width and a sidewalk on each side (world plan). */
   streets?: Street[];
+  /** The ground's shape: heights set at points (Revit's topography from points), flat under the buildings. */
+  terrain?: Terrain;
   /** Project material library: named materials to reuse (and to change everywhere at once). */
   materials?: ProjectMaterial[];
   /** The virtual tour published as a site or an app: its stops, points of interest and who to call. */
@@ -86,6 +88,11 @@ export interface ProjectMaterial {
   id: ID;
   name: string;
   ref: MaterialRef;
+}
+
+export interface Terrain {
+  /** The ground height (m) at each point (world [x, z]); far from them it comes back to 0. */
+  points: { id: ID; p: Vec2; y: number }[];
 }
 
 export interface Street {

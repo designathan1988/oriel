@@ -767,6 +767,11 @@ export function validateForma3(raw: unknown): string[] {
         else if (st.treesBuilding !== undefined && !str(st.treesBuilding)) e.add(w, 'invalid trees building.');
       }
   }
+  if (p.terrain !== undefined) {
+    const t = p.terrain as unknown as Record<string, unknown>;
+    if (!isObj(t) || !Array.isArray(t.points) || t.points.length > 2000) e.add('Project', 'invalid terrain (at most 2000 points).');
+    else if (!(t.points as unknown[]).every((q) => isObj(q) && str((q as { id: unknown }).id) && vec((q as { p: unknown }).p, 2) && Math.abs((q as { p: number[] }).p[0]!) <= LIMITS3.worldExtent && Math.abs((q as { p: number[] }).p[1]!) <= LIMITS3.worldExtent && fin((q as { y: unknown }).y) && Math.abs((q as { y: number }).y) <= 500)) e.add('Project', 'invalid terrain point (height within ±500 m).');
+  }
   if (p.tour !== undefined) {
     const t = p.tour as unknown as Record<string, unknown>;
     const v3 = (q: unknown) => vec(q, 3) && (q as number[]).every((c) => Math.abs(c) <= LIMITS3.worldExtent);

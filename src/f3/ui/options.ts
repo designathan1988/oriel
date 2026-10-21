@@ -36,7 +36,7 @@ export function mountToolOptions(ed: Editor3): void {
     if (box.parentElement !== home) home.append(box);
     const tool = plan ? (plan.dataset.mode === 'wall' ? 'walls' : '') : ed.tool;
     const placingFam = tool === 'place' && ed.placing ? family(BUILTIN_TYPES.concat(ed.project.types).find((t) => t.id === ed.placing)?.family ?? '') : undefined;
-    const key = JSON.stringify([tool, !!plan, ed.placing, ed.drawMode, ed.wallThickness, ed.iwallThickness, ed.wallHeight, ed.wallLine, ed.slabThickness, ed.placeParams]);
+    const key = JSON.stringify([tool, !!plan, ed.placing, ed.drawMode, ed.wallThickness, ed.iwallThickness, ed.wallHeight, ed.wallLine, ed.terrainHeight, ed.slabThickness, ed.placeParams]);
     if (key === last) return;
     // Never redraw under the user's typing.
     if (box.contains(document.activeElement)) return;
@@ -55,6 +55,8 @@ export function mountToolOptions(ed: Editor3): void {
       html = `<label class="f3-opt sel" title="${tr('Type')}">${icon(placingFam.id === 'door' ? 'door' : 'window')}<select data-o="type" aria-label="${tr('Type')}">${types.map((x) => `<option value="${x.id}"${x.id === t.id ? ' selected' : ''}>${tr(x.name)}</option>`).join('')}</select></label>`;
       html += num('p:width', 'L', tr('Width'), n('width')) + num('p:height', 'H', tr('Height'), n('height'));
       if (placingFam.id === 'window') html += num('p:sillH', '⊥', tr('Sill height'), n('sillH'));
+    } else if (tool === 'terrain') {
+      html = num('terrainH', '⛰', tr('Ground height at the next point'), ed.terrainHeight, 'm', 0.5);
     } else if (tool === 'slab') {
       html = num('slabT', '⊟', tr('Slab thickness'), ed.slabThickness, 'm', 0.01);
     } else if (tool === 'rect' || tool === 'circle' || tool === 'polygon' || tool === 'spline' || tool === 'arc') {
@@ -69,6 +71,12 @@ export function mountToolOptions(ed: Editor3): void {
     const k = inp.dataset.o!;
     if (k === 'type') return ed.startPlacing(inp.value);
     const v = parse(inp.value);
+    if (k === 'terrainH') {
+      if (v === null || Math.abs(v) > 500) return render();
+      ed.terrainHeight = v;
+      last = '';
+      return ed.emit();
+    }
     if (v === null || v <= 0) return render();
     if (k === 'wallT') ed.wallThickness = Math.min(1.5, Math.max(0.05, v));
     else if (k === 'iwallT') ed.iwallThickness = Math.min(1, Math.max(0.03, v));

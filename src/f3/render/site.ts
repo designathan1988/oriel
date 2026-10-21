@@ -1,13 +1,16 @@
-// Drawing of the site: streets (asphalt, sidewalks raised like a curb), lots (a lawn with its outline)
-// and, on the selected lot, the buildable area its setbacks leave (dashed). Rebuilt only when the lots
+// Drawing of the site: streets (asphalt, sidewalks raised like a curb), lots (a lawn with its outline),
+// on the selected lot the buildable area its setbacks leave (dashed), and the shaped ground (terrain:
+// a height grid, the lots tinted on it and their outlines laid over the slopes). Rebuilt only when the lots
 // or the streets change (a key of their JSON), so a camera move costs nothing. Data: model/site.ts.
 import * as THREE from 'three';
 import type { Project3, Vec2 } from '../model/schema';
-import { buildableArea, ribbon } from '../model/site';
+import { buildableArea, insideRing, ribbon } from '../model/site';
+import { terrainField, type TerrainField } from '../model/terrain';
 
 const ASPHALT = '#4b4d50',
   SIDEWALK = '#b9b5ab',
   LAWN = '#a7b48a',
+  SOIL = '#d8d5ca',
   EDGE = '#5f6a48',
   PICK = '#3b82f6';
 
@@ -66,6 +69,9 @@ function makeMats() {
     edge: new THREE.MeshBasicMaterial({ color: EDGE, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }),
     pickBand: new THREE.MeshBasicMaterial({ color: PICK, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }),
     pick: new THREE.LineBasicMaterial({ color: PICK, depthTest: false }),
+    terrain: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1 }),
+    edgeLine: new THREE.LineBasicMaterial({ color: EDGE }),
+    contour: new THREE.LineBasicMaterial({ color: '#8f8774', transparent: true, opacity: 0.55 }),
     buildable: new THREE.LineDashedMaterial({ color: PICK, dashSize: 0.8, gapSize: 0.5, depthTest: false }),
   };
 }
@@ -113,7 +119,107 @@ function streetLabel(name: string, pts: Vec2[], width: number): THREE.Mesh | nul
   return m;
 }
 
+/** The shaped ground as a height grid over its box (at most ~180 cells a side), lots tinted on it. */
+function terrainMesh(t: TerrainField, lots: Vec2[][]): THREE.BufferGeometry {
+  const [x0, z0, x1, z1] = t.box;
+  const cell = Math.max(0.5, Math.max(x1 - x0, z1 - z0) / 180);
+  const nx = Math.ceil((x1 - x0) / cell),
+    nz = Math.ceil((z1 - z0) / cell);
+  const pos = new Float32Array((nx + 1) * (nz + 1) * 3),
+    col = new Float32Array(pos.length);
+  // Hex colours are already turned into linear values by three.js (ColorManagement).
+  const soil = new THREE.Color(SOIL),
+    lawn = new THREE.Color(LAWN);
+  let k = 0;
+  for (let j = 0; j <= nz; j++)
+    for (let i = 0; i <= nx; i++, k += 3) {
+      const x = x0 + ((x1 - x0) * i) / nx,
+        z = z0 + ((z1 - z0) * j) / nz;
+      pos[k] = x;
+      pos[k + 1] = t.at(x, z);
+      pos[k + 2] = z;
+      const c = lots.some((r) => insideRing([x, z], r)) ? lawn : soil;
+      col[k] = c.r;
+      col[k + 1] = c.g;
+      col[k + 2] = c.b;
+    }
+  const idx: number[] = [];
+  for (let j = 0; j < nz; j++)
+    for (let i = 0; i < nx; i++) {
+      const a = j * (nx + 1) + i,
+        b = a + 1,
+        c = a + nx + 1,
+        d = c + 1;
+      idx.push(a, c, b, b, c, d);
+    }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  g.userData.grid = [nx, nz];
+  return g;
+}
+
+/**
+ * Contour lines every `step` metres over the height grid (marching squares on each cell): the reading of a
+ * site plan's "curvas de nível", a little above the ground.
+ */
+function contours(g: THREE.BufferGeometry, nx: number, nz: number, step: number): THREE.BufferGeometry {
+  const p = g.getAttribute('position') as THREE.BufferAttribute;
+  const out: number[] = [];
+  const V = (i: number, j: number) => j * (nx + 1) + i;
+  const lerp = (a: number, b: number, lv: number) => {
+    const ya = p.getY(a),
+      yb = p.getY(b);
+    const t = (lv - ya) / (yb - ya);
+    return [p.getX(a) + (p.getX(b) - p.getX(a)) * t, lv + 0.03, p.getZ(a) + (p.getZ(b) - p.getZ(a)) * t];
+  };
+  for (let j = 0; j < nz; j++)
+    for (let i = 0; i < nx; i++) {
+      const c = [V(i, j), V(i + 1, j), V(i + 1, j + 1), V(i, j + 1)];
+      const ys = c.map((v) => p.getY(v));
+      const lo = Math.ceil(Math.min(...ys) / step),
+        hi = Math.floor(Math.max(...ys) / step);
+      for (let k = lo; k <= hi; k++) {
+        const lv = k * step;
+        if (lv === 0) continue;
+        const cut: number[][] = [];
+        for (let e = 0; e < 4; e++) {
+          const a = c[e]!,
+            b = c[(e + 1) % 4]!;
+          const ya = p.getY(a),
+            yb = p.getY(b);
+          if ((ya < lv) !== (yb < lv)) cut.push(lerp(a, b, lv));
+        }
+        if (cut.length >= 2) out.push(...cut[0]!, ...cut[1]!);
+        if (cut.length === 4) out.push(...cut[2]!, ...cut[3]!);
+      }
+    }
+  const r = new THREE.BufferGeometry();
+  r.setAttribute('position', new THREE.Float32BufferAttribute(out, 3));
+  return r;
+}
+
+/** A ring laid over the shaped ground (a point every 0.5 m, `lift` above it). */
+function draped(ring: Vec2[], t: TerrainField, lift: number, mat: THREE.LineBasicMaterial): THREE.LineLoop {
+  const pts: THREE.Vector3[] = [];
+  for (let i = 0; i < ring.length; i++) {
+    const a = ring[i]!,
+      b = ring[(i + 1) % ring.length]!;
+    const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 0.5));
+    for (let s = 0; s < n; s++) {
+      const x = a[0] + ((b[0] - a[0]) * s) / n,
+        z = a[1] + ((b[1] - a[1]) * s) / n;
+      pts.push(new THREE.Vector3(x, t.at(x, z) + lift, z));
+    }
+  }
+  return new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), mat);
+}
+
 export class SiteLayer {
+  /** The box the shaped ground covers (the flat ground disc leaves it open), null when flat. */
+  terrainBox: [number, number, number, number] | null = null;
   readonly group = new THREE.Group();
   private key = '';
   // Made on first use: a project without lots or streets creates no material (and draws exactly as before).
@@ -128,10 +234,22 @@ export class SiteLayer {
 
   /** Redraws when the lots, the streets or the selected one changed; true when something was redrawn. */
   sync(p: Project3, picked: { lot: string | null; street: string | null }): boolean {
-    const key = JSON.stringify([p.lots, p.streets ?? [], picked]);
+    // The terrain's pads follow the buildings: their plans and levels are part of the key only with a terrain.
+    const pads = p.terrain?.points.length ? p.buildings.map((b) => [b.position, b.rotation, b.elevation, b.hidden, b.solids.map((x) => [x.op, x.hidden, x.base, x.plan.outer.map((v) => v.p)])]) : null;
+    const key = JSON.stringify([p.lots, p.streets ?? [], picked, p.terrain ?? null, pads]);
     if (key === this.key) return false;
     this.key = key;
     this.clear();
+    const t = terrainField(p);
+    this.terrainBox = t ? t.box : null;
+    if (t) {
+      const m = new THREE.Mesh(terrainMesh(t, p.lots.map((l) => l.polygon)), this.mats.terrain);
+      m.castShadow = true;
+      m.name = 'terrain';
+      this.add(m, true);
+      const [nx, nz] = m.geometry.userData.grid as [number, number];
+      this.add(new THREE.LineSegments(contours(m.geometry, nx, nz, 1), this.mats.contour));
+    }
     for (const st of p.streets ?? []) {
       for (const q of ribbon(st.points, 0, st.width / 2)) this.add(new THREE.Mesh(flat(q, 0.005), this.mats.asphalt), true);
       if (st.sidewalk > 0) for (const q of ribbon(st.points, st.width / 2, st.width / 2 + st.sidewalk)) this.add(new THREE.Mesh(slab(q, 0.15), this.mats.sidewalk), true);
@@ -140,8 +258,13 @@ export class SiteLayer {
       if (label) this.add(label);
     }
     for (const lot of p.lots) {
-      this.add(new THREE.Mesh(flat(lot.polygon, 0.003), this.mats.lawn), true);
       const sel = lot.id === picked.lot;
+      // On a shaped ground the lot is tinted on it (terrainMesh) and its outline follows the slopes.
+      if (t) {
+        this.add(draped(lot.polygon, t, 0.04, sel ? this.mats.pick : this.mats.edgeLine));
+        continue;
+      }
+      this.add(new THREE.Mesh(flat(lot.polygon, 0.003), this.mats.lawn), true);
       this.add(new THREE.Mesh(band(lot.polygon, sel ? 0.35 : 0.18, 0.006), sel ? this.mats.pickBand : this.mats.edge));
       if (sel) {
         const area = buildableArea(lot);

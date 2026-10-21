@@ -2,6 +2,7 @@
 import { ICON_PATHS } from '../../ui/icons';
 
 const EXTRA: Record<string, string> = {
+  terrain: 'M2 19l6-8 4 5 3-4 7 7z M15 6a2 2 0 100 .01',
   // Location line of the walls: the wall's two faces and where the clicks run (centre, outer, inner face).
   lineCenter: 'M3 7h18 M3 17h18 M3 12h3 M9 12h6 M18 12h3',
   lineOutside: 'M3 9h18 M3 17h18 M12 2v7 M9.5 6.5L12 9l2.5-2.5',

@@ -53,7 +53,7 @@ import { clipperOffset } from '../eval/clipoffset';
 import { between, column, elemKey, elementsOf, groupElements, grow, row, rowOnFace, sameFace, sameType, shift, shrink, type Elem, type GroupRow } from './elements';
 import { placeLabels } from './labels';
 
-export type Tool = 'select' | 'move' | 'rotate' | 'scale' | 'push' | 'extrude' | 'cut' | 'opening' | 'iwall' | 'room' | 'walls' | 'slab' | 'column' | 'beam' | 'stair' | 'lot' | 'street' | 'rect' | 'arc' | 'circle' | 'polygon' | 'spline' | 'place' | 'paint' | 'block' | 'tape';
+export type Tool = 'select' | 'move' | 'rotate' | 'scale' | 'push' | 'extrude' | 'cut' | 'opening' | 'iwall' | 'room' | 'walls' | 'slab' | 'column' | 'beam' | 'stair' | 'lot' | 'street' | 'terrain' | 'rect' | 'arc' | 'circle' | 'polygon' | 'spline' | 'place' | 'paint' | 'block' | 'tape';
 
 export interface Selection {
   building: ID | null;
@@ -206,6 +206,8 @@ export class Editor3 {
   wallThickness = 0.25;
   /** Height of new walls (the tool options in the top bar). */
   wallHeight = 3;
+  /** Height the Terrain tool gives the ground at a new point (the tool options in the top bar). */
+  terrainHeight = 1;
   /**
    * Where the clicked line runs in a closed run of walls (Revit's location line): the walls' centre, their
    * outer face (drawing over a site plan's outline) or their inner face (drawing the rooms' sizes).
@@ -3023,7 +3025,7 @@ export class Editor3 {
       { id: 'stair', tools: [T('stair', 'floorUp', 'Stair', 'Shift+I', 'Click the foot, then where it ends')] },
       { id: 'shape', tools: [T('rect', 'rect', 'Rectangle', 'R', 'A volume: two corners, or type 10x8'), T('circle', 'circle', 'Circle', 'C', 'A round volume: centre, then the radius'), T('polygon', 'polygon', 'Polygon', 'L', 'A volume: click its corners'), T('arc', 'arc', 'Arc', 'Shift+C', 'The two ends, then a point of the arc'), T('spline', 'path', 'Curve', 'Shift+P', 'A smooth outline through the points')] },
       { id: 'push', tools: [T('push', 'push', 'Push', 'P', 'Drag a face in or out; type the distance'), T('extrude', 'extrude', 'Extrude', 'E', 'A new volume from a face'), T('cut', 'knife', 'Cut', 'U', 'Split a face or a volume')] },
-      { id: 'site', tools: [T('lot', 'lot', 'Lot', 'Shift+L', 'Drag the lot on the ground; its setbacks show where to build'), T('street', 'street', 'Street', 'Shift+S', 'Click the points of its centre line')] },
+      { id: 'site', tools: [T('lot', 'lot', 'Lot', 'Shift+L', 'Drag the lot on the ground; its setbacks show where to build'), T('street', 'street', 'Street', 'Shift+S', 'Click the points of its centre line'), T('terrain', 'terrain', 'Terrain', 'Shift+T', 'Click the ground to set its height there')] },
       { id: 'catalog', tools: [T('catalog', 'catalog', 'Library', 'K', 'Furniture, doors, windows, plants and blocks')] },
       { id: 'paint', tools: [T('paint', 'paint', 'Paint', 'B', 'Click a surface with the chosen material (Alt: pick one)')] },
       { id: 'tape', tools: [T('tape', 'tape', 'Measure', 'T', 'Click two points; Shift+Delete clears')] },
@@ -3153,6 +3155,7 @@ export class Editor3 {
         stair: "Click the foot, then the end",
         lot: "Drag the lot",
         street: "Click the centre line · Enter ends",
+        terrain: "Click the ground: a point at the height in the bar · type to change it · Alt+click removes",
         block: "Click the ground, a roof or a wall",
         place: "Click to place",
         paint: "Click a face · Alt picks the material",
@@ -3593,6 +3596,7 @@ export class Editor3 {
     if (this.tool === 'beam') return this.beamAt(e, true);
     if (this.tool === 'room') return this.roomDown(e);
     if (this.tool === 'lot') return this.site.lotDown(e);
+    if (this.tool === 'terrain') return this.terrainAt(e, true);
     if (this.tool === 'street') return this.site.streetDown(e);
     if (this.tool === 'paint') return this.paintAt(e);
   }
@@ -3764,6 +3768,7 @@ export class Editor3 {
     if (this.tool === 'beam') return this.beamAt(e, false);
     if (this.tool === 'room') return this.roomMove(e);
     if (this.tool === 'lot') return this.site.lotMove(e, (e.buttons & 1) === 1);
+    if (this.tool === 'terrain') return this.terrainAt(e, false);
     if (this.tool === 'street') return this.site.streetMove(e);
   }
 
@@ -3912,6 +3917,7 @@ export class Editor3 {
     this.beamFrom = null;
     this.beamB = null;
     this.clearBeamDraft();
+    this.clearTerrainMarks();
     this.roomFrom = null;
     this.marquee = null;
     if (this.marqueeEl) this.marqueeEl.hidden = true;
@@ -5643,6 +5649,85 @@ export class Editor3 {
     this.view.mark();
   }
 
+  /**
+   * Terrain tool (Revit's topography points, ArchiCAD's mesh points): a click on the ground sets its height
+   * there (the height in the top bar; typed afterwards it changes that point), a click on a point picks it
+   * to type its height again, Alt+click removes it. The buildings and streets keep a flat pad.
+   */
+  private terrainAt(e: PointerEvent, commit: boolean): void {
+    const g = this.view.onGround(e);
+    if (!g) return;
+    const pts = this.project.terrain?.points ?? [];
+    const near = pts.find((q) => Math.hypot(q.p[0] - g.x, q.p[1] - g.z) < Math.max(1, 14 * this.view.worldPerPixel(new THREE.Vector3(q.p[0], q.y, q.p[1]))));
+    this.drawTerrainMarks(near?.id ?? null);
+    if (!commit) return this.showDim(near ? `${fmt(near.y)} m · ${e.altKey ? 'click removes' : 'click to change'}` : `${fmt(this.terrainHeight)} m`, e);
+    if (near && e.altKey) {
+      this.changeSite((p) => {
+        const left = p.terrain!.points.filter((q) => q.id !== near.id);
+        if (left.length) p.terrain!.points = left;
+        else delete p.terrain;
+      }, 'Terrain point removed.');
+      return this.drawTerrainMarks(null);
+    }
+    let id = near?.id;
+    if (!id) {
+      const q = { id: uid(), p: this.infer.enabled ? ([Math.round(g.x / this.infer.grid) * this.infer.grid, Math.round(g.z / this.infer.grid) * this.infer.grid] as Vec2) : ([g.x, g.z] as Vec2), y: this.terrainHeight };
+      if ((this.project.terrain?.points.length ?? 0) >= 2000) return this.toast('At most 2000 terrain points.');
+      this.changeSite((p) => void (p.terrain ??= { points: [] }).points.push(q), `Ground at ${fmt(q.y)} m there: type another height and Enter.`);
+      id = q.id;
+    } else this.toast(`Point at ${fmt(near!.y)} m: type its height and Enter.`);
+    const pid = id;
+    this.setMeasure('Height', (txt) => {
+      const v = parseLength(txt);
+      if (v === null || Math.abs(v) > 500) return false;
+      return this.changeSite((p) => {
+        const q = p.terrain?.points.find((x) => x.id === pid);
+        if (q) q.y = v;
+      }, `Ground at ${fmt(v)} m there.`);
+    });
+    this.drawTerrainMarks(pid);
+  }
+
+  /** The terrain points while the tool is in hand: a short post at each, the one under the pointer orange. */
+  private drawTerrainMarks(hot: ID | null): void {
+    this.clearTerrainMarks();
+    const pts = this.project.terrain?.points ?? [];
+    if (!pts.length) return;
+    const pos: number[] = [],
+      hotPos: number[] = [];
+    for (const q of pts) {
+      const r = Math.max(0.25, 6 * this.view.worldPerPixel(new THREE.Vector3(q.p[0], q.y, q.p[1])));
+      const to = q.id === hot ? hotPos : pos;
+      to.push(q.p[0], q.y, q.p[1], q.p[0], q.y + r * 4, q.p[1], q.p[0] - r, q.y, q.p[1], q.p[0] + r, q.y, q.p[1], q.p[0], q.y, q.p[1] - r, q.p[0], q.y, q.p[1] + r);
+    }
+    const g = new THREE.Group();
+    g.name = 'terrain-marks';
+    for (const [list, color] of [[pos, '#3b82f6'], [hotPos, '#e2702a']] as const) {
+      if (!list.length) continue;
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(list, 3));
+      const l = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color, depthTest: false }));
+      l.renderOrder = 10;
+      g.add(l);
+    }
+    this.snapOverlay.add(g);
+    this.view.mark();
+  }
+
+  private clearTerrainMarks(): void {
+    const o = this.snapOverlay.getObjectByName('terrain-marks');
+    if (!o) return;
+    this.snapOverlay.remove(o);
+    o.traverse((c) => {
+      const l = c as THREE.LineSegments;
+      if (l.geometry) {
+        l.geometry.dispose();
+        (l.material as THREE.Material).dispose();
+      }
+    });
+    this.view.mark();
+  }
+
   private roomFrom: Vec2 | null = null;
 
   /** The level plane point (building frame) under the pointer, for the interior tools. */
@@ -7019,6 +7104,7 @@ export class Editor3 {
       else if (k === 'l' && e.shiftKey) this.setTool('lot');
       else if (k === 'l') this.setTool('polygon');
       else if (k === 'b') this.setTool('paint');
+      else if (k === 't' && e.shiftKey) this.setTool('terrain');
       else if (k === 't') this.setTool('tape');
       else if (k === 'u') this.setTool('cut');
       else if (k === 'o') this.setTool('opening');
