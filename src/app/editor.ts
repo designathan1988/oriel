@@ -278,6 +278,14 @@ function exportMenu(anchor: HTMLElement): void {
       const b = editor.store.building(editor.sel.building ?? editor.context);
       download(sectionSvg(editor.project, b ? b.position[1] : undefined, loadLang() === 'pt-BR' ? ',' : '.', tr), fileName(editor.project.name + '-section', 'svg'), 'image/svg+xml');
     }],
+    ['Elevations', '.zip', async () => {
+      // The four sides, one SVG each, in one archive (four downloads at once would be blocked).
+      const [{ elevationSvg, ELEVATION_NAMES }, { zipStore }] = await Promise.all([import('../f3/io/elevationsvg'), import('../f3/io/zip')]);
+      const dec = loadLang() === 'pt-BR' ? ',' : '.';
+      const sides = Object.keys(ELEVATION_NAMES) as (keyof typeof ELEVATION_NAMES)[];
+      const files = sides.map((s) => ({ name: fileName(`${editor.project.name}-${tr(ELEVATION_NAMES[s])}`, 'svg'), data: elevationSvg(editor.project, s, dec, tr) }));
+      download(zipStore(files) as BlobPart, fileName(editor.project.name + '-elevations', 'zip'), 'application/zip');
+    }],
     ['Quantities and cost…', '', () => openQuantities(editor)],
     ['Areas', '.csv', () => download(['building;footprint m2;gross floor area m2;volume m3', ...areasTable(editor.project).map((r) => [r.building, r.footprint, r.gfa, r.volume].join(';'))].join('\n'), fileName(editor.project.name + '-areas', 'csv'), 'text/csv')],
     ['BIM and 3D', '', null],
