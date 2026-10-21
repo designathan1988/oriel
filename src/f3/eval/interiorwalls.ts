@@ -235,6 +235,67 @@ export function extendInteriorWall(b: Building3, levelId: ID, wallId: ID, end: '
   return true;
 }
 
+/**
+ * Curves an interior wall: an arc through its two ends that bulges `sagitta` m from the middle of the
+ * straight wall (positive to the left going from `a` to `b`), made of short straight pieces (one every
+ * 30 cm or so, 6 to 24), so rooms, plans and exports take it as they take any wall. Its doors go (they
+ * were set on a straight wall). Returns the ids of the pieces.
+ */
+export function curveInteriorWall(b: Building3, levelId: ID, wallId: ID, sagitta: number, uid: () => string): ID[] {
+  const it = b.interiors[levelId] as InteriorWithDoors | undefined;
+  const w = it?.walls.find((x) => x.id === wallId);
+  if (!it || !w || Math.abs(sagitta) < 0.01) return [];
+  const node = new Map(it.nodes.map((n) => [n.id, n.p]));
+  const A = node.get(w.a),
+    B = node.get(w.b);
+  if (!A || !B) return [];
+  const L = Math.hypot(B[0] - A[0], B[1] - A[1]);
+  const s = Math.max(-L / 2 + 0.01, Math.min(L / 2 - 0.01, sagitta));
+  // The circle through A, B and the bulge point: radius from the chord and the sagitta.
+  const r = (L * L) / (8 * Math.abs(s)) + Math.abs(s) / 2;
+  const ux = (B[0] - A[0]) / L,
+    uz = (B[1] - A[1]) / L;
+  const nx = -uz * Math.sign(s),
+    nz = ux * Math.sign(s);
+  const mx = (A[0] + B[0]) / 2,
+    mz = (A[1] + B[1]) / 2;
+  const cx = mx - nx * (r - Math.abs(s)),
+    cz = mz - nz * (r - Math.abs(s));
+  const a0 = Math.atan2(A[1] - cz, A[0] - cx),
+    a1 = Math.atan2(B[1] - cz, B[0] - cx);
+  // The arc on the bulge's side (the short way round when the sagitta is under half the chord).
+  let da = a1 - a0;
+  const mid = Math.atan2(mz + nz * Math.abs(s) - cz, mx + nx * Math.abs(s) - cx);
+  const between = (x: number) => {
+    let t = x - a0;
+    while (t < 0) t += 2 * Math.PI;
+    let e = da;
+    while (e < 0) e += 2 * Math.PI;
+    return t <= e;
+  };
+  if (da < 0) da += 2 * Math.PI;
+  if (!between(mid)) da -= 2 * Math.PI;
+  const n = Math.max(6, Math.min(24, Math.round((Math.abs(da) * r) / 0.3)));
+  it.walls = it.walls.filter((x) => x.id !== w.id);
+  if (it.doors) it.doors = it.doors.filter((d) => d.wall !== w.id);
+  const ids: ID[] = [];
+  let prev = w.a;
+  for (let i = 1; i <= n; i++) {
+    let cur: ID;
+    if (i === n) cur = w.b;
+    else {
+      cur = uid();
+      const t = a0 + (da * i) / n;
+      it.nodes.push({ id: cur, p: [Math.round((cx + r * Math.cos(t)) * 1e4) / 1e4, Math.round((cz + r * Math.sin(t)) * 1e4) / 1e4] });
+    }
+    const id = uid();
+    it.walls.push({ id, a: prev, b: cur, thickness: w.thickness });
+    ids.push(id);
+    prev = cur;
+  }
+  return ids;
+}
+
 /** Copies the interior of a level (nodes, walls, rooms and doors) to other levels, all with new ids. */
 export function replicateLevel(b: Building3, fromLevel: ID, toLevels: ID[], uid: () => string): void {
   const src = b.interiors[fromLevel];

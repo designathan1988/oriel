@@ -4,7 +4,7 @@
 // walls, the rooms of the floor shown). Data: Building3.interiors (eval/interiorwalls.ts).
 import type { Editor3 } from '../editor/editor';
 import { ROOM_USES, ROOM_USE_NAMES as USE_NAMES, type Building3, type ID, type MaterialRef, type RoomUse } from '../model/schema';
-import { extendInteriorWall, interiorDoors, roomArea, roomCeiling, roomPerimeter, type InteriorWithDoors } from '../eval/interiorwalls';
+import { curveInteriorWall, extendInteriorWall, interiorDoors, roomArea, roomCeiling, roomPerimeter, type InteriorWithDoors } from '../eval/interiorwalls';
 import { offsetRing, oriented, sampleRing } from '../model/plan';
 import { uid } from '../model/defaults';
 import { floorPlan, sortedLevels } from '../eval/floorplan';
@@ -85,6 +85,7 @@ export function interiorPanel(ed: Editor3, b: Building3): string {
     <div class="f3-sec"><h3>Wall</h3>
       ${prow('Thickness', 'thickness', [cell('data-iw="thickness"', 'Wall thickness', w.thickness, gicon('thickness'))])}
       ${prow('Length', 'distance', [cell('data-iw="length"', 'Length (the end point moves)', len, gtext('L'), 'm', 0.1)])}
+      ${prow('Curve', 'arc', [cell('data-iw="curve"', 'Bulge from the middle (− the other side); the wall becomes an arc', 0, gtext('↶'), 'm', 0.1)])}
       <div class="f3-btns n2"><button class="f3-btn" data-iwact="door">${icon('door')}Add door</button><button class="f3-btn" data-iwact="passage">${icon('opening')}Add passage</button><button class="f3-btn" data-iwact="extend-a" title="Extends the start of the wall to the next wall">${icon('extrude')}Extend start</button><button class="f3-btn" data-iwact="extend-b" title="Extends the end of the wall to the next wall">${icon('extrude')}Extend end</button><button class="f3-btn danger" data-iwact="delete">${icon('trash')}Delete wall</button></div>
     </div>
     ${doors.map(({ d, i }, k) => `<div class="f3-sec"><h3>${d.leaf === false ? 'Passage' : 'Door'} ${k + 1}</h3>
@@ -241,6 +242,12 @@ export function bindInteriorPanel(ed: Editor3, b: Building3, side: HTMLElement):
     el.addEventListener('change', () => {
       if (!ws) return;
       const v = parse(el.value);
+      if (el.dataset.iw === 'curve') {
+        if (!Number.isFinite(v) || Math.abs(v) < 0.01) return;
+        ed.change(b.id, (x) => void curveInteriorWall(x, ws.level, ws.wall, v, uid), 'Wall curved.');
+        ed.iwallSel = null;
+        return ed.select({ ...ed.sel });
+      }
       if (!Number.isFinite(v) || v <= 0) return;
       ed.change(b.id, (x) => {
         const it = itOf(x, ws.level);

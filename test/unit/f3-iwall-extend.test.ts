@@ -28,3 +28,20 @@ describe('extendInteriorWall', () => {
     expect(extendInteriorWall(b, lv, w, 'b', [], id)).toBe(false);
   });
 });
+
+describe('curveInteriorWall', () => {
+  it('an arc of short walls through both ends, bulging by the sagitta', async () => {
+    const { curveInteriorWall } = await import('../../src/f3/eval/interiorwalls');
+    const b = building({ levels: levelsFor(1), solids: [] });
+    const lv = b.levels[0]!.id;
+    const w = addInteriorWall(b, lv, [0, 0], [4, 0], 0.12, id);
+    const ids = curveInteriorWall(b, lv, w, 1, id);
+    const it = b.interiors[lv]!;
+    expect(ids.length).toBeGreaterThanOrEqual(6);
+    expect(it.walls).toHaveLength(ids.length);
+    // The middle node sits 1 m off the chord, on the left of a→b (z up in the plan: +z here).
+    const far = Math.max(...it.nodes.map((n) => Math.abs(n.p[1])));
+    expect(far).toBeGreaterThan(0.95);
+    expect(far).toBeLessThanOrEqual(1.0001);
+  });
+});
