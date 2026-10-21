@@ -70,13 +70,18 @@ export const CSS = `
 .f3-view{grid-area:view;position:relative;overflow:hidden;min-height:0;background:var(--canvas)}
 .f3-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;outline:none}
 .f3-island{position:absolute;z-index:6;background:var(--panel);border:1px solid #00000059;border-radius:var(--r);box-shadow:var(--shadow);backdrop-filter:blur(10px)}
-.f3-tools{grid-area:tools;position:relative;z-index:6;display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 0;background:var(--panel-solid);border-right:1px solid #000;overflow-y:auto;overflow-x:hidden}
+.f3-tools{grid-area:tools;position:relative;z-index:6;display:flex;flex-direction:column;align-items:center;padding:6px 0;background:var(--panel-solid);border-right:1px solid #000;overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
 .f3-tool{width:34px;height:34px;flex:none;border:0;border-radius:8px;background:transparent;display:grid;place-items:center;position:relative;color:var(--muted)}
 .f3-tool svg{width:18px;height:18px}
 .f3-tool:hover{background:var(--raise);color:var(--ink)}
 .f3-tool[aria-pressed=true]{background:var(--accent-2);color:var(--accent-ink);box-shadow:inset 0 0 0 1px var(--accent)}
 .f3-tool.grp::after{content:"";position:absolute;right:4px;bottom:4px;border:2.5px solid transparent;border-right-color:currentColor;border-bottom-color:currentColor;opacity:.55}
 .f3-tools hr{width:22px;border:0;border-top:1px solid var(--line);margin:4px auto;flex:none}
+.f3-toolset{display:flex;flex-direction:column;align-items:center;gap:2px;flex:none}
+.f3-topsep{width:1px;height:20px;background:var(--line);margin:0 6px;flex:none}
+.f3-top .f3-viewctl{display:flex;align-items:center;gap:2px;flex:none}
+.f3-top .f3-viewctl .f3-tb{height:30px}
+.f3-top .f3-viewctl select{height:28px;border:1px solid var(--line);border-radius:7px;background:var(--field);color:var(--ink);padding:0 6px;font:inherit}
 .f3-flyout{position:absolute;z-index:40;display:flex;flex-direction:column;gap:1px;padding:4px;min-width:170px;background:var(--panel-solid);border:1px solid var(--line-2);border-radius:10px;box-shadow:var(--shadow)}
 .f3-flyout button{display:flex;align-items:center;gap:10px;height:32px;padding:0 10px;border:0;border-radius:7px;background:transparent;color:var(--ink);text-align:left}
 .f3-flyout button span{flex:1}
@@ -531,6 +536,8 @@ export interface Shell3 {
   aside: HTMLElement;
   cat: HTMLElement;
   tools: HTMLElement;
+  /** The view controls at the right of the toolbar: 3D / 2D and the floor shown. */
+  viewctl: HTMLElement;
   status: { hint: HTMLElement; vcbLabel: HTMLElement; vcb: HTMLInputElement; stats: HTMLElement; bar: HTMLElement };
   crumb: HTMLElement;
   /** Selection mode switch (volumes, vertex, edge, face). */
@@ -563,6 +570,8 @@ export function createShell3(container: HTMLElement): Shell3 {
     <span class="f3-saved"></span>
     <button class="f3-tb" data-cmd="undo" title="Undo · Ctrl+Z" aria-label="Undo">${icon('undo')}</button>
     <button class="f3-tb" data-cmd="redo" title="Redo · Ctrl+Y" aria-label="Redo">${icon('redo')}</button>
+    <span class="f3-topsep"></span>
+    <div class="f3-viewctl" aria-label="View"></div>
     <span class="f3-sp"></span>
     <button class="f3-search" data-cmd="palette" title="Search tools, commands and components">${icon('search')}<span>Search commands</span><kbd>Ctrl K</kbd></button>
     <span class="f3-sp"></span>
@@ -576,7 +585,7 @@ export function createShell3(container: HTMLElement): Shell3 {
       <button data-cmd="versions" role="menuitem">${icon('layers')}Versions…</button>
     </div>
   </header>
-  <nav class="f3-tools" aria-label="Tools"></nav>
+  <nav class="f3-tools" aria-label="Tools"><div class="f3-toolset"></div></nav>
   <section class="f3-cat closed" aria-label="Library"></section>
   <main class="f3-view">
     <div class="f3-crumb f3-island"></div>
@@ -691,7 +700,8 @@ export function createShell3(container: HTMLElement): Shell3 {
     tabs: $('.f3-tabs'),
     aside,
     cat: $('.f3-cat'),
-    tools: $('.f3-tools'),
+    tools: $('.f3-toolset'),
+    viewctl: $('.f3-viewctl'),
     status: { hint: $('.f3-hint'), vcbLabel: $('.f3-vcb label'), vcb: $('.f3-vcb input'), stats: $('.f3-stats'), bar: $('.f3-status') },
     crumb: $('.f3-crumb'),
     modes: $('.f3-modes'),

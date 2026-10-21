@@ -103,7 +103,7 @@ export function mountPlanView(ed: Editor3): PlanView {
   btn.className = 'f3-tb plan2d';
   btn.title = 'Floor plan (2D) · F2';
   btn.innerHTML = `${icon('grid')}<span>2D</span>`;
-  ed.shell.viewbar.prepend(btn);
+  ed.shell.viewctl.prepend(btn);
   btn.addEventListener('click', () => setOpen(true));
 
   const building = (): Building3 | undefined => ed.store.building(bid) ?? undefined;

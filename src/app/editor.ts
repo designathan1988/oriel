@@ -161,6 +161,9 @@ function tourPublish(): TourPublish {
     },
   };
 }
+// The view controls (grid and rotation steps, sun, snap, frame, interior view, render) live in the top
+// bar next to 2D and the floor shown; only the view cube stays over the drawing.
+for (const n of [...editor.shell.viewbar.children]) if (!n.classList.contains('f3-cube') && !n.classList.contains('f3-sepv')) editor.shell.viewctl.append(n);
 (globalThis as { forma3?: Editor3 }).forma3 = editor;
 sentinel?.watchEditor(editor);
 if (startNote) editor.toast(startNote);

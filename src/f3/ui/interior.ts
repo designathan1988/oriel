@@ -143,8 +143,10 @@ export function mountInteriorView(ed: Editor3): void {
     const r = bar.getBoundingClientRect(),
       pr = bar.parentElement!.getBoundingClientRect(),
       br = btn.getBoundingClientRect();
-    pop.style.right = `${pr.right - r.left + 6}px`;
-    pop.style.top = `${br.top - pr.top}px`;
+    // Under its button (in the top bar), or beside the view bar when the button is there.
+    const inTop = br.bottom <= pr.top + 2;
+    pop.style.right = `${inTop ? Math.max(6, pr.right - br.right) : pr.right - r.left + 6}px`;
+    pop.style.top = `${inTop ? 6 : br.top - pr.top}px`;
   };
   btn.addEventListener('click', () => {
     pop.hidden = !pop.hidden;
