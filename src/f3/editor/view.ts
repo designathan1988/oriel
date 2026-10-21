@@ -203,6 +203,7 @@ export class View {
       if (!this.dirty || this.photo) return;
       this.dirty = false;
       this.batcher.cull(this.camera, this.look.sun);
+      this.applyStyle();
       this.look.render();
       this.onRender?.();
     };
@@ -412,6 +413,10 @@ export class View {
     const vis = visibilityKeys(p);
     setProjectImages(p.images);
     if (this.site.sync(p, this.sitePicked)) this.holeGround(this.site.terrainBox);
+    if ((p.view?.style ?? null) !== this.style) {
+      this.style = p.view?.style ?? null;
+      this.mark();
+    }
     const wallsOff = p.view?.hiddenBody?.includes('walls'),
       roofsOff = p.view?.hiddenBody?.includes('roofs');
     const partVisible = (b: Building3) => (tag: PartTag) => {
@@ -1145,6 +1150,40 @@ export class View {
       if (ti && itemLocked(p, ti)) continue;
       yield { building: b, point: h.point.clone(), normal, ...(tag ? { part: tag } : {}) };
     }
+  }
+
+  /** View style: the buildings drawn in one material (white model) or see-through (x-ray); null = realistic. */
+  private style: 'white' | 'xray' | null = null;
+  private styleMats: { white: THREE.Material; xray: THREE.Material } | null = null;
+
+  /**
+   * Puts the style's material on every building mesh (the realistic one is kept on the mesh to come back
+   * to); leaves and other cut-out textures keep theirs (a white quad would show). Runs before each frame,
+   * so meshes rebuilt since take the style too.
+   */
+  private applyStyle(): void {
+    const mats = (this.styleMats ??= {
+      white: new THREE.MeshStandardMaterial({ color: '#f1efea', roughness: 0.92, metalness: 0 }),
+      xray: new THREE.MeshStandardMaterial({ color: '#cfdbe4', roughness: 0.6, transparent: true, opacity: 0.26, depthWrite: false, side: THREE.DoubleSide }),
+    });
+    const target = this.style ? mats[this.style] : null;
+    for (const g of [this.root, this.batcher.root])
+      g.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (!m.isMesh) return;
+        const orig = (m.userData.mat0 ?? m.material) as THREE.Material | THREE.Material[];
+        if (!target) {
+          if (m.userData.mat0) {
+            m.material = m.userData.mat0;
+            delete m.userData.mat0;
+          }
+          return;
+        }
+        const cut = (Array.isArray(orig) ? orig : [orig]).some((x) => x.alphaTest > 0);
+        if (cut) return;
+        m.userData.mat0 = orig;
+        m.material = Array.isArray(orig) ? orig.map(() => target) : target;
+      });
   }
 
   private groundHole = '';

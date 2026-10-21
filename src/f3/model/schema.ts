@@ -188,6 +188,8 @@ export interface ViewState {
   onlyLevel?: boolean;
   /** Exploded floors: gap (m) between the floors, each cut 1.2 m above its floor (Revit Displace Elements). 0/absent = off. */
   explode?: number;
+  /** View style (SketchUp's face styles, Revit's visual styles): a white model or x-ray; absent = realistic. */
+  style?: 'white' | 'xray';
 }
 
 /** Profile swept around the volume at a height. */

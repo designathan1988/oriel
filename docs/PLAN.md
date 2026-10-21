@@ -193,7 +193,8 @@ Backlog (P1 first):
       mullions, glass panels, opaque band at each floor; selected side → Curtain wall). Door panel in a bay of the ground row (doorBay).
 - [x] P1 Shafts and atria: a cutter drawn inside a building opens every slab it crosses, and the floor
       areas leave it out (model/lots.ts levelAreas). Slabs per level: Slab tool (outline, thickness).
-      [ ] Holes and cantilevers edited on a slab of its own.
+      Holes and cantilevers: a slab is a volume of its own (free outline, overhanging the walls) and a
+      cutter through it opens it.
 - [x] P1 Pitch per side on hip, gable, mansard and gambrel roofs (weighted straight skeleton; selected side
       → Roof pitch; EdgeSpec.pitch).
 - [x] P1 Railings: on stairs (the stair family's rails), around a selected top (terrace, slab edge: panel and
@@ -214,7 +215,8 @@ Backlog (P1 first):
 - [ ] P2 Roof by profile, openings in roofs; stair landings/winders; ramp tool; elevator core.
 - [ ] P2 Grid axes with labels; automatic beams between columns; section box; guide lines; loft by
       several sections; mirror about a drawn axis; transfer properties; component from selection.
-- [ ] P2 Parking along a path; renovation phases; view styles (white model, x-ray); design options.
+- [x] P2 View styles: realistic, white model, x-ray (Interior view → Style; view.style).
+- [ ] P2 Parking along a path; renovation phases; design options.
 
 ### Procedural objects and methods (research 2026-10-13: three agent reports in the session)
 

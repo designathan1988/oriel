@@ -44,7 +44,7 @@ export function mountInteriorView(ed: Editor3): void {
     const p = ed.project;
     btn.setAttribute('aria-pressed', String(interiorView(p)));
     if (pop.hidden) return;
-    const key = JSON.stringify([p.view?.hiddenBody, p.view?.cutLevel, p.view?.onlyLevel, p.view?.explode, levelsMax()]);
+    const key = JSON.stringify([p.view?.hiddenBody, p.view?.cutLevel, p.view?.onlyLevel, p.view?.explode, p.view?.style, levelsMax()]);
     if (key === last) return;
     last = key;
     const rows = BODY_CATEGORIES.map(([c, name]) => {
@@ -57,6 +57,7 @@ export function mountInteriorView(ed: Editor3): void {
       <div class="f3-btns n3"><button class="f3-btn" data-preset="cutaway" title="Cut 1.2 m above the floor shown">${icon('cutaway')}<span>Cutaway</span></button><button class="f3-btn" data-preset="explode" title="Floors apart, each cut">${icon('floorUp')}<span>Exploded</span></button><button class="f3-btn" data-preset="all" title="Whole buildings">${icon('eye')}<span>Show all</span></button></div>
       <div class="f3-interior-list">${rows}</div>
       <div class="f3-interior-ctl">
+      ${prow('Style', 'palette', [`<div class="f3-seg" role="group" aria-label="View style">${([['', 'Realistic'], ['white', 'White'], ['xray', 'X-ray']] as const).map(([v, l]) => `<button data-style="${v}" aria-pressed="${(p.view?.style ?? '') === v}">${l}</button>`).join('')}</div>`], { wide: true })}
       ${prow('Apart', 'floorUp', [`<label class="f3-cell rng" title="${p.view?.onlyLevel ? 'One floor shown: nothing to move apart' : 'Gap between floors (0 = together)'}"><input type="range" data-explode min="0" max="10" step="0.5" value="${gap}" aria-label="Gap between floors"${p.view?.onlyLevel ? ' disabled' : ''}><output>${gap} m</output></label>`], { wide: true, title: 'Floors apart' })}
       ${prow('Show', 'level', [`<label class="f3-check" title="${cut === undefined ? 'Choose a floor in the floor switcher first' : 'Hides the other floors'}"><input type="checkbox" data-only ${p.view?.onlyLevel ? 'checked' : ''} ${cut === undefined ? 'disabled' : ''}><span>Only this floor</span></label>`], { wide: true })}
       </div>`;
@@ -68,6 +69,14 @@ export function mountInteriorView(ed: Editor3): void {
         if (cur.has(c)) cur.delete(c);
         else cur.add(c);
         setHidden([...cur], `${name}: ${cur.has(c) ? 'hidden' : 'visible'}.`);
+      }),
+    );
+    pop.querySelectorAll<HTMLButtonElement>('[data-style]').forEach((b) =>
+      b.addEventListener('click', () => {
+        const v = viewOf(ed.store.project);
+        if (b.dataset.style) v.style = b.dataset.style as 'white' | 'xray';
+        else delete v.style;
+        commit(b.dataset.style === 'white' ? 'White model.' : b.dataset.style === 'xray' ? 'X-ray.' : 'Realistic.');
       }),
     );
     // Presets replace each other: one look at a time.
