@@ -45,7 +45,7 @@ export function mountViewCube(ed: Editor3): void {
         cells.push(`<span class="${kind}${under ? ' off' : ''}" data-dir="${d.join(',')}" title="${under ? 'Not available: the camera stays above the ground' : `${f.name}${kind === 'face' ? '' : ` (${kind})`}`}">${kind === 'face' ? f.name : ''}</span>`);
       }
     return `<div class="f3-cube-face" style="transform:${f.css}">${cells.join('')}</div>`;
-  }).join('')}</div>${['up', 'down', 'left', 'right'].map((a) => `<button class="f3-cube-arrow" data-arrow="${a}" hidden aria-label="Turn to the face ${a === 'up' ? 'above' : a === 'down' ? 'below' : `on the ${a}`}"></button>`).join('')}</div>`;
+  }).join('')}</div>${['up', 'down', 'left', 'right'].map((a) => `<button class="f3-cube-arrow" data-arrow="${a}" hidden aria-label="${a === 'up' ? 'Turn to the face above' : a === 'down' ? 'Turn to the face below' : a === 'left' ? 'Turn to the face on the left' : 'Turn to the face on the right'}"></button>`).join('')}</div>`;
   ed.shell.viewbar.prepend(root);
   const box = root.querySelector<HTMLElement>('.f3-cube-box')!;
   const arrows = [...root.querySelectorAll<HTMLButtonElement>('.f3-cube-arrow')];

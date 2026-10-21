@@ -198,11 +198,14 @@ export function ribbon(points: Vec2[], w0: number, w1: number): Vec2[][] {
  * Tree positions along both sidewalks of a street (world), every `spacing` m. At a bend a tree that
  * would stand on the other stretch's asphalt, or next to a tree already there, is left out.
  */
-export function treesAlong(st: Street, spacing: number): Vec2[] {
+export function treesAlong(st: Street, spacing: number, p?: Project3): Vec2[] {
   const out: Vec2[] = [];
   const off = st.width / 2 + st.sidewalk * 0.55;
   const asphalt = ribbon(st.points, 0, st.width / 2);
-  const free = (q: Vec2) => !asphalt.some((r) => insideRing(q, r)) && !out.some((o) => len(o, q) < spacing * 0.6);
+  // Never on (or against) a building standing over the sidewalk: 1 m clear of each volume's plan.
+  const plans = (p?.buildings ?? []).filter((b) => !b.hidden).flatMap((b) => b.solids.filter((x) => x.op === 'add' && !x.hidden).map((x) => outerRing(b, x)));
+  const onBuilding = (q: Vec2) => plans.some((r) => insideRing(q, r) || r.some((a, i) => segDist(q, a, r[(i + 1) % r.length]!) < 1));
+  const free = (q: Vec2) => !asphalt.some((r) => insideRing(q, r)) && !onBuilding(q) && !out.some((o) => len(o, q) < spacing * 0.6);
   for (let k = 0; k + 1 < st.points.length; k++) {
     const a = st.points[k]!,
       b = st.points[k + 1]!;
@@ -338,7 +341,7 @@ export function replantStreetTrees(p: Project3, make: (name: string, at: Vec2) =
     }
     st.treesBuilding = b.id;
     if (!b.solids.length) b.name = name;
-    const pts = treesAlong(st, st.trees);
+    const pts = treesAlong(st, st.trees, p);
     const prevType = b.items[0]?.type ?? type;
     b.items = treeItems(b, pts, prevType, id);
     out.push(b.id);

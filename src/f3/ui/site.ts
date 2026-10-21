@@ -173,7 +173,7 @@ export function bindSitePanel(ed: Editor3, side: HTMLElement): void {
       if (act === 'trees') {
         const sp = numOf('[data-treesp]', 8);
         if (sp < 3 || sp > 100) return ed.toast('Trees 3 to 100 m apart.');
-        const pts = treesAlong(st, sp);
+        const pts = treesAlong(st, sp, ed.project);
         if (!pts.length) return ed.toast('The street is too short for trees that far apart.');
         // The street keeps its spacing: its trees follow it when it changes (model/site.ts, replantStreetTrees).
         ed.changeSite((p) => void (stOf(p)!.trees = sp), `${pts.length} trees along ${st.name}; they follow the street when it changes.`);
