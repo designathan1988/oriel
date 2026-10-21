@@ -22,6 +22,8 @@ export interface StairHost {
   showDim(text: string, e: { clientX: number; clientY: number }): void;
   hideDim(): void;
   toast(msg: string): void;
+  /** The point on the floor shown of the building under the pointer (inside it), if any. */
+  floorPoint?(e: { clientX: number; clientY: number }): THREE.Vector3 | null;
 }
 
 const MAX_RISER = 0.18,
@@ -62,7 +64,9 @@ export class StairTool {
 
   down(e: PointerEvent): void {
     if (!this.foot) {
-      const p = this.h.view.pointAt(e);
+      // Inside a building: on the floor shown (a closed house would give its wall or roof under the
+      // pointer, and the stair went outside); elsewhere what is under the pointer.
+      const p = this.h.floorPoint?.(e) ?? this.h.view.pointAt(e);
       if (!p) return;
       this.foot = p;
       return;

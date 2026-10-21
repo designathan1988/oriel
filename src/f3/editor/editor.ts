@@ -211,6 +211,12 @@ export class Editor3 {
       overlay: this.snapOverlay,
       context: () => this.store.building(this.context),
       ownerAt: (x, z) => this.ownerAt(x, z),
+      floorPoint: (e) => {
+        const at = this.levelPoint(e);
+        if (!at) return null;
+        const w = toWorld(at.b, at.p);
+        return new THREE.Vector3(w[0], at.lv.elevation + (at.b.elevation ?? 0), w[1]);
+      },
       commit: (b, it, msg) => {
         this.adopt(b);
         this.change(b.id, (x) => void x.items.push(it), msg);
@@ -1862,7 +1868,7 @@ export class Editor3 {
       const l = toLocal(b, [w.x, w.z]);
       for (const so of b.solids) {
         // A wall drawn on its own is not a floor to divide (its line is where new walls join it).
-        if (so.op !== 'add' || so.hidden || so.wallAxis) continue;
+        if (so.op !== 'add' || so.hidden || constructMod.wallAxisOf(so)) continue;
         const ring = sampleRing(so.plan.outer).pts;
         if (inside(l, ring)) return b;
       }
