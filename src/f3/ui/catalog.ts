@@ -121,7 +121,7 @@ export function mountCatalog(ed: Editor3): { open(): void } {
   });
   search.addEventListener('keydown', (e) => {
     e.stopPropagation();
-    if (e.key === 'Escape') ed.toggleLibrary(false);
+    if (e.key === 'Escape') search.blur();
   });
 
   const label = (c: string) => (c === 'blocks' ? 'Massing blocks' : c === 'materials' ? 'Materials' : c === 'fav' ? 'Favorites' : c === 'recent' ? 'Recent' : c === 'mine' ? 'My types' : CATEGORY_NAMES[c as Category]);
@@ -220,7 +220,7 @@ export function mountCatalog(ed: Editor3): { open(): void } {
         const host = f.host === 'face' ? 'goes on a wall' : f.host === 'path' ? 'drawn point by point (Enter ends)' : f.host === 'roof' ? 'goes on a roof' : 'goes where you click (ground, terrace or slab)';
         return `<div class="f3-card" draggable="true" data-type="${t.id}" data-host="${host}" aria-label="${t.name} · ${host}" aria-pressed="${ed.placing === t.id}">
         <button class="fav" data-fav="${t.id}" aria-pressed="${favs.has(t.id)}" aria-label="Favorite">${icon('star')}</button>
-        <img alt="" data-thumb="${t.id}"><span>${t.name}</span></div>`;
+        <img alt="" data-thumb="${t.id}"><span${t.user ? " data-i18n-skip" : ""}>${t.name}</span></div>`;
       })
       .join('');
     thumbs ??= createThumbnailer(ed.view.renderer, ed.view.ctx, { project: ed.project });
@@ -357,7 +357,7 @@ export function mountCatalog(ed: Editor3): { open(): void } {
   ed.catalogRequested = () => {
     host.classList.remove('closed');
     renderCards();
-    search.focus();
+    // The keys stay with the tools (O, W, Ctrl+K…): the search takes the typing once it is clicked.
   };
   let lastPlacing: string | null = null;
   ed.onChange(() => {

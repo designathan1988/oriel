@@ -5827,7 +5827,11 @@ export class Editor3 {
   private drawPlane(e: { clientX: number; clientY: number }): { y: number; bid: ID | null } {
     const hit = this.pickAt(e);
     if (hit?.face && (hit.face.kind === 'top' || hit.face.kind === 'parapet') && hit.normal.y > 0.9) return { y: hit.point.y, bid: hit.building.id };
-    return { y: 0, bid: this.context };
+    // On the ground: the building being edited only when the shape starts inside its outline (an arc
+    // drawn 100 m away used to become a volume of that building).
+    const g = this.view.onPlane(e, 0);
+    const inside = g ? this.footprintAt(g.x, g.z) : null;
+    return { y: 0, bid: inside && inside.id === this.context ? this.context : null };
   }
 
   private drawDown(e: PointerEvent): void {
