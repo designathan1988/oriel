@@ -183,15 +183,17 @@ Done this session: Walls tool (building from walls with real thickness, free wal
 rectangle or click inside walls, with outer walls), room labels, floor finish per room, wall/door/room
 panels, Slab, Column and Beam tools, interior wall corners editable.
 Backlog (P1 first):
-- [ ] P1 Walls: reference line (axis/inner/outer), arcs, top tied to a level.
+- [x] P1 Walls: reference line (axis/inner/outer; tool options, 2026-10-21). [ ] Arcs, top tied to a level.
 - [ ] P1 Wall types with thickness and layers (poché by layer in section and plan).
 - [ ] P1 Curtain wall per face (U/V grid, mullions, glass/opaque/door panels).
 - [ ] P1 Slab as an element per level (outline, thickness, holes, cantilever); shafts/atria through slabs.
 - [ ] P1 Pitch per side on hip roofs (weighted skeleton).
 - [ ] P1 Railings on stair, slab edge and terrace (edge host kept by a relation).
 - [ ] P1 Rooms: use/category, ceiling height, volume; area and quantity schedules (CSV).
-- [ ] P1 Terrain (TIN from points/contours, sculpt), building pad, drape streets and lots.
-- [ ] P1 Elevations with hidden lines (SVG/PDF/DXF); floor plans with interior walls, doors, rooms.
+- [x] P1 Terrain from points (modified Shepard, back to 0 within 40 m; Shift+T), pads under buildings and
+      streets, lots tinted on it, contours in 3D, site plan and ground floor plans, section and elevations,
+      exports (2026-10-21). [ ] From contours; sculpt.
+- [x] P1 Elevations (SVG/PDF, painter with creases); floor plans with interior walls, doors, rooms. [x] Elevations in DXF with hidden lines removed by a depth buffer (io/elevationdxf.ts).
 - [ ] P1 Persistent associative dimensions and labels saved in the project.
 - [ ] P1 Building instances (identical houses on lots); saved scenes (camera, time, layers, view).
 - [ ] P2 Corner window; curved interior walls; trim/extend; openings in interior walls; door swing in plan.
@@ -234,7 +236,7 @@ only), Müller 2006 CGA, CityEngine docs, Houdini Labs, TestFit, Forma):
 - [ ] Derived operations as live nodes (extrude, inset, split, setback, podium, courtyard, offset
       copy, bridge) and Apply; plan edits as nodes when something depends on them, with lineage.
 - [ ] Operation stack panel (enable, reorder, delete, apply); free solid generator and its face ops.
-- [x] Named and automatic versions in IndexedDB (project menu → Versions…). [ ] Undo history across reloads.
+- [x] Named and automatic versions in IndexedDB (project menu → Versions…). [x] Undo history across reloads (last 40 steps, io/history.ts).
 
 ### Stage 4: selection and tools
 - [x] Alt picks the building behind the selected one; select row / column / grow / same type (loop and ring

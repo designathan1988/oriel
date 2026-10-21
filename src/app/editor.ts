@@ -260,6 +260,12 @@ function exportMenu(anchor: HTMLElement): void {
       download(await drawingsPdf(editor.project, { sectionAt: b ? b.position[1] : undefined, t: tr, decimal: loadLang() === 'pt-BR' ? ',' : '.' }), fileName(editor.project.name + '-drawings', 'pdf'), 'application/pdf');
     }],
     ['Site plan', '.svg', () => download(planSvg(editor.project), fileName(editor.project.name + '-site', 'svg'), 'image/svg+xml')],
+    ['Elevations for CAD', '.dxf', async () => {
+      const { elevationsDxf } = await import('../f3/io/elevationdxf');
+      const d = elevationsDxf(editor.project, loadLang() === 'pt-BR' ? ',' : '.', tr);
+      if (!d) return editor.toast('Nothing to draw yet.');
+      download(d, fileName(editor.project.name + '-elevations', 'dxf'), 'application/dxf');
+    }, 'dxf'],
     ['Floor plans for CAD', '.dxf', async () => {
       const { collectFloorPlans, floorPlansToDxf } = await import('../f3/io/cadplan');
       const plans = collectFloorPlans(editor.project, (id) => editor.view.built.get(id)?.ev.placements ?? [], tr);

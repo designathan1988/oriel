@@ -32,7 +32,19 @@ interface Tri {
 const r2 = (v: number) => Math.round(v * 100) / 100;
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
-export function elevationSvg(p: Project3, side: Side, dec = '.', t: (s: string) => string = (x) => x): string {
+/** A face of the elevation: projected (x along the drawing, y up, d depth) and in 3D. */
+export interface ElevationFace {
+  pts: { x: number; y: number; d: number }[];
+  p3: [V3, V3, V3];
+  n: V3;
+  kind: Tri['kind'];
+  facing: number;
+  depth: number;
+  area: number;
+}
+
+/** The faces seen from a side, far to near, and the floor levels (world heights). */
+export function elevationFaces(p: Project3, side: Side): { drawn: ElevationFace[]; levels: number[] } {
   const { h, look } = SIDES[side];
   const tris: Tri[] = [];
   const levels: number[] = [];
@@ -101,6 +113,37 @@ export function elevationSvg(p: Project3, side: Side, dec = '.', t: (s: string) 
     // Facing the viewer, above the ground and not a sliver.
     .filter((q) => q.facing < -0.02 && q.area > 2e-4 && Math.max(...q.pts.map((r) => r.y)) > 0.01)
     .sort((x, y) => y.depth - x.depth);
+  return { drawn, levels };
+}
+
+/**
+ * Creases of the faces: an edge is drawn where the faces on its two sides turn (or where only one face
+ * has it), so a flat wall shows no triangles and a window frame shows its outline.
+ */
+export function creaseTest(drawn: ElevationFace[]): (a: V3, b: V3) => boolean {
+  const ek = (a: V3, b: V3) => {
+    const k = (q: V3) => `${Math.round(q[0] * 200)},${Math.round(q[1] * 200)},${Math.round(q[2] * 200)}`;
+    const x = k(a),
+      y = k(b);
+    return x < y ? `${x}|${y}` : `${y}|${x}`;
+  };
+  const edges = new Map<string, V3[]>();
+  for (const q of drawn)
+    for (let j = 0; j < 3; j++) {
+      const key = ek(q.p3[j]!, q.p3[(j + 1) % 3]!);
+      const l = edges.get(key);
+      if (l) l.push(q.n);
+      else edges.set(key, [q.n]);
+    }
+  return (a: V3, b: V3) => {
+    const ns = edges.get(ek(a, b))!;
+    return ns.length === 1 || ns.some((m) => m[0] * ns[0]![0] + m[1] * ns[0]![1] + m[2] * ns[0]![2] < 0.96);
+  };
+}
+
+export function elevationSvg(p: Project3, side: Side, dec = '.', t: (s: string) => string = (x) => x): string {
+  const { h } = SIDES[side];
+  const { drawn, levels } = elevationFaces(p, side);
   // The shaped ground seen from this side: the highest ground along each line of sight (every 25 cm),
   // drawn behind the buildings; flat ground is the ground line alone.
   const field = terrainField(p);
@@ -125,25 +168,7 @@ export function elevationSvg(p: Project3, side: Side, dec = '.', t: (s: string) 
     Ytop = Math.max(...ys, ...skyline.map((q) => q[1])) + M,
     Ybot = Math.min(0, ...ys, ...skyline.map((q) => q[1])) - M - 3;
   const fill = { wall: '#f7f5f0', roof: '#d9d1c4', part: '#ece8e0', glass: '#cfdde6' };
-  // Creases: an edge drawn where the faces on its two sides turn (or where only one face has it), so a
-  // flat wall shows no triangles and a window frame shows its outline.
-  const ek = (a: V3, b: V3) => {
-    const k = (q: V3) => `${Math.round(q[0] * 200)},${Math.round(q[1] * 200)},${Math.round(q[2] * 200)}`;
-    const x = k(a),
-      y = k(b);
-    return x < y ? `${x}|${y}` : `${y}|${x}`;
-  };
-  const edges = new Map<string, V3[]>();
-  for (const q of drawn) for (let j = 0; j < 3; j++) {
-    const key = ek(q.p3[j]!, q.p3[(j + 1) % 3]!);
-    const l = edges.get(key);
-    if (l) l.push(q.n);
-    else edges.set(key, [q.n]);
-  }
-  const crease = (a: V3, b: V3) => {
-    const ns = edges.get(ek(a, b))!;
-    return ns.length === 1 || ns.some((m) => m[0] * ns[0]![0] + m[1] * ns[0]![1] + m[2] * ns[0]![2] < 0.96);
-  };
+  const crease = creaseTest(drawn);
   // Each face filled, then its edges in the same colour (closes the hairlines between neighbours); the
   // outline of the whole drawing comes from the faces nearest the viewer drawn last.
   const body = drawn.map((q) => {
