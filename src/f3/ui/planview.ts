@@ -7,6 +7,7 @@ import type { Editor3 } from '../editor/editor';
 import type { Building3, ID, Vec2 } from '../model/schema';
 import { addInteriorWall, interiorDoors, type InteriorWithDoors } from '../eval/interiorwalls';
 import { floorPlan, sortedLevels, type FloorPlan } from '../eval/floorplan';
+import { checkFloor, type Check } from '../eval/compliance';
 import { floorPlanSvg } from '../eval/floorplansvg';
 import { icon } from './icons';
 import { loadLang, tr } from './i18n';
@@ -21,7 +22,16 @@ const CSS = `
 .f3-plan .lv button{height:24px;border:0;border-radius:5px;background:transparent;color:var(--muted);padding:0 10px;font-size:12px;cursor:pointer}
 .f3-plan .lv button[aria-pressed=true]{background:var(--accent-2);color:var(--accent-ink)}
 .f3-plan .sp{flex:1}
-.f3-plan .hint{position:absolute;right:12px;top:10px;max-width:min(520px,calc(100% - 24px));background:var(--panel-solid);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;pointer-events:none;box-shadow:0 6px 18px #0002}
+.f3-plan .bar .f3-btn[aria-pressed=true]{background:var(--accent-2);color:var(--accent-ink)}
+.f3-plan .checks{position:absolute;z-index:2;right:12px;top:56px;width:340px;max-height:calc(100% - 140px);overflow:auto;background:var(--panel-solid);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:0 10px 30px #0004;font-size:12px}
+.f3-plan .checks h4{margin:0 0 6px;font-size:12.5px}
+.f3-plan .checks p{margin:0 0 8px;color:var(--muted);font-size:11px;line-height:1.4}
+.f3-plan .checks li{list-style:none;display:flex;gap:8px;padding:4px 0;border-top:1px solid var(--line);line-height:1.35}
+.f3-plan .checks ul{margin:0;padding:0}
+.f3-plan .checks li b{flex:none;width:16px;text-align:center}
+.f3-plan .checks li.no b{color:#e5534b}
+.f3-plan .checks li.ok b{color:#3fb950}
+.f3-plan .hint{position:absolute;z-index:2;right:12px;top:10px;max-width:min(520px,calc(100% - 24px));background:var(--panel-solid);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;pointer-events:none;box-shadow:0 6px 18px #0002}
 .f3-plan .paper[data-mode=wall],.f3-plan .paper[data-mode=door]{cursor:crosshair}
 .f3-plan .bar .f3-btn{height:28px;display:inline-flex;align-items:center;gap:6px}
 .f3-plan .paper{flex:1;position:relative;overflow:hidden;cursor:grab;background-image:linear-gradient(#0000000a 1px,transparent 1px),linear-gradient(90deg,#0000000a 1px,transparent 1px);background-size:24px 24px}
@@ -29,8 +39,8 @@ const CSS = `
 .f3-plan .paper svg{position:absolute;inset:0;width:100%;height:100%;fill:#000;stroke:none;stroke-width:1;stroke-linecap:butt;stroke-linejoin:miter;letter-spacing:0}
 .f3-plan .paper .rm{cursor:pointer}
 .f3-plan .paper svg text{pointer-events:none}
-.f3-plan .empty{position:absolute;inset:0;display:grid;place-items:center;color:#6b6760;font-size:14px;text-align:center;padding:24px}
-.f3-plan .card{position:absolute;right:12px;bottom:12px;background:var(--panel-solid);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:0 10px 30px #0004;display:flex;flex-direction:column;gap:6px;min-width:220px;font-size:12.5px}
+.f3-plan .empty{position:absolute;z-index:1;inset:0;display:grid;place-items:center;color:#6b6760;font-size:14px;text-align:center;padding:24px}
+.f3-plan .card{position:absolute;z-index:3;right:12px;bottom:12px;background:var(--panel-solid);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:0 10px 30px #0004;display:flex;flex-direction:column;gap:6px;min-width:220px;font-size:12.5px}
 .f3-plan .card input{height:28px;background:var(--field);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:0 8px;font:inherit}
 .f3-plan .card small{color:var(--muted)}
 .f3-viewbar .f3-tb.plan2d{font-weight:600;font-size:11px;letter-spacing:.02em}
@@ -62,11 +72,12 @@ export function mountPlanView(ed: Editor3): PlanView {
         <button data-mode="door" aria-pressed="false" title="Door · D">Door</button>
       </div>
       <span class="sp"></span>
+      <button class="f3-btn" data-check aria-pressed="false" title="Check the rooms against a building code: window area for light, ceiling height">${icon('star')}<span>Code check</span></button>
       <button class="f3-btn" data-fit title="Fit the drawing">${icon('focus')}<span>Fit</span></button>
       <button class="f3-btn" data-svg title="Download the plan as SVG (opens in any drawing program)">${icon('export')}<span>SVG</span></button>
       <button class="f3-btn" data-3d title="Back to the 3D view · F3">${icon('cube')}<span>3D view</span></button>
     </div>
-    <div class="paper"><div class="empty" hidden></div><div class="hint"></div></div>`;
+    <div class="paper"><div class="empty" hidden></div><div class="hint"></div><div class="checks" hidden></div></div>`;
   ed.shell.view.appendChild(el);
   const paper = el.querySelector<HTMLElement>('.paper')!;
   const empty = el.querySelector<HTMLElement>('.empty')!;
@@ -81,6 +92,8 @@ export function mountPlanView(ed: Editor3): PlanView {
   let room: string | null = null;
   let card: HTMLElement | null = null;
   let svgText = '';
+  let checking = false;
+  let checks: Check[] = [];
   const decimal = loadLang() === 'pt-BR' ? ',' : '.';
 
   // Toggle in the View island of the 3D view.
@@ -141,7 +154,46 @@ export function mountPlanView(ed: Editor3): PlanView {
     svg.setAttribute('data-i18n-skip', '');
     svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
     applyVb();
+    drawChecks(b);
     preview();
+  };
+
+  /** Code check: the rooms that fail outlined in red, and the list of every check of the floor. */
+  const drawChecks = (b: Building3) => {
+    const box = el.querySelector<HTMLElement>('.checks')!;
+    box.hidden = !checking;
+    el.querySelector<HTMLElement>('.hint')!.hidden = checking;
+    if (!checking || !fp) return;
+    checks = checkFloor(b, fp).sort((x, y) => Number(x.ok) - Number(y.ok));
+    const svg = paper.querySelector('svg');
+    const bad = new Set(checks.filter((c) => !c.ok).map((c) => c.room));
+    if (svg)
+      for (const r of bad) {
+        const pth = doc.createElementNS('http://www.w3.org/2000/svg', 'path');
+        pth.setAttribute('d', r.rings.map((q) => `M${q.map((p) => `${p[0]},${p[1]}`).join('L')}Z`).join(''));
+        pth.setAttribute('fill', 'rgba(229,83,75,.10)');
+        pth.setAttribute('stroke', '#e5534b');
+        pth.setAttribute('stroke-width', '0.06');
+        pth.setAttribute('stroke-dasharray', '0.2 0.1');
+        pth.setAttribute('pointer-events', 'none');
+        svg.appendChild(pth);
+      }
+    const n = (v: number) => v.toFixed(2).replace('.', decimal);
+    const line = (c: Check) => {
+      const what =
+        c.rule === 'height'
+          ? `${tr('Ceiling height')}: ${n(c.have)} m (${tr('least')} ${n(c.need)} m)`
+          : c.rule === 'window'
+            ? `${tr('No window: a long-stay room needs')} ${n(c.need)} m² ${tr('of window')}`
+            : `${tr('Window for light')}: ${n(c.have)} m² (${tr('least')} ${n(c.need)} m²)`;
+      return `<li class="${c.ok ? 'ok' : 'no'}"><b>${c.ok ? '✓' : '✗'}</b><span><strong></strong> · ${esc(what)}</span></li>`;
+    };
+    const unnamed = fp.rooms.filter((r) => !r.name).length;
+    const fails = checks.filter((c) => !c.ok).length;
+    box.innerHTML = `<h4>${esc(tr('Code check'))}: ${fails ? `${fails} ${esc(tr('to fix'))}` : esc(tr('all right'))}</h4><p>${esc(tr('Reference: window area 1/6 of the floor in bedrooms and living rooms, 1/8 in kitchens and laundries, 1/12 in bathrooms (municipal code of Porto Velho, LC 471/2012); ceiling height 2.50 m, 2.30 m in bathrooms and halls (NBR 15575). Check the code of your city.'))}</p><ul>${checks.map(line).join('')}</ul>${unnamed ? `<p style="margin-top:8px">${unnamed} ${esc(tr('room(s) without a name are not checked: name them (Quarto, Sala, Cozinha…) to check them.'))}</p>` : ''}`;
+    // Room names are the user's: set as text.
+    box.querySelectorAll('li strong').forEach((s2, i) => (s2.textContent = checks[i]!.room.name));
+    box.setAttribute('data-i18n-skip', '');
   };
 
   const applyVb = () => {
@@ -222,6 +274,11 @@ export function mountPlanView(ed: Editor3): PlanView {
     applyVb();
   });
   el.querySelector('[data-3d]')!.addEventListener('click', () => setOpen(false));
+  el.querySelector('[data-check]')!.addEventListener('click', (e) => {
+    checking = !checking;
+    (e.currentTarget as HTMLElement).setAttribute('aria-pressed', String(checking));
+    render();
+  });
   el.querySelector('[data-svg]')!.addEventListener('click', () => {
     if (!svgText) return;
     const b = building();

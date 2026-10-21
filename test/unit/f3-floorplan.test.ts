@@ -67,3 +67,22 @@ describe('quantities', () => {
     expect(q.filter((l) => l.group === 'Windows and doors').reduce((s, l) => s + l.qty, 0)).toBe(15);
   });
 });
+
+describe('code check', () => {
+  it('reads the use from the name and flags a bedroom without enough window', async () => {
+    const { checkFloor, roomUse } = await import('../../src/f3/eval/compliance');
+    expect(roomUse('Quarto 2')).toBe('bedroom');
+    expect(roomUse('Suíte master')).toBe('bedroom');
+    expect(roomUse('Lavabo')).toBe('bath');
+    expect(roomUse('Sala e cozinha')).toBe('living');
+    const p = TEMPLATES.find((t) => t.id === 'house')!.make();
+    const b = p.buildings[0]!;
+    const ev = evaluateBuilding(b, {}, p);
+    const fp = floorPlan(b, 0, ev.placements);
+    expect(checkFloor(b, fp).every((c) => c.ok)).toBe(true);
+    // Without the facade windows the bedrooms have none.
+    const bare = floorPlan(b, 0, []);
+    const fails = checkFloor(b, bare).filter((c) => !c.ok);
+    expect(fails.some((c) => c.rule === 'window' && c.room.name === 'Quarto 1')).toBe(true);
+  });
+});

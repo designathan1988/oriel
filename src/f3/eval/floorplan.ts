@@ -23,6 +23,9 @@ export interface PlanWindow {
   b: Vec2;
   n: Vec2;
   depth: number;
+  /** Opening size (m): width along the wall and height. */
+  w: number;
+  h: number;
 }
 
 export interface PlanDoor {
@@ -242,7 +245,7 @@ export function floorPlan(b: Building3, levelIndex: number, placements: readonly
         const inA = add(a, n, -depth),
           inB = add(bb, n, -depth);
         out.doors.push({ hinge: inA, jamb: inB, leaf: add(inA, n, -w), width: w, a, b: bb, n, depth });
-      } else out.windows.push({ a, b: bb, n, depth });
+      } else out.windows.push({ a, b: bb, n, depth, w, h: pl.opening.h });
     }
     // Interior doors.
     for (const d of it ? interiorDoors(it) : []) {
