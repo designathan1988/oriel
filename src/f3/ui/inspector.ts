@@ -428,7 +428,7 @@ function ruleRow(ed: Editor3, f: FacadeRule): string {
     </div>
     <div class="f3-btns n3" style="grid-column:1/-1"><button class="f3-btn" data-rk="pick" title="Select the elements of this rule (edit their parameters)">${icon('cursor')}Select</button>${Object.keys(f.except).length ? `<button class="f3-btn" data-rk="clearexc" title="Clear ${Object.keys(f.except).length} exception(s)">${icon('restore')}Reset</button>` : ''}<button class="f3-btn danger" data-rk="del" title="Remove this rule">${icon('trash')}Remove</button></div>`
     : '';
-  return `<div class="f3-rule" data-rule="${f.id}"><div class="t" data-rk="open" style="cursor:pointer" title="${isOpen ? 'Close' : 'Edit the rule'}"><b>${isOpen ? '▾' : '▸'} ${esc(t?.name ?? f.type)}</b><small>${lvName} · ${mode} ${num(f.value)}${f.mode === 'count' ? '' : ' m'} · ${sides}</small></div>
+  return `<div class="f3-rule" data-rule="${f.id}"><div class="t" data-rk="open" style="cursor:pointer" title="${isOpen ? 'Close' : 'Edit the rule'}"><b>${isOpen ? '▾' : '▸'} <span>${esc(t?.name ?? f.type)}</span></b><small><span>${lvName}</span> · <span>${mode}</span> ${num(f.value)}${f.mode === 'count' ? '' : ' m'} · <span>${sides}</span></small></div>
   ${isOpen ? details : `<span class="f3-rule-val">${valueCell()}</span><button class="f3-btn ic danger" data-rk="del" title="Remove rule" aria-label="Remove rule">${icon('trash')}</button>`}</div>`;
 }
 
