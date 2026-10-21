@@ -171,7 +171,7 @@ From its version 4:
 - [x] Workspaces (Model, Components, Materials, Interior, Present; `ui/workspaces.ts`). [x] Light theme and system theme; preferences (theme, navigation preset), `ui/prefs.ts`.
 - [x] Parallel (orthographic) view: Numpad 5, the ∥ button on the cube; navigation presets (FORMA/Revit,
       SketchUp, Blender); touch: two fingers pan and pinch.
-- [x] Screen-space selection outline (OutlinePass). [ ] Handles without allocation per frame.
+- [x] Screen-space selection outline (OutlinePass). [x] Handles without allocation per frame (pooled meshes, scratch vectors; `editor/handles.ts`).
 - [x] Layout checked at 1280×720, 1440×860 and 1920×1080 (photos). [x] 2560×1440 (2026-10-21).
 
 ### Libraries adopted (2026-10-13, research report in the session)

@@ -59,6 +59,18 @@ const ARROW_PX = 90;
 const PLANE_OFF_PX = 26;
 const PLANE_PX = 18;
 
+// Scratch values reused by every redraw (the handles redraw with the camera: no allocation per frame).
+const UP = new THREE.Vector3(0, 1, 0);
+const _v = new THREE.Vector3(),
+  _w = new THREE.Vector3(),
+  _d = new THREE.Vector3(),
+  _q = new THREE.Quaternion(),
+  _m4 = new THREE.Matrix4(),
+  _a = new THREE.Vector2(),
+  _b = new THREE.Vector2(),
+  _p = new THREE.Vector2(),
+  _pos = new THREE.Vector3();
+
 export class Handles {
   readonly group = new THREE.Group();
   list: Handle[] = [];
@@ -70,11 +82,34 @@ export class Handles {
   private quad = new THREE.PlaneGeometry(1, 1);
   private mats = new Map<string, THREE.MeshBasicMaterial>();
   private lineMats = new Map<string, THREE.LineBasicMaterial>();
+  /** Meshes kept between redraws, taken in order by each redraw (the rest are hidden). */
+  private pool: THREE.Mesh[] = [];
+  private used = 0;
+  /** The ring line of each rotate handle, made once per ring. */
+  private rings = new WeakMap<THREE.Vector3[], THREE.LineLoop>();
 
   constructor(private view: View) {
     this.group.name = 'handles';
     this.group.renderOrder = 30;
     view.overlay.add(this.group);
+  }
+
+  /** A pooled mesh with this geometry, material and draw order, at `at`, unturned. */
+  private mesh(geo: THREE.BufferGeometry, mat: THREE.Material, order: number, at: THREE.Vector3): THREE.Mesh {
+    let m = this.pool[this.used];
+    if (!m) {
+      m = new THREE.Mesh();
+      this.pool.push(m);
+      this.group.add(m);
+    }
+    this.used++;
+    m.visible = true;
+    m.geometry = geo;
+    m.material = mat;
+    m.renderOrder = order;
+    m.position.copy(at);
+    m.quaternion.identity();
+    return m;
   }
 
   private mat(color: string): THREE.MeshBasicMaterial {
@@ -91,38 +126,41 @@ export class Handles {
 
   /** Is the handle in view? (face handle only when the face looks at the camera) */
   shown(h: Handle): boolean {
-    if (h.normal && h.normal.dot(this.view.camera.position.clone().sub(h.at)) <= 0) return false;
+    if (h.normal && h.normal.dot(_v.copy(this.view.camera.position).sub(h.at)) <= 0) return false;
     // An arrow seen almost end-on is a dot over the object that steals its drags (three.js
     // TransformControls hides such axes): in a top view the vertical arrow pointed at the camera, covered
     // the building's center and a drag meant to move it lifted it 270 m instead.
     if (h.dir && !h.square && h.kind !== 'push' && h.kind !== 'rotate') {
-      const toCam = this.view.camera.position.clone().sub(h.at).normalize();
-      if (Math.abs(toCam.dot(h.dir.clone().normalize())) > 0.97) return false;
+      const toCam = _v.copy(this.view.camera.position).sub(h.at).normalize();
+      if (Math.abs(toCam.dot(_d.copy(h.dir).normalize())) > 0.97) return false;
     }
     // The gizmo wins: a size square that falls under one of its arrows on screen (the back corner right
     // behind the green arrow in the default view) steps aside until the view turns, instead of hiding
     // under the arrow and stealing or losing its clicks.
     if (h.kind === 'size' || h.square) {
-      const p = this.view.toScreen(this.posOf(h));
+      const p = this.view.toScreen(this.posOf(h, _pos));
+      _p.set(p.x, p.y);
       for (const g of this.list) {
-        if (!g.dir || g.square || g.kind === 'push' || g.kind === 'rotate' || (g.normal && g.normal.dot(this.view.camera.position.clone().sub(g.at)) <= 0)) continue;
-        const at = this.posOf(g);
+        if (!g.dir || g.square || g.kind === 'push' || g.kind === 'rotate' || (g.normal && g.normal.dot(_v.copy(this.view.camera.position).sub(g.at)) <= 0)) continue;
+        const at = this.posOf(g, _pos);
         const len = this.view.worldPerPixel(at) * ARROW_PX;
-        const a = this.view.toScreen(at.clone().addScaledVector(g.dir, len * 0.15)),
-          b = this.view.toScreen(at.clone().addScaledVector(g.dir, len * 1.15));
-        if (segDist(new THREE.Vector2(p.x, p.y), new THREE.Vector2(a.x, a.y), new THREE.Vector2(b.x, b.y)) < 9) return false;
+        const a = this.view.toScreen(_w.copy(at).addScaledVector(g.dir, len * 0.15));
+        _a.set(a.x, a.y);
+        const b = this.view.toScreen(_w.copy(at).addScaledVector(g.dir, len * 1.15));
+        _b.set(b.x, b.y);
+        if (segDist(_p, _a, _b) < 9) return false;
       }
     }
     return true;
   }
 
   /** Where the handle is drawn (the plane square leaves the center, in constant pixels). */
-  posOf(h: Handle): THREE.Vector3 {
-    let at = h.at;
-    if (h.liftPx) at = at.clone().setY(at.y + this.view.worldPerPixel(at) * h.liftPx);
-    if (!h.plane) return at;
-    const k = this.view.worldPerPixel(at) * PLANE_OFF_PX;
-    return at.clone().addScaledVector(h.plane[0], k).addScaledVector(h.plane[1], k);
+  posOf(h: Handle, out = new THREE.Vector3()): THREE.Vector3 {
+    out.copy(h.at);
+    if (h.liftPx) out.y += this.view.worldPerPixel(h.at) * h.liftPx;
+    if (!h.plane) return out;
+    const k = this.view.worldPerPixel(out) * PLANE_OFF_PX;
+    return out.addScaledVector(h.plane[0], k).addScaledVector(h.plane[1], k);
   }
 
   set(list: Handle[]): void {
@@ -132,12 +170,10 @@ export class Handles {
     this.draw();
   }
 
-  /** Redraws (sizes depend on the camera). */
+  /** Redraws (sizes depend on the camera): pooled meshes and scratch values, nothing made per frame. */
   draw(): void {
-    for (const c of [...this.group.children]) {
-      this.group.remove(c);
-      if ((c as THREE.Line).isLine) (c as THREE.Line).geometry.dispose();
-    }
+    this.used = 0;
+    for (const c of this.group.children) if ((c as THREE.Line).isLine) c.visible = false;
     for (const h of this.list) {
       if (!this.shown(h)) continue;
       const wpp = this.view.worldPerPixel(h.at);
@@ -145,36 +181,32 @@ export class Handles {
       // Yellow highlight under the pointer, like three.js TransformControls.
       const color = hot ? '#ffd23f' : h.color;
       if (h.kind === 'rotate' && h.ring) {
-        const l = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(h.ring), this.lineMat(color));
-        l.renderOrder = 31;
-        this.group.add(l);
-        const grip = new THREE.Mesh(this.sphere, this.mat(color));
-        grip.position.copy(h.at);
-        grip.scale.setScalar(wpp * (hot ? 14 : 11));
-        grip.renderOrder = 32;
-        this.group.add(grip);
+        let l = this.rings.get(h.ring);
+        if (!l) {
+          l = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(h.ring), this.lineMat(color));
+          l.renderOrder = 31;
+          this.rings.set(h.ring, l);
+        }
+        l.material = this.lineMat(color);
+        l.visible = true;
+        if (l.parent !== this.group) this.group.add(l);
+        this.mesh(this.sphere, this.mat(color), 32, h.at).scale.setScalar(wpp * (hot ? 14 : 11));
         continue;
       }
       if (h.dir && !h.square) {
-        const at = this.posOf(h);
+        const at = this.posOf(h, _pos);
         const len = wpp * ARROW_PX;
-        const tip = at.clone().addScaledVector(h.dir, len);
         // Thick shaft (cylinder with fixed screen width) and dark outline: visible over any background.
-        const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), h.dir.clone().normalize());
+        _q.setFromUnitVectors(UP, _d.copy(h.dir).normalize());
+        _w.copy(at).addScaledVector(h.dir, len / 2);
         for (const [w, c, ord] of [[7, '#1f2326', 30], [4, color, 31]] as const) {
-          const sh = new THREE.Mesh(this.shaft, this.mat(c));
-          sh.position.copy(at).addScaledVector(h.dir, len / 2);
-          sh.quaternion.copy(q);
+          const sh = this.mesh(this.shaft, this.mat(c), ord, _w);
+          sh.quaternion.copy(_q);
           sh.scale.set(wpp * w * (hot ? 1.3 : 1), len, wpp * w * (hot ? 1.3 : 1));
-          sh.renderOrder = ord;
-          this.group.add(sh);
         }
-        const c = new THREE.Mesh(this.cone, this.mat(color));
-        c.position.copy(tip);
-        c.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), h.dir.clone().normalize());
+        const c = this.mesh(this.cone, this.mat(color), 32, _w.copy(at).addScaledVector(h.dir, len));
+        c.quaternion.copy(_q);
         c.scale.setScalar(wpp * (hot ? 17 : 14));
-        c.renderOrder = 32;
-        this.group.add(c);
         continue;
       }
       if (h.kind === 'size' || h.square) {
@@ -182,55 +214,44 @@ export class Handles {
         // white with a dark border: reads over any background without looking like a model block.
         const px = (h.sx && h.sz ? 9 : h.square ? 9 : 7) * (hot ? 1.3 : 1);
         const q = this.view.camera.quaternion;
-        const o = new THREE.Mesh(this.quad, this.mat('#1f2326'));
-        o.position.copy(h.at);
+        const o = this.mesh(this.quad, this.mat('#1f2326'), 31, h.at);
         o.quaternion.copy(q);
         o.scale.set(wpp * (px + 3), wpp * (px + 3), 1);
-        o.renderOrder = 31;
-        const f = new THREE.Mesh(this.quad, this.mat(hot ? '#ffd23f' : '#ffffff'));
-        f.position.copy(h.at);
+        const f = this.mesh(this.quad, this.mat(hot ? '#ffd23f' : '#ffffff'), 32, h.at);
         f.quaternion.copy(q);
         f.scale.set(wpp * px, wpp * px, 1);
-        f.renderOrder = 32;
-        this.group.add(o, f);
         continue;
       }
       if (h.kind === 'move-xz' && h.plane) {
         // Plane square between the arrows, lying on the building ground plane.
-        const at = this.posOf(h);
+        const at = this.posOf(h, _pos);
         const [u, v] = h.plane;
-        const q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(u, v.clone().cross(u).normalize(), v));
+        _q.setFromRotationMatrix(_m4.makeBasis(u, _d.copy(v).cross(u).normalize(), v));
         const px = PLANE_PX * (hot ? 1.2 : 1);
         for (const [c, k, ord] of [['#1f2326', px + 4, 31], [color, px, 32]] as const) {
-          const m = new THREE.Mesh(this.box, this.mat(c));
-          m.position.copy(at);
-          m.quaternion.copy(q);
+          const m = this.mesh(this.box, this.mat(c), ord, at);
+          m.quaternion.copy(_q);
           m.scale.set(wpp * k, wpp * 2, wpp * k);
-          m.renderOrder = ord;
-          this.group.add(m);
         }
         continue;
       }
+      const geo = h.kind === 'move-xz' ? this.box : this.sphere;
       if (h.kind !== 'vertex') {
-        const o = new THREE.Mesh(h.kind === 'move-xz' ? this.box : this.sphere, this.mat('#1f2326'));
-        o.position.copy(h.at);
         const op = (h.kind === 'bend' ? 9 : h.kind === 'move-xz' ? 16 : 11) + 3;
-        o.scale.set(wpp * op, h.kind === 'move-xz' ? wpp * 4 : wpp * op, wpp * op);
-        o.renderOrder = 31;
-        this.group.add(o);
+        this.mesh(geo, this.mat('#1f2326'), 31, h.at).scale.set(wpp * op, h.kind === 'move-xz' ? wpp * 4 : wpp * op, wpp * op);
       }
-      const m = new THREE.Mesh(h.kind === 'move-xz' ? this.box : this.sphere, this.mat(color));
-      m.position.copy(h.at);
       const px = h.kind === 'vertex' ? 11 : h.kind === 'bend' ? 9 : h.kind === 'move-xz' ? 16 : 11;
-      m.scale.set(wpp * px * (hot ? 1.3 : 1), h.kind === 'move-xz' ? wpp * 3 : wpp * px * (hot ? 1.3 : 1), wpp * px * (hot ? 1.3 : 1));
-      m.renderOrder = 32;
-      this.group.add(m);
-      if (h.kind === 'vertex') {
-        const ring = new THREE.Mesh(this.sphere, this.mat('#2b2f31'));
-        ring.position.copy(h.at);
-        ring.scale.setScalar(wpp * (px + 4) * (hot ? 1.3 : 1));
-        ring.renderOrder = 31;
-        this.group.add(ring);
+      const k = wpp * px * (hot ? 1.3 : 1);
+      this.mesh(geo, this.mat(color), 32, h.at).scale.set(k, h.kind === 'move-xz' ? wpp * 3 : k, k);
+      if (h.kind === 'vertex') this.mesh(this.sphere, this.mat('#2b2f31'), 31, h.at).scale.setScalar(wpp * (px + 4) * (hot ? 1.3 : 1));
+    }
+    for (let i = this.used; i < this.pool.length; i++) this.pool[i]!.visible = false;
+    // Rings of handles that left the list leave the group.
+    for (let i = this.group.children.length - 1; i >= 0; i--) {
+      const c = this.group.children[i]!;
+      if ((c as THREE.Line).isLine && !c.visible) {
+        this.group.remove(c);
+        (c as THREE.Line).geometry.dispose();
       }
     }
     this.view.mark();
@@ -300,7 +321,8 @@ export class Handles {
 }
 
 function segDist(p: THREE.Vector2, a: THREE.Vector2, b: THREE.Vector2): number {
-  const ab = b.clone().sub(a);
-  const t = Math.max(0, Math.min(1, p.clone().sub(a).dot(ab) / (ab.lengthSq() || 1)));
-  return a.clone().addScaledVector(ab, t).distanceTo(p);
+  const abx = b.x - a.x,
+    aby = b.y - a.y;
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * abx + (p.y - a.y) * aby) / (abx * abx + aby * aby || 1)));
+  return Math.hypot(a.x + abx * t - p.x, a.y + aby * t - p.y);
 }
