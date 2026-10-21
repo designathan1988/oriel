@@ -33,6 +33,8 @@ export interface InteriorDoor {
   swing?: 1 | -1;
   /** false: a passage (the opening with no door leaf). */
   leaf?: false;
+  /** How far the leaf stands open (degrees, 0 closed): opened in walk mode. */
+  open?: number;
 }
 
 /** `Interior` with the doors of its walls (the document schema does not type them yet). */
@@ -580,7 +582,7 @@ export function addRoomRect(b: Building3, levelId: ID, a: Vec2, c: Vec2, thickne
  * like a door on a facade): origin on the face of the wall it opens to, at the floor, u along the wall,
  * v up, n out of that face; `depth` is the wall thickness.
  */
-export function interiorDoorFrames(b: Building3): { key: string; o: [number, number, number]; u: [number, number, number]; n: [number, number, number]; width: number; height: number; depth: number }[] {
+export function interiorDoorFrames(b: Building3): { key: string; o: [number, number, number]; u: [number, number, number]; n: [number, number, number]; width: number; height: number; depth: number; open: number }[] {
   const out: ReturnType<typeof interiorDoorFrames> = [];
   for (const level of b.levels) {
     const it = b.interiors[level.id];
@@ -604,7 +606,7 @@ export function interiorDoorFrames(b: Building3): { key: string; o: [number, num
         sz = side > 0 ? uz : -uz;
       const cx = a[0] + ux * d.u + nx * (w.thickness / 2),
         cz = a[1] + uz * d.u + nz * (w.thickness / 2);
-      out.push({ key: `idoor:${level.id}:${i}`, o: [cx, level.elevation, cz], u: [sx, 0, sz], n: [nx, 0, nz], width: d.width, height: d.height, depth: w.thickness });
+      out.push({ key: `idoor:${level.id}:${i}`, o: [cx, level.elevation, cz], u: [sx, 0, sz], n: [nx, 0, nz], width: d.width, height: d.height, depth: w.thickness, open: d.open ?? 0 });
     });
   }
   return out;

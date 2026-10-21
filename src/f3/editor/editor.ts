@@ -170,7 +170,7 @@ export class Editor3 {
       queueMicrotask(() => (this.blockedNote = null));
     };
     this.handles = new Handles(this.view);
-    this.walk = new WalkMode({ view: this.view, root: this.shell.view, project: () => this.store.project, onExit: () => this.toast('Back to the model view.') });
+    this.walk = new WalkMode({ view: this.view, root: this.shell.view, project: () => this.store.project, onExit: () => this.toast('Back to the model view.'), interact: () => this.toggleDoorAhead() });
     this.opening = new OpeningTool({
       view: this.view,
       root: this.shell.root,
@@ -321,7 +321,7 @@ export class Editor3 {
     });
     this.renderTools();
     this.updateHint();
-    this.shell.name.value = this.store.project.name;
+    this.shell.name.value = tr(this.store.project.name);
     this.sync();
     this.view.frame();
   }
@@ -358,6 +358,8 @@ export class Editor3 {
     const p = this.store.project;
     this.view.activeIds = new Set([this.context, this.sel.building, ...this.sel.others].filter((x): x is ID => !!x));
     this.view.sync(p, this.store.revision, this.preview);
+    // The name field follows the project (undo of a rename, another project put in place), unless typed in.
+    if (document.activeElement !== this.shell.name && this.shell.name.value !== tr(p.name)) this.shell.name.value = tr(p.name);
     // Selection that vanished (undo, delete).
     const b = this.store.building(this.sel.building);
     if (this.sel.building && !b) this.sel = { building: null, solids: [], face: null, item: null, elems: [], others: [] };
@@ -1642,6 +1644,41 @@ export class Editor3 {
     const f = t && family(t.family);
     this.updateHint(f ? (f.host === 'face' ? `${t!.name}: click a wall to place it. Esc finishes.` : f.host === 'path' ? `${t!.name}: click the path points; Enter finishes.` : `${t!.name}: click the ground or a roof.`) : undefined);
     this.emit();
+  }
+
+  /**
+   * Walk mode, E: the door or window the eye looks at (within 3 m) opens or closes. A part keeps it as
+   * its own parameter, a door of a facade rule as a size of that position, an interior door in its wall.
+   */
+  toggleDoorAhead(): boolean {
+    const r = this.view.renderer.domElement.getBoundingClientRect();
+    const hit = this.view.pick(this.store.project, { clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 });
+    const tag = hit?.part;
+    if (!hit || !tag || (tag.family !== 'door' && tag.family !== 'window') || hit.point.distanceTo(this.view.persp.position) > 3) return false;
+    // A door opens to 90°, a window all the way (its `open` is a share); again closes it.
+    const full = tag.family === 'door' ? 90 : 1;
+    const flip = (v: unknown) => (typeof v === 'number' && v > 0 ? 0 : full);
+    return this.change(
+      hit.building.id,
+      (b) => {
+        if (tag.item) {
+          const it = b.items.find((x) => x.id === tag.item);
+          if (!it) return false;
+          it.params = { ...it.params, open: flip(it.params.open) };
+        } else if (tag.key?.startsWith('idoor:')) {
+          const [, level, i] = tag.key.split(':');
+          const d = interiorDoors(b.interiors[level!] ?? { nodes: [], walls: [], rooms: [] })[Number(i)];
+          if (!d) return false;
+          d.open = flip(d.open);
+        } else if (tag.rule && tag.solid && tag.key) {
+          const rule = b.solids.find((x) => x.id === tag.solid)?.facade.find((x) => x.id === tag.rule);
+          if (!rule) return false;
+          const sz = ((rule.sizes ??= {})[tag.key] ??= {});
+          sz.open = flip(sz.open);
+        } else return false;
+      },
+      '',
+    );
   }
 
   /** Starts a tool of the registry (`editor/commands.ts`): the bar, the keys and the command search. */

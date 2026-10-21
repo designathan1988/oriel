@@ -433,7 +433,7 @@ export function evaluateBuilding(b0: Building3, opts: EvalOptions = {}, project?
       if (opts.hollow || b.solids.some((x) => x.op === 'add' && !x.hidden && (x.shell ?? 0) > 0)) {
         const dt = types('door-panel');
         if (dt) for (const d of interiorDoorFrames(b)) {
-          const params = resolveParams(dt.family, dt.type.params, { width: d.width, height: d.height });
+          const params = resolveParams(dt.family, dt.type.params, { width: d.width, height: d.height, open: d.open });
           const tag = parts.tags.push({ family: dt.family.id, key: d.key }) - 1;
           dt.family.build(params, new FrameSink(parts, faceMatrix(d.o, d.u, [0, 1, 0], d.n), tag), { length: d.width, reveal: d.depth, index: 0 });
         }

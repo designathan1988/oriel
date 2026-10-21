@@ -81,6 +81,8 @@ export const DOOR: Family = {
     P.flag('transom', 'Glass transom', false, 'divisions'),
     P.flag('sidelights', 'Sidelights', false, 'divisions'),
     { ...P.flag('hingeLeft', 'Hinge on the left', true), scope: 'instance' },
+    // How far the leaves stand open (Revit's door swing angle): 0 closed; they turn into the room.
+    { ...P.angle('open', 'Open (degrees)', 0, 0, 100), scope: 'instance' },
     ...frameParams,
     P.len('trim', 'Trim', 0.12, 0, 0.4, 'type', 'detail', 0.01),
     P.flag('step', 'Stone step', true),
@@ -116,9 +118,17 @@ export const DOOR: Family = {
     out.prism(m.frame, inflate(shape, W - 2 * fw, H - fw, fw, 0) as Pt[], z - fd / 2, z + fd / 2, [openingProfile(shape, W - 2 * fw, H - fw)]);
     const n = Math.max(1, Math.round(num(p, 'leaves')));
     const lw = (dw - 2 * fw) / n;
+    const open = Math.max(0, Math.min(100, num(p, 'open') || 0));
     for (let i = 0; i < n; i++) {
       const x = -dw / 2 + fw + lw * (i + 0.5);
-      leaf(out, str(p, 'leaf'), x, lw, dh - fw, z, m, n === 2 ? i === 0 : bool(p, 'hingeLeft'));
+      const hingeLeft = n === 2 ? i === 0 : bool(p, 'hingeLeft');
+      if (!open) {
+        leaf(out, str(p, 'leaf'), x, lw, dh - fw, z, m, hingeLeft);
+        continue;
+      }
+      // An open leaf turns about its hinge edge into the room (−z): a left hinge turns +x toward −z.
+      const hx = hingeLeft ? x - lw / 2 : x + lw / 2;
+      leaf(out.placed(hx, 0, z, hingeLeft ? open : -open), str(p, 'leaf'), hingeLeft ? lw / 2 : -lw / 2, lw, dh - fw, 0, m, hingeLeft);
     }
     if (side) {
       for (const s of [-1, 1]) {

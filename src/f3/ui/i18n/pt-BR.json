@@ -2886,6 +2886,7 @@
 "Walk the selection on the facade": "Percorrer a seleção na fachada",
 "Walking inside": "Caminhar por dentro",
 "Walking · WASD move · Shift run · Esc leaves": "Caminhando · WASD move · Shift corre · Esc sai",
+"Walking · WASD move · Shift run · E opens a door or window · Esc leaves": "Caminhando · WASD move · Shift corre · E abre porta ou janela · Esc sai",
 "Walking: WASD moves, the mouse looks, Shift runs, Esc leaves.": "Caminhando: WASD move, o mouse olha, Shift corre, Esc sai.",
 "Wall": "Parede",
 "Wall (W): click point by point; the walls join by themselves and close the rooms.": "Parede (W): clique ponto a ponto; as paredes se unem sozinhas e fecham os cômodos.",
@@ -3336,5 +3337,7 @@
 "One floor of {0} m": "Um pavimento de {0} m",
 "Ground {0} m, others {1} m": "Térreo {0} m, demais {1} m",
 "Ground {0} m, others {1} m, height {2} → {3} m": "Térreo {0} m, demais {1} m, altura {2} → {3} m",
-"{0} (copy)": "{0} (cópia)"
+"{0} (copy)": "{0} (cópia)",
+"Leaves open": "Folhas abertas",
+"Open (degrees)": "Abertura (graus)"
 }

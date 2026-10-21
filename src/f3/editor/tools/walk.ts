@@ -15,6 +15,8 @@ export interface WalkHost {
   project: () => Project3;
   /** Called once the camera is back where it was. */
   onExit: () => void;
+  /** E: opens or closes the door the eye looks at (within reach); false when there is none. */
+  interact?: () => boolean;
 }
 
 /** Eye height above the feet (m). */
@@ -63,7 +65,7 @@ export class WalkMode {
     this.hud.className = 'f3-walk-hud';
     this.hud.style.cssText =
       'position:absolute;left:50%;bottom:16px;transform:translateX(-50%);padding:6px 12px;border-radius:6px;background:rgba(18,20,24,0.72);color:#f4f3ef;font:12px/1.4 system-ui,sans-serif;pointer-events:none;white-space:nowrap;z-index:30';
-    this.hud.textContent = 'Walking · WASD move · Shift run · Esc leaves';
+    this.hud.textContent = 'Walking · WASD move · Shift run · E opens a door or window · Esc leaves';
   }
 
   /** Whether the walk is on (the editor routes its gestures elsewhere meanwhile). */
@@ -268,6 +270,11 @@ export class WalkMode {
       return;
     }
     const k = e.key.toLowerCase();
+    if (k === 'e' && !e.repeat) {
+      this.h.interact?.();
+      e.preventDefault();
+      return;
+    }
     if (k === 'shift') this.keys.add('shift');
     else if (MOVE_KEYS.has(k)) {
       this.keys.add(k);

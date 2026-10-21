@@ -95,7 +95,7 @@ rebuilt on every change. Nothing becomes a loose mesh.
 2. Materials panel: colors and textures with thumbnails, search and free color; apply with the bucket on a face, area, volume or part; paint over buildings and apply images (decals); a floor of its own for terraces. (done)
 3. Night: night mode, lit windows (by floor, random or chosen), facade lights and street lamps. (done: time of day, rooms by the awake fraction, wall lights and street lamps; face parts in a right-handed frame)
 3b. Manipulation and selection (urgent, 2026-10-10): size handles, pre-selection, roof items on the roof, multiple selection (box, Ctrl/Shift), automatic element groups, detach/back to rule. (done: docs/SELECTION.md)
-4. Easy interiors: view section by floor, interior walls, interior doors and windows, slabs, stairs; replicate floors. Walk mode inside (first person, open doors and windows, climb stairs).
+4. Easy interiors: view section by floor, interior walls, interior doors and windows, slabs, stairs; replicate floors. Walk mode inside (first person, open doors and windows, climb stairs). (done: E in walk mode opens or closes the door or window looked at; doors have an opening angle, casement, sliding and sash windows a share open)
 5. Indoor and outdoor objects (furniture, trees, vegetation, street furniture) from ready libraries.
 6. Validations 2 to 5 (apartment block with verandas, factory, curved, irregular with a courtyard), save/open/export.
 7. Complete interface redesign (less text, right-sized icons, well-used space).

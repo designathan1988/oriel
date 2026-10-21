@@ -101,6 +101,13 @@ function buildWindow(p: Params, out: PartSink): void {
   const clear = (shape: OpeningShape) => openingProfile(shape, iw, ih).map(([x, y]) => [x, y + fw] as Pt);
   const transom = bool(p, 'transom') && shape === 'rect' && ih > 1.1 ? Math.max(0.3, Math.min(0.6, ih * 0.22)) : 0;
   const leafTop = ih - (transom ? transom + fw * 0.5 : 0);
+  // Open leaves (walk mode, or set in the panel): casements turn into the room about their outer stiles,
+  // sliding leaves run over the fixed one, the lower sash rises. Only rectangular windows open.
+  const open = Math.max(0, Math.min(1, num(p, 'open') || 0));
+  if (open > 0 && shape === 'rect' && (op === 'casement' || op === 'sliding' || op === 'sash')) {
+    openWindow(p, out, { op, open, w, iw, fw, fd, zf0, zf1, leafTop, transom, M });
+    return;
+  }
   // Glass (or louvre blades).
   if (op === 'louvre') {
     const n = Math.max(3, Math.round(leafTop / 0.09));
@@ -144,15 +151,7 @@ function buildWindow(p: Params, out: PartSink): void {
       divisions(inner, M.frame, shape, iw, ih, cols * perLeafCols, ys, mb, zm0, zm1);
     }
   }
-  // Curtains behind the glass (inside the room): give the window depth and life.
-  if (bool(p, 'curtains') && op !== 'louvre') {
-    const cw = Math.max(0.12, iw * 0.2);
-    const ct = Math.min(ih, openingSpring(shape, iw, ih) + (shape === 'rect' ? 0 : 0.1));
-    const fabric: PartMat = { slot: 'fabric', color: str(p, 'curtainColor'), curtain: true };
-    const zc = zf0 - 0.12;
-    for (const sgn of [-1, 1]) out.box(fabric, [sgn * (iw / 2 - cw / 2 + 0.05), fw + ct / 2 + 0.05, zc], [cw, ct + 0.1, 0.04]);
-    out.box({ slot: 'metal', color: '#6b6560', finish: 'metal' }, [0, fw + ct + 0.12, zc], [iw + 0.3, 0.025, 0.025]);
-  }
+  if (op !== 'louvre') curtains(p, out, shape, iw, ih, fw, zf0);
   // Trim on the wall face.
   const trim = num(p, 'trim');
   if (trim > 0.005) ring(out, M.trim, shape, w, h, trim, -0.005, 0.035, false);
@@ -185,6 +184,78 @@ function buildWindow(p: Params, out: PartSink): void {
     }
     for (const y of [0.1, h * 0.5, Math.min(h - 0.1, openingSpring(shape, w, h) - 0.05)]) out.box(M.metal, [0, y, 0.03], [w - 0.02, 0.025, 0.01]);
   }
+}
+
+/** Curtains behind the glass (inside the room): give the window depth and life. */
+function curtains(p: Params, out: PartSink, shape: OpeningShape, iw: number, ih: number, fw: number, zf0: number): void {
+  if (!bool(p, 'curtains')) return;
+  const cw = Math.max(0.12, iw * 0.2);
+  const ct = Math.min(ih, openingSpring(shape, iw, ih) + (shape === 'rect' ? 0 : 0.1));
+  const fabric: PartMat = { slot: 'fabric', color: str(p, 'curtainColor'), curtain: true };
+  const zc = zf0 - 0.12;
+  for (const sgn of [-1, 1]) out.box(fabric, [sgn * (iw / 2 - cw / 2 + 0.05), fw + ct / 2 + 0.05, zc], [cw, ct + 0.1, 0.04]);
+  out.box({ slot: 'metal', color: '#6b6560', finish: 'metal' }, [0, fw + ct + 0.12, zc], [iw + 0.3, 0.025, 0.025]);
+}
+
+/** A leaf: its frame (stiles and rails) and its glass, `w` × `h` from (x − w/2, y0), at depth z. */
+function leafFrame(out: PartSink, M: ReturnType<typeof mats>, x: number, y0: number, w: number, h: number, z: number, bar: number, t: number): void {
+  out.box(M.frame, [x - w / 2 + bar / 2, y0 + h / 2, z], [bar, h, t]);
+  out.box(M.frame, [x + w / 2 - bar / 2, y0 + h / 2, z], [bar, h, t]);
+  out.box(M.frame, [x, y0 + bar / 2, z], [w - 2 * bar, bar, t]);
+  out.box(M.frame, [x, y0 + h - bar / 2, z], [w - 2 * bar, bar, t]);
+  out.box(M.glass, [x, y0 + h / 2, z], [w - 2 * bar, h - 2 * bar, 0.008]);
+}
+
+/** A rectangular window with its leaves open (`open` from 0 to 1 of the way). */
+function openWindow(
+  p: Params,
+  out: PartSink,
+  o: { op: string; open: number; w: number; iw: number; fw: number; fd: number; zf0: number; zf1: number; leafTop: number; transom: number; M: ReturnType<typeof mats> },
+): void {
+  const { op, open, w, iw, fw, fd, zf0, zf1, leafTop, transom, M } = o;
+  const h = num(p, 'height');
+  ring(out, M.frame, 'rect', w - 2 * fw, h - 2 * fw, fw, zf0, zf1);
+  // The bottom rail and, with a transom, its bar and glass stay.
+  out.box(M.frame, [0, fw + 0.005, (zf0 + zf1) / 2], [iw, 0.01, fd * 0.6]);
+  if (transom) {
+    out.box(M.frame, [0, fw + leafTop + fw * 0.25, (zf0 + zf1) / 2], [iw, fw * 0.8, fd * 0.6]);
+    out.box(M.glass, [0, fw + leafTop + fw * 0.5 + transom / 2, zf0 + fd * 0.5], [iw, transom, 0.008]);
+  }
+  const bar = fw * 0.8,
+    t = fd * 0.5;
+  const z = (zf0 + zf1) / 2;
+  const cols = Math.max(1, Math.round(num(p, 'leaves')));
+  if (op === 'casement') {
+    const lw = iw / cols;
+    for (let i = 0; i < cols; i++) {
+      // Leaves hinge on the outer side of their half (one leaf: on the left).
+      const left = cols === 1 || i < cols / 2;
+      const hx = left ? -iw / 2 + lw * i : -iw / 2 + lw * (i + 1);
+      const s = out.placed(hx, 0, z, left ? 85 * open : -85 * open);
+      leafFrame(s, M, left ? lw / 2 : -lw / 2, fw, lw, leafTop, 0, bar, t);
+    }
+  } else if (op === 'sliding') {
+    const n = Math.max(2, cols);
+    const lw = iw / n;
+    for (let i = 0; i < n; i++) {
+      // The first leaf slides over the next one on the inner plane.
+      const x = -iw / 2 + lw * (i + 0.5) + (i === 0 ? lw * 0.95 * open : 0);
+      leafFrame(out, M, x, fw, lw, leafTop, i === 0 ? z - t * 0.6 : z + t * 0.6, bar, t * 0.5);
+    }
+  } else {
+    // Sash: the upper sash stays, the lower one rises in front of it.
+    const sh = leafTop / 2;
+    leafFrame(out, M, 0, fw + sh, iw, sh, z + t * 0.6, bar, t * 0.5);
+    leafFrame(out, M, 0, fw + sh * 0.95 * open, iw, sh, z - t * 0.6, bar, t * 0.5);
+  }
+  // Casements opening into the room clear the curtains (pushed to the sides as they are).
+  curtains(p, out, 'rect', iw, h - 2 * fw, fw, zf0);
+  if (bool(p, 'sill')) {
+    const trim = num(p, 'trim');
+    out.box(M.stone, [0, -0.03, -num(p, 'inset') / 2 + 0.04], [w + 2 * Math.max(trim, 0.05) + 0.06, 0.06, num(p, 'inset') + 0.12]);
+  }
+  const trim = num(p, 'trim');
+  if (trim > 0.005) ring(out, M.trim, 'rect', w, h, trim, -0.005, 0.035, false);
 }
 
 const common = [
@@ -220,6 +291,8 @@ export const WINDOW: Family = {
     P.flag('grille', 'Grade', false),
     P.flag('curtains', 'Curtains', true),
     P.color('curtainColor', 'Curtain color', '#e8dfcf'),
+    // How far the leaves stand open (0 closed, 1 fully): rectangular casement, sliding and sash windows.
+    P.ratio('open', 'Leaves open', 0),
     ...common,
   ],
   // The occupied width includes trim and open shutters (the distribution does not let them touch).
