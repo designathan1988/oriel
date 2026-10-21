@@ -70,6 +70,9 @@ export interface FloorPlan {
   rooms: PlanRoom[];
   /** Outlines of the volumes on this floor (the outer face of the walls), for the dimensions. */
   outline: Vec2[][];
+  /** Built area of the floor (inside the outer face of the walls) and its free floor (m²). */
+  grossArea: number;
+  netArea: number;
   dims: PlanDim[];
   bbox: { x0: number; z0: number; x1: number; z1: number };
 }
@@ -164,6 +167,8 @@ export function floorPlan(b: Building3, levelIndex: number, placements: readonly
     doors: [],
     rooms: [],
     outline: [],
+    grossArea: 0,
+    netArea: 0,
     dims: [],
     bbox: { x0: 0, z0: 0, x1: 0, z1: 0 },
   };
@@ -186,6 +191,7 @@ export function floorPlan(b: Building3, levelIndex: number, placements: readonly
       inner = keep(inner.subtract(keep(hole.offset(s0(c), 'Miter', 2))));
     }
     out.outline = polys(outer);
+    out.grossArea = outer.area();
     let walls = keep(outer.subtract(inner));
 
     // Interior walls of the level: one rectangle per wall, half a thickness past each node.
@@ -254,6 +260,7 @@ export function floorPlan(b: Building3, levelIndex: number, placements: readonly
 
     // Rooms: each piece of free floor, named after the room drawn inside it.
     const named = (it?.rooms ?? []).filter((r) => r.polygon && r.polygon.length >= 3);
+    out.netArea = floor.area();
     for (const piece of floor.decompose()) {
       keep(piece);
       const area = piece.area();

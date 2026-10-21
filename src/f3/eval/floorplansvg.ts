@@ -57,7 +57,7 @@ export function floorPlanSvg(fp: FloorPlan, o: PlanSvgOptions = {}): { svg: stri
   // Room labels: the name (when it has one) over the area.
   for (const r of fp.rooms) {
     const [x, y] = r.at;
-    if (r.name) s.push(`<text x="${r3(x)}" y="${r3(y - 0.06)}" font-size="0.32" font-weight="600" text-anchor="middle" fill="#1d1d1f">${esc(r.name)}</text>`);
+    if (r.name) s.push(`<text x="${r3(x)}" y="${r3(y - 0.06)}" font-size="0.32" font-weight="bold" text-anchor="middle" fill="#1d1d1f">${esc(r.name)}</text>`);
     s.push(`<text x="${r3(x)}" y="${r3(y + (r.name ? 0.36 : 0.12))}" font-size="0.26" text-anchor="middle" fill="#55524d">${num(r.area)} m²</text>`);
   }
   // Dimensions.
@@ -84,7 +84,7 @@ export function floorPlanSvg(fp: FloorPlan, o: PlanSvgOptions = {}): { svg: stri
         : `<text x="${r3(mx - 0.07)}" y="${r3(my)}" font-size="${fs}" text-anchor="middle" fill="#3d3a35" transform="rotate(-90 ${r3(mx - 0.07)} ${r3(my)})">${num(len)}</text>`,
     );
   }
-  if (o.title) s.push(`<text x="${r3(x0)}" y="${r3(z0 - MARGIN)}" font-size="0.42" font-weight="600" fill="#1d1d1f">${esc(o.title)}</text>`);
+  if (o.title) s.push(`<text x="${r3(x0)}" y="${r3(z0 - MARGIN)}" font-size="0.42" font-weight="bold" fill="#1d1d1f">${esc(o.title)}</text>`);
   s.push('</svg>');
   return { svg: s.join(''), viewBox: vb };
 }

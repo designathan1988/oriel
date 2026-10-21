@@ -13,7 +13,7 @@ import { autoVersions, openVersions } from './versions';
 import { openStart, type ProjectHost } from './projects';
 import { available as storeAvailable, currentProjectId, getProject, newProjectId, putProject, setCurrentProjectId } from '../f3/io/projects';
 import { migrateForma3 } from '../f3/io/migrate';
-import { startI18n } from '../f3/ui/i18n';
+import { loadLang, startI18n, tr } from '../f3/ui/i18n';
 import { mountInspector } from '../f3/ui/inspector';
 import { mountPrefs } from '../f3/ui/prefs';
 import { mountWorkspaces } from '../f3/ui/workspaces';
@@ -135,10 +135,10 @@ function exportMenu(anchor: HTMLElement): void {
   // Grouped by what people deliver: drawings first, then BIM and 3D, the project file, game engines last.
   const items: [string, string, (() => Promise<void> | void) | null][] = [
     ['Drawings', '', null],
-    ['Plan and section at scale (PDF)', '.pdf', async () => {
+    ['Drawing set: floor plans, section, area table (PDF)', '.pdf', async () => {
       const b = editor.store.building(editor.sel.building ?? editor.context);
       const { drawingsPdf } = await import('../f3/io/pdf');
-      download(await drawingsPdf(editor.project, b ? b.position[1] : undefined), fileName(editor.project.name + '-drawings', 'pdf'), 'application/pdf');
+      download(await drawingsPdf(editor.project, { sectionAt: b ? b.position[1] : undefined, t: tr, decimal: loadLang() === 'pt-BR' ? ',' : '.' }), fileName(editor.project.name + '-drawings', 'pdf'), 'application/pdf');
     }],
     ['Plan for CAD (DXF)', '.dxf', () => download(planToCadDxf(editor.project), fileName(editor.project.name + '-plan', 'dxf'), 'application/dxf')],
     ['Plan drawing (SVG)', '.svg', () => download(planSvg(editor.project), fileName(editor.project.name + '-plan', 'svg'), 'image/svg+xml')],
