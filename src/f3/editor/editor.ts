@@ -3169,6 +3169,7 @@ export class Editor3 {
   private draftInput(): Measure | null {
     if (this.tool === 'walls' && this.wallsTool.busy) return { label: 'Length', apply: (t) => this.wallsTool.typed(parseLength(t) ?? NaN) };
     if (this.tool === 'slab' && this.slabTool.busy) return { label: 'Length', apply: (t) => this.slabTool.typed(parseLength(t) ?? NaN) };
+    if (this.tool === 'beam' && this.beamFrom) return { label: 'Length', apply: (t) => this.beamTyped(parseLength(t) ?? NaN) };
     if ((this.tool === 'iwall' || this.tool === 'walls') && this.iwallLast) return { label: 'Length', apply: (t) => this.iwallTyped(parseLength(t) ?? NaN) };
     const dr = this.draft;
     if (!dr || !dr.points.length) return null;
@@ -3887,6 +3888,8 @@ export class Editor3 {
     this.wallsTool?.cancel();
     this.slabTool?.cancel();
     this.beamFrom = null;
+    this.beamB = null;
+    this.clearBeamDraft();
     this.roomFrom = null;
     this.marquee = null;
     if (this.marqueeEl) this.marqueeEl.hidden = true;
@@ -5491,27 +5494,129 @@ export class Editor3 {
     this.context = b.id;
   }
 
-  /** Beam tool: two clicks, a beam under the slab above the floor shown. */
+  /**
+   * Beam tool: two clicks on the floor shown (where the eye is, as beams are drawn in plan in ArchiCAD
+   * and Revit), the beam goes under the slab above; a typed length ends it towards the cursor. In a
+   * building (the one under the pointer) or on open ground (the site, like a pergola beam).
+   */
   private beamAt(e: PointerEvent, commit: boolean): void {
-    const b = this.store.building(this.context) ?? this.activeBuilding();
-    if (!b) return this.showDim('Enter a building first (double click)', e);
-    const lv = this.workLevel(b);
-    if (!lv) return;
+    const p = this.beamPoint(e);
+    if (!p) return;
+    const { b, lv, l } = p;
     const top = lv.elevation + lv.height - 0.25;
-    const w = this.view.onPlane(e, top + (b.elevation ?? 0));
-    if (!w) return;
-    let l = toLocal(b, [w.x, w.z]);
-    if (this.infer.enabled) l = [Math.round(l[0] / this.infer.grid) * this.infer.grid, Math.round(l[1] / this.infer.grid) * this.infer.grid];
-    if (!commit) return this.showDim(this.beamFrom ? `${fmt(Math.hypot(l[0] - this.beamFrom[0], l[1] - this.beamFrom[2]))} m` : 'Click the first end of the beam', e);
     if (!this.beamFrom) {
+      if (!commit) {
+        this.drawBeamDraft(b, null, null);
+        return this.showDim('Click the first end of the beam', e);
+      }
       this.beamFrom = [l[0], top, l[1]];
+      this.beamB = b;
       return;
     }
+    this.beamHover = l;
     const a = this.beamFrom;
+    this.drawBeamDraft(b, a, [l[0], a[1], l[1]]);
+    const len = Math.hypot(l[0] - a[0], l[1] - a[2]);
+    if (!commit) return this.showDim(`${fmt(len)} m · type a length`, e);
+    this.beamTo(l);
+  }
+
+  private beamB: Building3 | null = null;
+  private beamHover: Vec2 | null = null;
+
+  /** The floor point (building frame) under the pointer for the beam: the beam's building once started. */
+  private beamPoint(e: { clientX: number; clientY: number }): { b: Building3; lv: { id: ID; elevation: number; height: number }; l: Vec2 } | null {
+    let b = this.beamFrom ? this.beamB : this.buildingUnderWall(e);
+    if (!b) {
+      const g = this.view.onPlane(e, 0);
+      if (!g) return null;
+      b = this.ownerAt(g.x, g.z);
+    }
+    const lv = this.workLevel(b) ?? { id: '', elevation: 0, height: 3 };
+    const w = this.view.onPlane(e, lv.elevation + (b.elevation ?? 0));
+    if (!w) return null;
+    let l = toLocal(b, [w.x, w.z]);
+    if (this.infer.enabled) l = [Math.round(l[0] / this.infer.grid) * this.infer.grid, Math.round(l[1] / this.infer.grid) * this.infer.grid];
+    // Snaps to 15° steps from the first end when close, like the wall tools.
+    if (this.beamFrom) {
+      const a = this.beamFrom;
+      const len = Math.hypot(l[0] - a[0], l[1] - a[2]);
+      const ang = Math.atan2(l[1] - a[2], l[0] - a[0]);
+      const st = Math.round(ang / (Math.PI / 12)) * (Math.PI / 12);
+      if (Math.abs(ang - st) < 0.05) l = [a[0] + Math.cos(st) * len, a[2] + Math.sin(st) * len];
+    }
+    return { b, lv, l };
+  }
+
+  /** Ends the beam being drawn at `l` (building frame). */
+  private beamTo(l: Vec2): boolean {
+    const a = this.beamFrom,
+      b = this.beamB;
+    if (!a || !b) return false;
+    const len = Math.hypot(l[0] - a[0], l[1] - a[2]);
+    if (len < 0.3) return false;
     this.beamFrom = null;
-    if (Math.hypot(l[0] - a[0], l[1] - a[2]) < 0.3) return;
-    const it: Item = { id: uid(), type: 'beam', params: { align: 'top' }, host: { kind: 'path', points: [a, [l[0], top, l[1]]] } };
-    this.change(b.id, (x) => void x.items.push(it), `Beam ${fmt(Math.hypot(l[0] - a[0], l[1] - a[2]))} m under the slab (its section in the panel).`);
+    this.beamB = null;
+    this.clearBeamDraft();
+    const it: Item = { id: uid(), type: 'beam', params: { align: 'top' }, host: { kind: 'path', points: [a, [l[0], a[1], l[1]]] } };
+    this.adopt(b);
+    this.change(b.id, (x) => void x.items.push(it), `Beam ${fmt(len)} m under the slab.`);
+    this.context = b.id;
+    this.shell.dim.hidden = true;
+    const nb = this.store.building(b.id);
+    if (nb) this.drawBeamDraft(nb, null, null);
+    return true;
+  }
+
+  /** A typed length for the beam being drawn: from its first end towards the cursor. */
+  private beamTyped(len: number): boolean {
+    const a = this.beamFrom;
+    if (!a || !(len > 0.3)) return false;
+    const h = this.beamHover ?? [a[0] + 1, a[2]];
+    let dx = h[0] - a[0],
+      dz = h[1] - a[2];
+    const d = Math.hypot(dx, dz);
+    [dx, dz] = d < 1e-6 ? [1, 0] : [dx / d, dz / d];
+    return this.beamTo([Math.round((a[0] + dx * len) * 1e6) / 1e6, Math.round((a[2] + dz * len) * 1e6) / 1e6]);
+  }
+
+  /**
+   * The beam being drawn (its line at its height and the same line on the floor, joined at the ends) and
+   * the beams already on this floor, which the floor cut (1.2 m) hides: their lines on the floor, the way
+   * a plan shows the beams above it.
+   */
+  private drawBeamDraft(b: Building3, a: Vec3 | null, c: Vec3 | null): void {
+    this.clearBeamDraft();
+    const lv = this.workLevel(b);
+    const fy = (lv?.elevation ?? 0) + 0.02;
+    const W = (p: Vec3, y: number) => {
+      const q = toWorld(b, [p[0], p[2]]);
+      return new THREE.Vector3(q[0], y + (b.elevation ?? 0), q[1]);
+    };
+    const pts = a && c ? [W(a, a[1]), W(c, a[1]), W(a, fy), W(c, fy), W(a, fy), W(a, a[1]), W(c, fy), W(c, a[1])] : [];
+    const lo = lv?.elevation ?? 0,
+      hi = lo + (lv?.height ?? 3);
+    for (const it of b.items) {
+      if (it.type !== 'beam' || it.host.kind !== 'path') continue;
+      const q = it.host.points;
+      for (let i = 0; i + 1 < q.length; i++) if (q[i]![1] > lo && q[i]![1] <= hi + 0.01) pts.push(W(q[i]!, fy), W(q[i + 1]!, fy));
+    }
+    if (!pts.length) return;
+    const g = new THREE.BufferGeometry().setFromPoints(pts);
+    const line = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: '#e2702a', depthTest: false, transparent: true, opacity: 0.9 }));
+    line.name = 'beam-draft';
+    line.renderOrder = 10;
+    this.snapOverlay.add(line);
+    this.view.mark();
+  }
+
+  private clearBeamDraft(): void {
+    const o = this.snapOverlay.getObjectByName('beam-draft') as THREE.LineSegments | undefined;
+    if (!o) return;
+    this.snapOverlay.remove(o);
+    o.geometry.dispose();
+    (o.material as THREE.Material).dispose();
+    this.view.mark();
   }
 
   private roomFrom: Vec2 | null = null;
@@ -6749,7 +6854,7 @@ export class Editor3 {
     vcb.addEventListener('input', () => {
       if (!this.pointerAt || !vcb.value.trim()) return;
       const v = parseLength(vcb.value);
-      this.showDim(`${this.shell.status.vcbLabel.textContent}: ${vcb.value}${v !== null && /[-+*/()]/.test(vcb.value.slice(1)) ? ` = ${fmt(v)} m` : ''} · Enter`, { clientX: this.pointerAt.clientX, clientY: this.pointerAt.clientY + 44 });
+      this.showDim(`${this.shell.status.vcbLabel.textContent}: ${vcb.value}${v !== null && /[-+*/()]/.test(vcb.value.slice(1)) ? ` = ${fmt(v)} m` : ''} ↵`, { clientX: this.pointerAt.clientX, clientY: this.pointerAt.clientY + 44 });
     });
     vcb.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {

@@ -28,7 +28,7 @@ import { evalExpr } from '../model/expr';
 import { openCreator } from './creator';
 import { withModifiers } from '../eval/modifiers';
 import { openPhoto } from './photo';
-import { decimal } from './i18n';
+import { decimal, tr } from './i18n';
 
 const ROOFS: [RoofKind, string, string][] = [
   ['flat', 'Flat', 'flat'],
@@ -271,11 +271,11 @@ function buildingPanel(b: Building3, _inside = false, groups = '', project?: Pro
     ${prow('Height', 'floorH', [nk('ground', 'Ground floor height', levels[0]?.height ?? 3, gtext('Ground')), nk('typical', 'Height of the other floors', levels[1]?.height ?? 3, gtext('Upper'))], { title: 'Floor to floor height' })}
   </div>
   ${levels.length > 1 && levels.length <= 40 ? `<div class="f3-sec"><h3>Floors table</h3><table class="f3-floors"><thead><tr><th>Floor</th><th>Elevation</th><th>Height</th></tr></thead><tbody>${[...levels]
-    .map((l, i) => `<tr><td><input data-lvname="${l.id}" value="${esc(l.name)}" aria-label="Name of floor ${i + 1}" maxlength="40"></td><td>${num(l.elevation)} m</td><td><input data-lvh="${i}" inputmode="decimal" value="${num(l.height)}" aria-label="Height of floor ${i + 1} (floor to floor)"></td></tr>`)
+    .map((l, i) => `<tr><td><input data-lvname="${l.id}" value="${esc(/^(Ground|Floor \d+)$/.test(l.name) ? tr(l.name) : l.name)}" aria-label="Name of floor ${i + 1}" maxlength="40"></td><td>${num(l.elevation)} m</td><td><input data-lvh="${i}" inputmode="decimal" value="${num(l.height)}" aria-label="Height of floor ${i + 1} (floor to floor)"></td></tr>`)
     .reverse()
     .join('')}</tbody></table></div>` : ''}
   <div class="f3-sec"><h3>Use</h3><div class="f3-seg">${uses.map(([v, l]) => `<button data-use="${v}" aria-pressed="${b.use === v}">${l}</button>`).join('')}</div></div>
-  <div class="f3-sec"><h3>Style</h3><div class="f3-btns n2">${BUILDING_STYLES.map((st) => `<button class="f3-btn" data-style="${st.id}" title="${st.name}: wall, roof and trim finishes, roof and facade of every volume"><span class="f3-swatch" style="background:${st.wall.color};border-color:${st.trim.color}"></span>${st.name}</button>`).join('')}</div></div>
+  <div class="f3-sec"><h3>Style</h3><div class="f3-btns n2">${BUILDING_STYLES.map((st) => `<button class="f3-btn" data-style="${st.id}" title="Wall, roof and trim finishes, roof and facade of every volume"><span class="f3-swatch" style="background:${st.wall.color};border-color:${st.trim.color}"></span>${st.name}</button>`).join('')}</div></div>
   ${infoSection(b, project)}
 `;
 }
