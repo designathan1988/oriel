@@ -51,6 +51,8 @@ export const SKYLIGHT: Family = {
     P.color('frameColor', 'Frame color', '#3a3e41'),
   ],
   size: (p) => [num(p, 'width'), 0.6, num(p, 'depth')],
+  // The roof is opened inside the curb.
+  roofOpening: (p) => ({ w: num(p, 'width') - 0.16, d: num(p, 'depth') - 0.16 }),
   build(p, out) {
     const w = num(p, 'width'),
       d = num(p, 'depth');

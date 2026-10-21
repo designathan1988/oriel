@@ -157,6 +157,8 @@ export interface Family {
   size(p: Params): Vec3;
   /** Opening the part cuts in the host face (doors, windows, gates). */
   opening?(p: Params): Opening | null;
+  /** A part on a roof that opens it (a skylight): the plan size of the hole under it. */
+  roofOpening?(p: Params): { w: number; d: number };
   /** Default height of the part base above the floor (sill). */
   sill?(p: Params): number;
   build(p: Params, out: PartSink, ctx: BuildContext): void;

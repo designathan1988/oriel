@@ -16,7 +16,7 @@ import { roomRowMesh, roomRows, type RoomCut } from './rooms';
 import { offsetRing, oriented, ringValid, sampleRing } from '../model/plan';
 import { inside } from '../model/ops';
 import { edgeRegions, itemPlacements, rulePlacements, typeResolver, type Placement } from './facade';
-import { emptyParts3, faceMatrix, FrameSink, type Parts3 } from './parts';
+import { emptyParts3, faceMatrix, FrameSink, mul, rotationYXZ, type Parts3 } from './parts';
 import { openingProfile } from '../families/shapes';
 import { bandParts, clipPartsBelow, cutBox, exteriorWalls, floorBands, floorVoids, mergeShells, roofCuts, WALL } from './interior';
 import { interiorDoorFrames, interiorWallMeshes } from './interiorwalls';
@@ -312,6 +312,18 @@ export function evaluateBuilding(b0: Building3, opts: EvalOptions = {}, project?
       let roomCount = 0;
       const roomSections = new Map<string, RoomSection>();
       for (const pl of placements) {
+        // A skylight opens the roof under it: a vertical box through the roof slab (into the room in the
+        // interior view, a shallow well under the glass on a solid volume).
+        const ro = pl.family.roofOpening?.(pl.params);
+        if (ro && ro.w > 0.1 && ro.d > 0.1) {
+          const mb = new MeshBuilder();
+          const face = table.add({ kind: 'reveal', solid: b.solids.find((s) => s.op === 'add')?.id ?? '', ...(pl.tag.item ? { item: pl.tag.item } : {}) });
+          const rect: [number, number][] = [[-ro.w / 2, -ro.d / 2], [ro.w / 2, -ro.d / 2], [ro.w / 2, ro.d / 2], [-ro.w / 2, ro.d / 2]];
+          // Turned so the prism's depth runs up (local z → world y).
+          prismMesh(mb, rect, opts.hollow ? -1.2 : -0.35, 0.3, mul(pl.frame, rotationYXZ([0, -90, 0])), face);
+          pieces.push(mb);
+          continue;
+        }
         if (!pl.opening) continue;
         const o = pl.opening;
         const reveal = table.add({ kind: 'reveal', solid: pl.tag.solid ?? pl.host?.solid ?? '', ...(pl.tag.item ? { item: pl.tag.item } : {}) });
