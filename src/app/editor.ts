@@ -212,12 +212,20 @@ fileInput.addEventListener('change', async () => {
   if (!f) return;
   // A DXF drawing: its closed outlines become buildings added to the project (one step, Ctrl+Z undoes).
   if (/\.dxf$/i.test(f.name)) {
-    const bs = polylinesToBuildings(await readCadDxf(await f.text()), { height: 6, levels: 2 });
-    if (!bs.length) return void editor.toast('No closed outline of at least 1 m² in that drawing.');
+    const polys = await readCadDxf(await f.text());
+    // Contour lines of a survey shape the ground; the other closed outlines become buildings.
+    const { contoursToTerrain, isContour } = await import('../f3/io/dxf');
+    const pts = contoursToTerrain(polys, () => crypto.randomUUID());
+    if (pts.length) {
+      editor.changeSite((p) => void (p.terrain = { points: pts }), `Terrain from ${polys.filter(isContour).length} contour line(s): ${pts.length} points.`);
+      editor.view.frame();
+    }
+    const bs = polylinesToBuildings(polys.filter((pl) => !isContour(pl)), { height: 6, levels: 2 });
+    if (!bs.length) return void (pts.length || editor.toast('No closed outline of at least 1 m² in that drawing.'));
     editor.store.project.buildings.push(...bs);
     editor.store.commit(bs.map((b) => b.id), 'DXF imported.');
     editor.view.frame();
-    editor.toast(`${bs.length} building(s) made from the DXF outlines (6 m, 2 floors): change their height as usual.`);
+    editor.toast(pts.length ? `${bs.length} building(s) and the terrain from the contour lines.` : `${bs.length} building(s) made from the DXF outlines (6 m, 2 floors): change their height as usual.`);
     return;
   }
   try {

@@ -21,6 +21,40 @@ export interface DxfPolyline {
   layer: string;
   points: [number, number][];
   closed: boolean;
+  /** Elevation of the polyline (a contour line of a survey), when the drawing gives one. */
+  z?: number;
+}
+
+/** A contour line of a survey: a polyline with an elevation, or on a layer named for contours or topography. */
+export const isContour = (pl: DxfPolyline): boolean => (pl.z !== undefined && Math.abs(pl.z) > 1e-3) || /curv|contour|topo|n[ií]vel|cota|level/i.test(pl.layer);
+
+/**
+ * Contour lines into terrain points (model/terrain.ts): a point every so often along each line, at its
+ * elevation, at most 2000 in all (the spacing grows with the drawing). Y of the drawing is −Z of the scene.
+ */
+export function contoursToTerrain(polys: DxfPolyline[], id: () => string): { id: string; p: [number, number]; y: number }[] {
+  const lines = polys.filter((pl) => isContour(pl) && pl.points.length >= 2);
+  const len = (pl: DxfPolyline) => pl.points.reduce((a, q, i) => (i ? a + Math.hypot(q[0] - pl.points[i - 1]![0], q[1] - pl.points[i - 1]![1]) : 0), 0);
+  const total = lines.reduce((a, pl) => a + len(pl), 0);
+  const step = Math.max(2, total / 1900);
+  const out: { id: string; p: [number, number]; y: number }[] = [];
+  for (const pl of lines) {
+    const y = pl.z ?? 0;
+    const pts = pl.closed ? [...pl.points, pl.points[0]!] : pl.points;
+    // Where the next point falls, measured along the current segment.
+    let next = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1]!,
+        b = pts[i]!;
+      const d = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      for (; next < d; next += step) {
+        if (out.length >= 2000) return out;
+        out.push({ id: id(), p: [Math.round((a[0] + ((b[0] - a[0]) * next) / d) * 100) / 100, Math.round(-(a[1] + ((b[1] - a[1]) * next) / d) * 100) / 100], y: Math.round(y * 100) / 100 });
+      }
+      next -= d;
+    }
+  }
+  return out;
 }
 
 /** Group value of a real number (DXF wants a decimal point). */

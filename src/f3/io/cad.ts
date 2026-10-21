@@ -78,11 +78,13 @@ export type CadPolyline = DxfPolyline & { bulges?: number[] };
 interface DxfVertex {
   x: number;
   y: number;
+  z?: number;
   bulge?: number;
 }
 interface DxfEntity {
   type: string;
   layer?: string;
+  elevation?: number;
   closed?: boolean;
   vertices?: DxfVertex[];
   x?: number;
@@ -112,7 +114,9 @@ export async function readCadDxf(text: string): Promise<CadPolyline[]> {
         pts.pop();
         bulges.pop();
       }
-      out.push({ layer, points: pts, closed: !!e.closed || pts.length > 2 && e.vertices.length > pts.length, ...(bulges.some((b) => b) ? { bulges } : {}) });
+      // The elevation of a contour line: LWPOLYLINE's own (group 38), else the Z of its first vertex.
+      const z = typeof e.elevation === 'number' ? e.elevation : e.vertices[0]?.z;
+      out.push({ layer, points: pts, closed: !!e.closed || pts.length > 2 && e.vertices.length > pts.length, ...(bulges.some((b) => b) ? { bulges } : {}), ...(z ? { z } : {}) });
     } else if (plain && e.type === 'CIRCLE' && e.x !== undefined && e.y !== undefined && e.r) {
       out.push({ layer, points: [[e.x - e.r, e.y], [e.x + e.r, e.y]], closed: true, bulges: [1, 1] });
     } else other = true;

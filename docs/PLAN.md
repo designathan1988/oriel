@@ -202,7 +202,8 @@ Backlog (P1 first):
       room schedule CSV with totals by use (io/schedule.ts); quantities and areas CSV already there.
 - [x] P1 Terrain from points (modified Shepard, back to 0 within 40 m; Shift+T), pads under buildings and
       streets, lots tinted on it, contours in 3D, site plan and ground floor plans, section and elevations,
-      exports (2026-10-21). [ ] From contours; sculpt.
+      exports (2026-10-21). From contour lines: a DXF survey (polylines with elevation or on a contour layer) shapes the ground
+      on import (io/dxf.ts contoursToTerrain). [ ] Sculpt.
 - [x] P1 Elevations (SVG/PDF, painter with creases); floor plans with interior walls, doors, rooms. [x] Elevations in DXF with hidden lines removed by a depth buffer (io/elevationdxf.ts).
 - [x] P1 Dimensions and labels saved in the project (Project3.notes; Tape tool, Shift+click a label,
       Alt+click deletes); measured on one building they follow it. [ ] Tied to vertices (associative).
