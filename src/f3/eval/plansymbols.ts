@@ -214,9 +214,13 @@ export function planSymbol(pl: Placement, elevation: number, top: number, cutY: 
         dz = (b[1] - a[1]) / L;
       strokes.push({ pts: wk, closed: false, above: false });
       strokes.push({ pts: [[b[0] - dx * 0.2 - dz * 0.08, b[1] - dz * 0.2 + dx * 0.08], b, [b[0] - dx * 0.2 + dz * 0.08, b[1] - dz * 0.2 - dx * 0.08]], closed: false, above: false });
-      const s0 = wk[0]!;
+      const s0 = wk[0]!,
+        s1 = wk[1]!;
+      const L0 = Math.hypot(s1[0] - s0[0], s1[1] - s0[1]) || 1;
+      const fx = (s1[0] - s0[0]) / L0,
+        fz = (s1[1] - s0[1]) / L0;
       strokes.push({ pts: ellipse(s0[0], s0[1], 0.05, 0.05, 10), closed: true, above: false });
-      return { strokes, label: { at: [s0[0] + dx * 0.35, s0[1] + dz * 0.35], text: 'UP' } };
+      return { strokes, label: { at: [s0[0] + fx * 0.3 + fz * 0.22, s0[1] + fz * 0.3 - fx * 0.22 + 0.05], text: 'UP' } };
     }
     return { strokes };
   }

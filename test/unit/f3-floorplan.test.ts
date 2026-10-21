@@ -103,3 +103,22 @@ describe('code check', () => {
     expect(fails.some((c) => c.rule === 'window' && c.room.name === 'Quarto 1')).toBe(true);
   });
 });
+
+describe('stairs in the plan', () => {
+  it('a straight stair: treads up to the cut drawn, the rest dashed, the walking line with its arrow, UP', () => {
+    const p = TEMPLATES.find((t) => t.id === 'townhouse')!.make();
+    const b = p.buildings[0]!;
+    for (const shape of ['stair-straight', 'stair-L', 'stair-U', 'stair-spiral']) {
+      b.items = [{ id: 's1', type: shape, params: { rise: 2.9 }, host: { kind: 'free', p: [0, 0, -2], rot: 0 } }];
+      const ev = evaluateBuilding(b, {}, p);
+      const fp = floorPlan(b, 0, ev.placements);
+      expect(fp.symbols.length).toBe(1);
+      const st = fp.symbols[0]!;
+      expect(st.strokes.some((s) => s.above)).toBe(true);
+      expect(st.strokes.some((s) => !s.above)).toBe(true);
+      expect(st.label?.text).toBe('UP');
+      // Upstairs, the stair that starts below is not drawn again as furniture of that floor.
+      expect(floorPlan(b, 1, ev.placements).symbols.length).toBe(0);
+    }
+  });
+});
