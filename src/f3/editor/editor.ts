@@ -22,7 +22,7 @@ import { OpeningTool } from './tools/opening';
 import { SiteTools } from './tools/site';
 import { StairTool } from './tools/stair';
 import { WallsTool } from './tools/walls';
-import { tr } from '../ui/i18n';
+import { decimal, tr } from '../ui/i18n';
 import { PolylineTool, pointsAlong } from './tools/polyline';
 import { buildingOverlaps, lotAt, lotOverlaps, replantStreetTrees, setbackWarnings, streetAt } from '../model/site';
 import { WalkMode } from './tools/walk';
@@ -1209,6 +1209,51 @@ export class Editor3 {
       b.solids.forEach((s, i) => (s.plan = before[i]!));
       return false;
     }, msg);
+  }
+
+  /**
+   * Scale tool, a typed factor (SketchUp Scale: click, type 2, Enter): the selected volumes, or the whole
+   * building, grow by that factor in plan and height about their middle; "2;1" scales the plan only.
+   */
+  scaleSelection(t: string): boolean {
+    const b = this.activeBuilding();
+    if (!b) return false;
+    const m = /^\s*([\d.,]+)\s*(?:;\s*([\d.,]+))?\s*$/.exec(t);
+    const f = m ? parseFloat(m[1]!.replace(',', '.')) : NaN;
+    const fh = m?.[2] !== undefined ? parseFloat(m[2]!.replace(',', '.')) : f;
+    if (!(f > 0.05 && f < 50) || !(fh > 0.05 && fh < 50)) return false;
+    const ids = this.context === b.id && this.sel.solids.length ? this.sel.solids : b.solids.map((s) => s.id);
+    return this.change(
+      b.id,
+      (x) => {
+        const ss = x.solids.filter((s) => ids.includes(s.id));
+        const pts = ss.flatMap((s) => s.plan.outer.map((v) => v.p));
+        if (!pts.length) return false;
+        const cx = (Math.min(...pts.map((p) => p[0])) + Math.max(...pts.map((p) => p[0]))) / 2,
+          cz = (Math.min(...pts.map((p) => p[1])) + Math.max(...pts.map((p) => p[1]))) / 2;
+        const base = Math.min(...ss.map((s) => s.base));
+        const before = structuredClone(ss.map((s) => [s.plan, s.base, s.height] as const));
+        for (const s of ss) {
+          for (const ring of [s.plan.outer, ...s.plan.holes])
+            for (const v of ring) {
+              v.p = [cx + (v.p[0] - cx) * f, cz + (v.p[1] - cz) * f];
+              if (v.round) v.round *= f;
+              if (v.chamfer) v.chamfer *= f;
+            }
+          if (s.wallAxis) s.wallAxis = s.wallAxis.map((q) => [cx + (q[0] - cx) * f, cz + (q[1] - cz) * f]) as [Vec2, Vec2];
+          s.base = base + (s.base - base) * fh;
+          s.height = Math.max(0.3, s.height * fh);
+        }
+        if (ss.every((s) => planValidOps(s.plan))) return;
+        ss.forEach((s, i) => {
+          s.plan = before[i]![0];
+          s.base = before[i]![1];
+          s.height = before[i]![2];
+        });
+        return false;
+      },
+      `Scaled ×${decimal(f)}${fh !== f ? ` (height ×${decimal(fh)})` : ''}.`,
+    );
   }
 
   /** Scales the building vertically: volume bases and heights, and the levels with them. */

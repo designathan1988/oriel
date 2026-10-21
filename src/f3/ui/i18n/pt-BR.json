@@ -3354,5 +3354,9 @@
 "Click: end at this wall": "Clique: terminar na ponta desta parede",
 "Click: end on this wall": "Clique: terminar nesta parede",
 "{0} m · {1}° · click the first point to close": "{0} m · {1}° · clique no primeiro ponto para fechar",
-"{0} (annex)": "{0} (anexo)"
+"{0} (annex)": "{0} (anexo)",
+"{0} (recess)": "{0} (recuo)",
+"Scale (factor)": "Escala (fator)",
+"Type a factor (2 doubles it; 2;1 the plan only) and Enter, or drag a corner.": "Digite um fator (2 dobra; 2;1 só a planta) e Enter, ou arraste um canto.",
+"Scaled ×{0} (height ×{1}).": "Escalado ×{0} (altura ×{1})."
 }

@@ -232,6 +232,14 @@ export function onDown(ed: Editor3, e: PointerEvent): void {
       }
       return;
     }
+    // Scale tool on an object: it is selected whole and a typed factor scales it (or drag a corner).
+    if (ed.tool === 'scale' && hit) {
+      if (ed.context === hit.building.id && hit.face?.solid) ed.select({ building: hit.building.id, solids: [hit.face.solid] });
+      else ed.selectBuildings([hit.building.id]);
+      ed.setMeasure('Scale (factor)', (t) => ed.scaleSelection(t));
+      ed.toast('Type a factor (2 doubles it; 2;1 the plan only) and Enter, or drag a corner.');
+      return;
+    }
     // Rotate tool on an object (not only on its ring): it turns about its centre, dragged or clicked
     // and then clicked again or a typed angle (before, it was moved instead, and a typed 30 moved it 30 m).
     if (ed.tool === 'rotate' && hit) {
