@@ -203,6 +203,12 @@ export class Editor3 {
   iwallThickness = 0.12;
   /** Thickness of the walls a building is drawn with (Walls tool). */
   wallThickness = 0.25;
+  /** Height of new walls (the tool options in the top bar). */
+  wallHeight = 3;
+  /** Thickness of new slabs. */
+  slabThickness = 0.2;
+  /** Sizes set in the top bar for the next door or window placed (over its type's own). */
+  placeParams: Record<string, number> = {};
   private readonly polyline: PolylineTool;
   /** First-person walk (editor/tools/walk.ts). */
   readonly walk: WalkMode;
@@ -397,7 +403,7 @@ export class Editor3 {
     return () => this.listeners.delete(fn);
   }
 
-  private emit(): void {
+  emit(): void {
     for (const fn of this.listeners) fn();
   }
 
@@ -1130,10 +1136,25 @@ export class Editor3 {
    * the part adds it). Before, a fence drawn in an empty corner went to the first building of the project.
    */
   private ownerAt(x: number, z: number): Building3 {
-    const b = this.store.building(this.context) ?? this.nearestBuilding(x, z, 30);
-    if (b) return b;
+    // Inside a building's outline: that building. Outside every building: the site (a slab, a column, a
+    // fence or a tree on open ground never becomes part of the house next to it, nor of its area).
+    const inside = this.footprintAt(x, z);
+    if (inside) return inside;
+    const sites = this.project.buildings.filter((q) => /^Site( \d+)?$/.test(q.name));
+    const site = sites.sort((p, q) => Math.hypot(p.position[0] - x, p.position[1] - z) - Math.hypot(q.position[0] - x, q.position[1] - z))[0];
+    if (site && Math.hypot(site.position[0] - x, site.position[1] - z) < 80) return site;
     const n = this.project.buildings.filter((q) => /^Site( \d+)?$/.test(q.name)).length;
     return newBuilding({ name: n ? `Site ${n + 1}` : 'Site', position: [x, z], use: 'public', levels: levelsFor(1) });
+  }
+
+  /** The building whose outline (any adding volume) contains a world point on the ground. */
+  private footprintAt(x: number, z: number): Building3 | null {
+    for (const b of this.project.buildings) {
+      if (buildingHidden(this.project, b) || buildingLocked(this.project, b) || /^Site( \d+)?$/.test(b.name)) continue;
+      const l = toLocal(b, [x, z]);
+      if (b.solids.some((so) => so.op === 'add' && !so.hidden && inside(l, sampleRing(so.plan.outer).pts))) return b;
+    }
+    return null;
   }
 
   /** Adds a building made by `ownerAt` to the project (no-op for one already in it). */
@@ -2954,6 +2975,8 @@ export class Editor3 {
   /** Starts placing a component type. */
   startPlacing(typeId: ID): void {
     this.setTool('place');
+    // Another type starts from its own sizes.
+    if (this.placing !== typeId) this.placeParams = {};
     this.placing = typeId;
     const t = typeById(typeId, this.project);
     const f = t && family(t.family);
@@ -5362,10 +5385,11 @@ export class Editor3 {
     const outer = offsetRing(ccw, ccw.map(() => -t / 2));
     if (!ringValid(outer, 1)) return this.toast('Those walls cross each other: draw them again.');
     const c: Vec2 = [outer.reduce((a, p) => a + p[0], 0) / outer.length, outer.reduce((a, p) => a + p[1], 0) / outer.length];
-    const b = newBuilding({ name: tr(`Building ${this.project.buildings.length + 1}`), position: c, levels: levelsFor(1, 3, 3) });
+    const wh = this.wallHeight;
+    const b = newBuilding({ name: tr(`Building ${this.project.buildings.length + 1}`), position: c, levels: levelsFor(1, wh, wh) });
     // Walls and nothing else: no parapet, no stone plinth (a wall drawing is not a massing study); the
     // roof slab closes the top until a roof is chosen.
-    const s = newSolid({ name: tr('Walls'), plan: { outer: planVertices(outer.map((p) => [p[0] - c[0], p[1] - c[1]] as Vec2)), holes: [] }, height: 3, roof: roofSpec('flat', { parapet: 0 }) });
+    const s = newSolid({ name: tr('Walls'), plan: { outer: planVertices(outer.map((p) => [p[0] - c[0], p[1] - c[1]] as Vec2)), holes: [] }, height: wh, roof: roofSpec('flat', { parapet: 0 }) });
     s.shell = t;
     s.plinth = 0;
     b.solids.push(s);
@@ -5391,12 +5415,11 @@ export class Editor3 {
   /** Slab tool finished: a 20 cm slab volume on the floor shown. */
   private slabDone(pts: Vec2[], closed: boolean): void {
     if (!closed) return this.toast('Click the first corner to close the slab.');
-    const b0 = this.store.building(this.context) ?? this.activeBuilding();
-    const b = b0 ?? this.ownerAt(pts[0]![0], pts[0]![1]);
+    const b = this.ownerAt(pts[0]![0], pts[0]![1]);
     const lv = this.workLevel(b);
     const local = pts.map((p) => toLocal(b, p));
     const ring = signedArea2(local) > 0 ? local : [...local].reverse();
-    const s = newSolid({ name: 'Slab', plan: { outer: planVertices(ring), holes: [] }, base: lv?.elevation ?? 0, height: 0.2, roof: roofSpec('flat', { parapet: 0 }) });
+    const s = newSolid({ name: 'Slab', plan: { outer: planVertices(ring), holes: [] }, base: lv?.elevation ?? 0, height: this.slabThickness, roof: roofSpec('flat', { parapet: 0 }) });
     this.adopt(b);
     this.change(b.id, (x) => void x.solids.push(s), 'Slab 20 cm: its corners, height and edges are editable like any volume.');
     this.context = b.id;
@@ -5445,7 +5468,8 @@ export class Editor3 {
 
   /** The level plane point (building frame) under the pointer, for the interior tools. */
   private levelPoint(e: { clientX: number; clientY: number }): { b: Building3; lv: { id: ID; elevation: number; height: number }; p: Vec2 } | null {
-    const b = this.store.building(this.context) ?? this.activeBuilding();
+    // The building under the pointer (on its floor shown), not the one last edited.
+    const b = this.buildingUnderWall(e);
     if (!b) return null;
     const lv = this.workLevel(b);
     if (!lv) return null;
@@ -5458,15 +5482,78 @@ export class Editor3 {
 
   private roomDown(e: PointerEvent): void {
     const at = this.levelPoint(e);
-    if (!at) return this.showDim('Enter a building first (double click)', e);
-    this.roomFrom = at.p;
     this.roomStart = { x: e.clientX, y: e.clientY };
+    if (at) {
+      this.roomGround = null;
+      this.roomFrom = at.p;
+      return;
+    }
+    // On open ground: a rectangle dragged there is a room with its own walls (a building of one room).
+    const p = this.groundPoint(e);
+    if (!p) return;
+    this.roomGround = p;
+    this.roomFrom = p;
+  }
+  /** Start of a room dragged on open ground (world), or null for one inside a building. */
+  private roomGround: Vec2 | null = null;
+
+  /** The ground point under the pointer, on the grid when snapping. */
+  private groundPoint(e: { clientX: number; clientY: number }): Vec2 | null {
+    const g = this.view.onPlane(e, 0);
+    if (!g) return null;
+    return this.infer.enabled ? [Math.round(g.x / this.infer.grid) * this.infer.grid, Math.round(g.z / this.infer.grid) * this.infer.grid] : [g.x, g.z];
+  }
+
+  private roomGroundMove(e: PointerEvent): void {
+    const a = this.roomGround!;
+    const c = this.groundPoint(e);
+    const o = this.snapOverlay.getObjectByName('room-draft');
+    if (o) {
+      this.snapOverlay.remove(o);
+      (o as THREE.Line).geometry.dispose();
+    }
+    if (!c || !(e.buttons & 1)) return;
+    const pts = [a, [c[0], a[1]], c, [a[0], c[1]], a].map((q) => new THREE.Vector3(q[0]!, 0.08, q[1]!));
+    const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: '#e2702a', depthTest: false }));
+    l.name = 'room-draft';
+    l.renderOrder = 10;
+    this.snapOverlay.add(l);
+    this.view.mark();
+    this.showDim(`${fmt(Math.abs(c[0] - a[0]))} × ${fmt(Math.abs(c[1] - a[1]))} m`, e);
+  }
+
+  /** A room dragged on open ground: walls around it (their inner faces on the rectangle) and the room. */
+  private roomGroundUp(e: PointerEvent): void {
+    const a = this.roomGround!;
+    this.roomGround = null;
+    this.roomFrom = null;
+    const o = this.snapOverlay.getObjectByName('room-draft');
+    if (o) this.snapOverlay.remove(o);
+    const c = this.groundPoint(e);
+    if (!c) return;
+    if (Math.abs(c[0] - a[0]) < 0.8 || Math.abs(c[1] - a[1]) < 0.8) return this.toast('Drag a larger rectangle for the room.');
+    const t = this.wallThickness;
+    const x0 = Math.min(a[0], c[0]) - t / 2,
+      x1 = Math.max(a[0], c[0]) + t / 2,
+      z0 = Math.min(a[1], c[1]) - t / 2,
+      z1 = Math.max(a[1], c[1]) + t / 2;
+    this.wallsDone([[x0, z0], [x1, z0], [x1, z1], [x0, z1]], true);
+    const b = this.store.building(this.context);
+    const lv = b && this.workLevel(b);
+    if (!b || !lv) return;
+    const poly = ([[x0 + t / 2, z0 + t / 2], [x1 - t / 2, z0 + t / 2], [x1 - t / 2, z1 - t / 2], [x0 + t / 2, z1 - t / 2]] as Vec2[]).map((q) => toLocal(b, q));
+    const area = Math.round(roomArea(poly) * 100) / 100;
+    const id = uid();
+    this.change(b.id, (x) => void interiorOf(x, lv.id).rooms.push({ id, name: tr('Room 1'), wallIds: [], polygon: poly, area }), `Room: ${fmt(area)} m² with its walls.`);
+    this.roomSel = { level: lv.id, room: id };
+    this.emit();
   }
   private roomStart: { x: number; y: number } | null = null;
 
   private roomMove(e: PointerEvent): void {
+    if (this.roomGround) return this.roomGroundMove(e);
     const at = this.levelPoint(e);
-    if (!at) return this.showDim('Enter a building first (double click)', e);
+    if (!at) return this.showDim('Drag a rectangle: a room with its walls', e);
     const o = this.snapOverlay.getObjectByName('room-draft');
     if (o) {
       this.snapOverlay.remove(o);
@@ -5487,6 +5574,7 @@ export class Editor3 {
   }
 
   private roomUp(e: PointerEvent): void {
+    if (this.roomGround) return this.roomGroundUp(e);
     const at = this.levelPoint(e);
     const a = this.roomFrom!;
     const moved = this.roomStart ? Math.hypot(e.clientX - this.roomStart.x, e.clientY - this.roomStart.y) > 6 : false;
@@ -6293,7 +6381,7 @@ export class Editor3 {
     const t = typeById(this.placing, this.project);
     const f = t && family(t.family);
     if (!t || !f) return null;
-    const params = resolveParams(f, t.params);
+    const params = resolveParams(f, { ...t.params, ...this.instanceParams(f) });
     const hit = this.pickAt(e);
     if (f.host === 'face') {
       if (!hit?.face || hit.face.kind !== 'side' || !hit.face.frame) return null;
@@ -6391,7 +6479,7 @@ export class Editor3 {
     }
     const pl = this.placementAt(e);
     if (!pl) return this.toast(f.host === 'face' ? 'Point at a wall.' : 'Point at the ground or a roof.');
-    const it: Item = { id: uid(), type: t.id, params: {}, host: pl.host };
+    const it: Item = { id: uid(), type: t.id, params: this.instanceParams(f), host: pl.host };
     this.removeGhost();
     this.shell.dim.hidden = true;
     // Say where it went when it was not obvious (no building under the pointer and none being edited).
@@ -6414,6 +6502,13 @@ export class Editor3 {
   }
 
   private lastItem: ID | null = null;
+
+  /** The sizes set in the top bar that the family takes (its parameters), for a new occurrence. */
+  private instanceParams(f: { params: { key: string }[] }): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const [k, v] of Object.entries(this.placeParams)) if (f.params.some((p) => p.key === k)) out[k] = v;
+    return out;
+  }
 
   finishPath(): void {
     const pd = this.pathDraft;

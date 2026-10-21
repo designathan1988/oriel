@@ -79,6 +79,16 @@ export const CSS = `
 .f3-tools hr{width:22px;border:0;border-top:1px solid var(--line);margin:4px auto;flex:none}
 .f3-toolset{display:flex;flex-direction:column;align-items:center;gap:2px;flex:none}
 .f3-topsep{width:1px;height:20px;background:var(--line);margin:0 6px;flex:none}
+.f3-opts{display:flex;align-items:center;gap:6px;flex:none}
+.f3-opt{display:flex;align-items:center;gap:4px;height:28px;padding:0 8px;border:1px solid var(--line);border-radius:7px;background:var(--field);color:var(--muted)}
+.f3-opt span{font:600 11px Inter,system-ui,sans-serif;color:var(--faint)}
+.f3-opt input{width:44px;border:0;background:transparent;color:var(--ink);font:inherit;text-align:right;outline:none}
+.f3-opt small{color:var(--faint)}
+.f3-opt.sel select{border:0;background:transparent;color:var(--ink);font:inherit;max-width:170px;outline:none}
+.f3-opt:focus-within{border-color:var(--accent)}
+.f3-seg2{display:flex;gap:2px;padding:2px;border-radius:8px;background:var(--field)}
+.f3-seg2 button{width:30px;height:24px;border:0;border-radius:6px;background:transparent;color:var(--muted);display:grid;place-items:center}
+.f3-seg2 button[aria-pressed=true]{background:var(--raise);color:var(--accent-ink)}
 .f3-top .f3-viewctl{display:flex;align-items:center;gap:2px;flex:none}
 .f3-top .f3-viewctl .f3-tb{height:30px}
 .f3-top .f3-viewctl select{height:28px;border:1px solid var(--line);border-radius:7px;background:var(--field);color:var(--ink);padding:0 6px;font:inherit}

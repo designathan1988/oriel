@@ -31,6 +31,7 @@ import { mountLastOp } from '../f3/ui/lastop';
 import { mountViewCube } from '../f3/ui/viewcube';
 import { mountInteriorView } from '../f3/ui/interior';
 import { mountLevels } from '../f3/ui/levels';
+import { mountToolOptions } from '../f3/ui/options';
 import { loadAutosave, saveFile, openFileWithNotes, download, fileName } from '../f3/io/persist';
 import { exportGLB, exportOBJ, exportGameJSON, exportGamePackage, exportUSDZ } from '../f3/io/export';
 
@@ -82,6 +83,7 @@ mountLastOp(editor);
 mountViewCube(editor);
 mountInteriorView(editor);
 mountLevels(editor);
+mountToolOptions(editor);
 mountPhoto(editor);
 mountPlanView(editor);
 // Account and cloud (only when this build has a cloud configured: cloud/api.ts).
