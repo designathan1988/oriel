@@ -1,8 +1,8 @@
 // FORMA 3 app (full editor).
-import { planSvg, areasTable } from '../f3/io/plansvg';
+import { areasTable } from '../f3/io/plansvg';
 import { sectionSvg } from '../f3/io/sectionsvg';
 import { polylinesToBuildings } from '../f3/io/dxf';
-import { planToCadDxf, readCadDxf } from '../f3/io/cad';
+import { readCadDxf } from '../f3/io/cad';
 import wasmUrl from 'manifold-3d/manifold.wasm?url';
 import { loadKernel } from '../f3/kernel/kernel';
 import { Editor3 } from '../f3/editor/editor';
@@ -15,7 +15,7 @@ import type { ProFeature } from './cloud/plans';
 import { openStart, type ProjectHost } from './projects';
 import { available as storeAvailable, currentProjectId, getProject, newProjectId, putProject, setCurrentProjectId } from '../f3/io/projects';
 import { migrateForma3 } from '../f3/io/migrate';
-import { loadLang, startI18n, tr } from '../f3/ui/i18n';
+import { decimal, loadLang, startI18n, tr } from '../f3/ui/i18n';
 import { mountInspector } from '../f3/ui/inspector';
 import { mountPrefs } from '../f3/ui/prefs';
 import { mountCatalog } from '../f3/ui/catalog';
@@ -248,8 +248,20 @@ function exportMenu(anchor: HTMLElement): void {
       const { drawingsPdf } = await import('../f3/io/pdf');
       download(await drawingsPdf(editor.project, { sectionAt: b ? b.position[1] : undefined, t: tr, decimal: loadLang() === 'pt-BR' ? ',' : '.' }), fileName(editor.project.name + '-drawings', 'pdf'), 'application/pdf');
     }],
-    ['Plan for CAD (DXF)', '.dxf', () => download(planToCadDxf(editor.project), fileName(editor.project.name + '-plan', 'dxf'), 'application/dxf'), 'dxf'],
-    ['Plan drawing (SVG)', '.svg', () => download(planSvg(editor.project), fileName(editor.project.name + '-plan', 'svg'), 'image/svg+xml')],
+    ['Floor plans for CAD (DXF)', '.dxf', async () => {
+      const { collectFloorPlans, floorPlansToDxf } = await import('../f3/io/cadplan');
+      const plans = collectFloorPlans(editor.project, (id) => editor.view.built.get(id)?.ev.placements ?? [], tr);
+      if (!plans.length) return editor.toast('Nothing to draw yet.');
+      download(floorPlansToDxf(plans, decimal), fileName(editor.project.name + '-plans', 'dxf'), 'application/dxf');
+    }, 'dxf'],
+    ['Floor plan drawing (SVG)', '.svg', async () => {
+      const { collectFloorPlans, floorPlanSvgFile } = await import('../f3/io/cadplan');
+      const sel = editor.store.building(editor.sel.building ?? editor.context);
+      const plans = collectFloorPlans(editor.project, (id) => editor.view.built.get(id)?.ev.placements ?? [], tr);
+      const first = plans.find((x) => !sel || x.fp.building === sel.id) ?? plans[0];
+      if (!first) return editor.toast('Nothing to draw yet.');
+      download(floorPlanSvgFile(first.fp, first.title, loadLang() === 'pt-BR' ? ',' : '.', tr), fileName(editor.project.name + '-plan', 'svg'), 'image/svg+xml');
+    }],
     ['Section drawing (SVG)', '.svg', () => {
       // Through the selected building, else through the middle of them all.
       const b = editor.store.building(editor.sel.building ?? editor.context);
