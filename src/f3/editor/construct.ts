@@ -25,6 +25,8 @@ export interface WallChain {
   interior: boolean;
   /** The building was made by this chain (a closed chain may become one hollow volume). */
   own: boolean;
+  /** The pieces made, in order: their volume and the clicked end (for the location line's corners). */
+  made?: { sid: ID; end: Vec2 }[];
 }
 
 /**
@@ -213,10 +215,32 @@ export function wallSegment(ed: Editor3, a: Vec2, bw: Vec2): void {
     b = newBuilding({ name: tr(`Building ${ed.project.buildings.length + 1}`), position: [a[0], a[1]], levels: levelsFor(1, ed.wallHeight, ed.wallHeight) });
     c.bid = b.id;
   }
-  const la = toLocal(b, a),
+  let la = toLocal(b, a),
     lb = toLocal(b, bw);
   const dx = (lb[0] - la[0]) / len,
     dz = (lb[1] - la[1]) / len;
+  // The location line (top bar): the clicked line is the centre, or the face on one side (the wall body
+  // to the left of the way it is drawn for "outside", to the right for "inside", as a room drawn
+  // counterclockwise has its inside on the left). The corner with the previous piece is where the two
+  // shifted lines meet, so the pieces still join.
+  const off = ed.wallLine === 'outside' ? t / 2 : ed.wallLine === 'inside' ? -t / 2 : 0;
+  const prev = c.made?.[c.made.length - 1];
+  let prevEnd: Vec2 | null = null;
+  if (off) {
+    la = [la[0] - dz * off, la[1] + dx * off];
+    lb = [lb[0] - dz * off, lb[1] + dx * off];
+    const ps = prev && Math.hypot(prev.end[0] - a[0], prev.end[1] - a[1]) < 1e-6 ? b.solids.find((q) => q.id === prev.sid) : undefined;
+    if (ps?.wallAxis) {
+      const [p0, p1] = ps.wallAxis;
+      const d1: Vec2 = [p1[0] - p0[0], p1[1] - p0[1]];
+      const den = d1[0] * dz - d1[1] * dx;
+      if (Math.abs(den) > 1e-6) {
+        const k = ((la[0] - p0[0]) * dz - (la[1] - p0[1]) * dx) / den;
+        prevEnd = [p0[0] + d1[0] * k, p0[1] + d1[1] * k];
+        la = prevEnd;
+      }
+    }
+  }
   const nx = -dz * (t / 2),
     nz = dx * (t / 2);
   const ex = dx * (t / 2),
@@ -230,8 +254,14 @@ export function wallSegment(ed: Editor3, a: Vec2, bw: Vec2): void {
   const s = newSolid({ name: tr('Wall'), plan: { outer: planVertices(signedArea2(ring) > 0 ? ring : [...ring].reverse()), holes: [] }, height: ed.wallHeight, roof: roofSpec('flat', { parapet: 0 }) });
   s.plinth = 0;
   s.wallAxis = [la, lb];
+  (c.made ??= []).push({ sid: s.id, end: [bw[0], bw[1]] });
+  const fix = (x: Building3) => {
+    const ps = prevEnd && prev ? x.solids.find((q) => q.id === prev.sid) : undefined;
+    if (ps?.wallAxis && prevEnd) ps.wallAxis = [ps.wallAxis[0], prevEnd];
+  };
   if (fresh) {
     b.solids.push(s);
+    fix(b);
     joinWalls(b);
     ed.store.project.buildings.push(b);
     ed.store.commit([b.id], `Wall ${fmt(len)} m · Ctrl+Z takes it back · Esc ends.`);
@@ -240,6 +270,7 @@ export function wallSegment(ed: Editor3, a: Vec2, bw: Vec2): void {
       b.id,
       (x) => {
         x.solids.push(s);
+        fix(x);
         joinWalls(x);
       },
       `Wall ${fmt(len)} m · Ctrl+Z takes it back · Esc ends.`,
@@ -251,6 +282,7 @@ export function wallSegment(ed: Editor3, a: Vec2, bw: Vec2): void {
 export function wallUnsegment(ed: Editor3): void {
   ed.store.undo();
   const c = ed.wallChain;
+  c?.made?.pop();
   if (c && !c.interior && c.bid && !ed.store.building(c.bid)) c.bid = null;
 }
 
