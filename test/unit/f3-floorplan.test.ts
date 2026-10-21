@@ -10,22 +10,39 @@ beforeAll(async () => {
 });
 
 describe('floor plan', () => {
-  it('the single-storey house: cut walls, its four rooms by name with their areas, openings and dimensions', () => {
+  it('the single-storey house: cut walls, its five rooms by name, furniture seen from above with their areas, openings and dimensions', () => {
     const p = TEMPLATES.find((t) => t.id === 'house')!.make();
     const b = p.buildings[0]!;
     const ev = evaluateBuilding(b, {}, p);
     const fp = floorPlan(b, 0, ev.placements);
     expect(fp.walls.length).toBeGreaterThan(0);
     const names = fp.rooms.map((r) => r.name).filter(Boolean).sort();
-    expect(names).toEqual(['Banheiro', 'Quarto 1', 'Quarto 2', 'Sala e cozinha']);
+    expect(names).toEqual(['Banheiro', 'Circulação', 'Quarto 1', 'Quarto 2', 'Sala e cozinha']);
     const total = fp.rooms.reduce((s, r) => s + r.area, 0);
     // 12 × 9 outside, 15 cm walls: under the inner area, over 90 % of it.
     expect(total).toBeLessThan(11.7 * 8.7);
     expect(total).toBeGreaterThan(0.9 * 11.7 * 8.7);
     expect(fp.windows.length + fp.doors.length).toBeGreaterThan(2);
-    const overall = fp.dims.filter((d) => d.tier === 1).map((d) => Math.hypot(d.b[0] - d.a[0], d.b[1] - d.a[1])).sort((a, c) => a - c);
+    const len = (d: (typeof fp.dims)[number]) => Math.hypot(d.b[0] - d.a[0], d.b[1] - d.a[1]);
+    const outer = (side: string) => Math.max(...fp.dims.filter((d) => d.side === side).map((d) => d.tier));
+    const overall = fp.dims.filter((d) => (d.side === 'bottom' || d.side === 'right') && d.tier === outer(d.side)).map(len).sort((a, c) => a - c);
+    // The openings chain next to the wall: jamb to jamb, adding up to the whole side.
+    for (const side of ['bottom', 'top', 'left', 'right']) {
+      const chain = fp.dims.filter((d) => d.side === side && d.tier === 0);
+      if (chain.length) expect(chain.reduce((s, d) => s + len(d), 0)).toBeCloseTo(side === 'bottom' || side === 'top' ? 12 : 9, 1);
+    }
+    expect(fp.dims.filter((d) => d.tier === 0).length).toBeGreaterThan(6);
     expect(overall[0]).toBeCloseTo(9, 1);
     expect(overall[1]).toBeCloseTo(12, 1);
+    // Furniture: one symbol per piece (sofa, beds, table and chairs, kitchen, bathroom), all in the outline.
+    expect(fp.symbols.length).toBe(b.items.length);
+    for (const sym of fp.symbols) for (const st of sym.strokes) for (const p2 of st.pts) {
+      expect(p2[0]).toBeGreaterThan(-6);
+      expect(p2[0]).toBeLessThan(6);
+      expect(p2[1]).toBeGreaterThan(-4.5);
+      expect(p2[1]).toBeLessThan(4.5);
+    }
+    expect(fp.doors.length).toBeGreaterThanOrEqual(5);
     const { svg } = floorPlanSvg(fp, { title: 'Planta', decimal: ',' });
     expect(svg).toContain('Quarto 1');
     expect(svg).toContain('12,00');
@@ -64,7 +81,7 @@ describe('quantities', () => {
     expect(get('wall-ext')).toBeLessThan(42 * 2.8);
     expect(get('wall-ext')).toBeGreaterThan(42 * 2.8 * 0.6);
     expect(get('roof')).toBeGreaterThan(108);
-    expect(q.filter((l) => l.group === 'Windows and doors').reduce((s, l) => s + l.qty, 0)).toBe(15);
+    expect(q.filter((l) => l.group === 'Windows and doors').reduce((s, l) => s + l.qty, 0)).toBe(19);
   });
 });
 

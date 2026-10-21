@@ -75,7 +75,7 @@ export async function drawingsPdf(p: Project3, opts: DrawingSetOptions | number 
 
   const sheets: Sheet[] = [{ title: t('Site plan'), svg: { text: planSvg(p), perMetre: 4 } }];
   for (const f of plans) {
-    sheets.push({ title: `${t('Floor plan')} · ${t(f.level)} · ${f.building}`, svg: { text: floorPlanSvg(f.plan, { decimal: dec }).svg, perMetre: 1 } });
+    sheets.push({ title: `${t('Floor plan')} · ${t(f.level)} · ${f.building}`, svg: { text: floorPlanSvg(f.plan, { decimal: dec, t }).svg, perMetre: 1 } });
   }
   sheets.push({ title: t('Section'), svg: { text: sectionSvg(p, o.sectionAt), perMetre: 1 } });
   // The area table: each floor with its built and free area, then its rooms.

@@ -1,10 +1,10 @@
 // Starting projects (the start screen): a blank site and ready buildings of the kinds people make most
 // (a single-storey house with its rooms, a two-storey house, a warehouse, an apartment block), so a new
 // project opens on something to edit instead of an empty grid. No three.
-import type { Building3, Project3, Vec2 } from '../model/schema';
+import type { Building3, Item, Project3, Vec2 } from '../model/schema';
 import { building, facadeRule, levelsFor, mat, project, rectPlan, roofSpec, solid, uid } from '../model/defaults';
 import { sampleBuildings } from '../model/samples';
-import { addInteriorWall, interiorOf, loopAround, roomArea } from '../eval/interiorwalls';
+import { addInteriorWall, interiorDoors, interiorOf, loopAround, roomArea, type InteriorWithDoors } from '../eval/interiorwalls';
 
 export interface Template {
   id: string;
@@ -27,6 +27,27 @@ function roomsAt(b: Building3, levelId: string, w: number, d: number, t: number,
   }
 }
 
+/** A door in the interior wall that passes through `at` (within a few centimetres), opening toward `into`. */
+function doorAt(b: Building3, levelId: string, at: Vec2, into: Vec2, width = 0.8): void {
+  const it = interiorOf(b, levelId) as InteriorWithDoors;
+  const node = new Map(it.nodes.map((n) => [n.id, n.p]));
+  for (const w of it.walls) {
+    const a = node.get(w.a)!,
+      c = node.get(w.b)!;
+    const L = Math.hypot(c[0] - a[0], c[1] - a[1]);
+    const u = ((at[0] - a[0]) * (c[0] - a[0]) + (at[1] - a[1]) * (c[1] - a[1])) / L;
+    const off = Math.abs((at[0] - a[0]) * (c[1] - a[1]) - (at[1] - a[1]) * (c[0] - a[0])) / L;
+    if (off < 0.05 && u > width / 2 && u < L - width / 2) {
+      const side = (c[0] - a[0]) * (into[1] - a[1]) - (c[1] - a[1]) * (into[0] - a[0]);
+      it.doors = [...interiorDoors(it), { wall: w.id, u, width, height: 2.1, swing: side > 0 ? 1 : -1 }];
+      return;
+    }
+  }
+}
+
+/** A piece of furniture standing free on the floor: `rot` turns it (degrees; 0 has its back to −z). */
+const free = (type: string, x: number, z: number, rot = 0): Item => ({ id: uid(), type, params: {}, host: { kind: 'free', p: [x, 0, z], rot } });
+
 const tiles = { wall: mat('plaster', '#efe9de'), roof: mat('tile', '#a4583a'), trim: mat('paint', '#ffffff'), base: mat('stone', '#a29a8c') };
 
 /** Single-storey house, 12 × 9 m, hip roof, living and kitchen, two bedrooms and a bathroom. */
@@ -44,12 +65,43 @@ function house(): Project3 {
   addInteriorWall(b, lv, [1.2, -z], [1.2, z], 0.12, uid);
   addInteriorWall(b, lv, [1.2, 0], [x, 0], 0.12, uid);
   addInteriorWall(b, lv, [3.2, 0], [3.2, z], 0.12, uid);
+  addInteriorWall(b, lv, [1.2, 1.3], [3.2, 1.3], 0.12, uid);
   roomsAt(b, lv, W, D, T, [
     { name: 'Sala e cozinha', at: [-3, 0] },
     { name: 'Quarto 1', at: [3.2, -2] },
-    { name: 'Banheiro', at: [2.2, 2] },
+    { name: 'Circulação', at: [2.2, 0.6] },
+    { name: 'Banheiro', at: [2.2, 2.8] },
     { name: 'Quarto 2', at: [4.2, 2] },
   ]);
+  // Every room opens on the living room or the hall.
+  doorAt(b, lv, [1.2, -0.7], [2, -0.7]);
+  doorAt(b, lv, [1.2, 0.65], [0, 0.65]);
+  doorAt(b, lv, [3.2, 0.65], [4, 0.65]);
+  doorAt(b, lv, [2.2, 1.3], [2.2, 2], 0.7);
+  b.items.push(
+    // Living and kitchen.
+    free('sofa-3', -5.4, -2.2, 90),
+    free('tv-unit', 0.89, -2.2, -90),
+    free('table-dining', -2.6, 1.2),
+    free('chair', -3.1, 0.45),
+    free('chair', -2.1, 0.45),
+    free('chair', -3.1, 1.95, 180),
+    free('chair', -2.1, 1.95, 180),
+    free('kitchen-counter', -3.6, 4.05, 180),
+    free('stove', -2.05, 4.05, 180),
+    free('fridge', -5.4, 4.0, 180),
+    // Bedroom 1.
+    free('bed-double', 2.31, -2.4, 90),
+    free('wardrobe', 4.6, -0.36, 180),
+    // Bathroom.
+    free('toilet', 1.6, 3.0, 90),
+    free('sink-vanity', 2.89, 2.4, -90),
+    free('shower', 2.69, 3.9),
+    // Bedroom 2.
+    free('bed-single', 4.31, 2.8, 90),
+    free('wardrobe', 4.94, 0.36),
+    free('desk', 5.0, 4.05, 180),
+  );
   return project({ name: 'Casa térrea', buildings: [b] });
 }
 
@@ -77,7 +129,7 @@ function apartments(): Project3 {
 
 export const TEMPLATES: Template[] = [
   { id: 'blank', name: 'Em branco', note: 'Terreno vazio para começar do zero', make: () => project({ name: 'Projeto sem título' }) },
-  { id: 'house', name: 'Casa térrea', note: '12 × 9 m, 4 cômodos, telhado de quatro águas', make: house },
+  { id: 'house', name: 'Casa térrea', note: '12 × 9 m, 4 cômodos mobiliados, telhado de quatro águas', make: house },
   { id: 'townhouse', name: 'Sobrado', note: '8 × 10 m, 2 pavimentos, telhado de duas águas', make: townhouse },
   { id: 'warehouse', name: 'Galpão', note: '30 × 20 m, 9 m de altura, docas de carga', make: warehouse },
   { id: 'apartments', name: 'Prédio residencial', note: 'Térreo + 5 pavimentos, cobertura plana', make: apartments },

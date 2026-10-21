@@ -31,7 +31,9 @@ const CSS = `
 .f3-plan .checks li b{flex:none;width:16px;text-align:center}
 .f3-plan .checks li.no b{color:#e5534b}
 .f3-plan .checks li.ok b{color:#3fb950}
-.f3-plan .hint{position:absolute;z-index:2;right:12px;top:10px;max-width:min(520px,calc(100% - 24px));background:var(--panel-solid);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;pointer-events:none;box-shadow:0 6px 18px #0002}
+.f3-plan .hint.fade{animation:f3-hint-out .5s 8s forwards}
+@keyframes f3-hint-out{to{opacity:0;visibility:hidden}}
+.f3-plan .hint{position:absolute;z-index:2;left:12px;bottom:12px;max-width:min(520px,calc(100% - 24px));background:var(--panel-solid);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;pointer-events:none;box-shadow:0 6px 18px #0002}
 .f3-plan .paper[data-mode=wall],.f3-plan .paper[data-mode=door]{cursor:crosshair}
 .f3-plan .bar .f3-btn{height:28px;display:inline-flex;align-items:center;gap:6px}
 .f3-plan .paper{flex:1;position:relative;overflow:hidden;cursor:grab;background-image:linear-gradient(#0000000a 1px,transparent 1px),linear-gradient(90deg,#0000000a 1px,transparent 1px);background-size:24px 24px}
@@ -142,7 +144,7 @@ export function mountPlanView(ed: Editor3): PlanView {
     empty.hidden = true;
     const lv = sortedLevels(b)[level];
     const title = `${tr('Floor plan')} · ${tr(lv?.name ?? '')} · ${b.name}`;
-    const out = floorPlanSvg(fp, { title, decimal, interactive: true, selectedRoom: room });
+    const out = floorPlanSvg(fp, { title, decimal, interactive: true, selectedRoom: room, t: tr });
     svgText = out.svg;
     // A different drawing (another building, floor or a new size) is fitted again; an edit keeps the view.
     if (!fitted || fitted.join() !== out.viewBox.join() || !vb) {
@@ -409,10 +411,11 @@ export function mountPlanView(ed: Editor3): PlanView {
   };
   const wallAt = (p: Vec2) => {
     const tol = 8 * mpp();
-    let best: { id: ID; d: number; u: number; len: number } | null = null;
+    let best: { id: ID; d: number; u: number; len: number; side: 1 | -1 } | null = null;
     for (const w of segs()) {
       const n = near(p, w.a, w.c);
-      if (n.d < w.t / 2 + tol && (!best || n.d < best.d)) best = { id: w.id, d: n.d, u: n.u, len: Math.hypot(w.c[0] - w.a[0], w.c[1] - w.a[1]) };
+      const side = (w.c[0] - w.a[0]) * (p[1] - w.a[1]) - (w.c[1] - w.a[1]) * (p[0] - w.a[0]) >= 0 ? 1 : -1;
+      if (n.d < w.t / 2 + tol && (!best || n.d < best.d)) best = { id: w.id, d: n.d, u: n.u, len: Math.hypot(w.c[0] - w.a[0], w.c[1] - w.a[1]), side };
     }
     return best;
   };
@@ -451,6 +454,15 @@ export function mountPlanView(ed: Editor3): PlanView {
         const a: Vec2 = [s.a[0] + ux * (u - 0.4), s.a[1] + uz * (u - 0.4)],
           c: Vec2 = [s.a[0] + ux * (u + 0.4), s.a[1] + uz * (u + 0.4)];
         html += line(a, c, s.t + 6 * k, '#d97757', 0.7);
+        // The leaf and its swing on the side the door will open to.
+        const nx = -uz * w.side,
+          nz = ux * w.side;
+        const h: Vec2 = [a[0] + (nx * s.t) / 2, a[1] + (nz * s.t) / 2],
+          j: Vec2 = [c[0] + (nx * s.t) / 2, c[1] + (nz * s.t) / 2],
+          lf: Vec2 = [h[0] + nx * 0.8, h[1] + nz * 0.8];
+        const sweep = (j[0] - h[0]) * (lf[1] - h[1]) - (j[1] - h[1]) * (lf[0] - h[0]) > 0 ? 0 : 1;
+        html += line(h, lf, 2 * k, '#d97757');
+        html += `<path d="M${lf[0]},${lf[1]}A0.8 0.8 0 0 ${sweep} ${j[0]},${j[1]}" fill="none" stroke="#d97757" stroke-width="${1.5 * k}" stroke-dasharray="${4 * k} ${3 * k}"/>`;
       }
     }
     g.innerHTML = html;
@@ -471,8 +483,12 @@ export function mountPlanView(ed: Editor3): PlanView {
       mode === 'wall'
         ? tr(from ? 'Click the next point · Enter or Esc ends · the walls join by themselves' : 'Click the start of the wall (it snaps to corners and wall faces)')
         : mode === 'door'
-          ? tr('Click an interior wall to put an 80 cm door in it')
+          ? tr('Click an interior wall to put an 80 cm door in it: it opens to the side you click')
           : tr('Click a room to name it, a wall to select it (Delete removes it) · drag to pan, wheel to zoom');
+    // The selection hint gives way to the drawing after a while; the drawing ones stay while drawing.
+    hintEl.classList.remove('fade');
+    void hintEl.offsetWidth;
+    hintEl.classList.toggle('fade', mode === 'select');
   };
   el.querySelector('[data-modes]')!.addEventListener('click', (e) => {
     const b = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-mode]');
@@ -495,7 +511,7 @@ export function mountPlanView(ed: Editor3): PlanView {
     const u = Math.max(0.4, Math.min(w.len - 0.4, w.u));
     ed.change(b.id, (x) => {
       const it = x.interiors[id] as InteriorWithDoors;
-      it.doors = [...interiorDoors(it), { wall: w.id, u, width: 0.8, height: 2.1 }];
+      it.doors = [...interiorDoors(it), { wall: w.id, u, width: 0.8, height: 2.1, swing: w.side }];
     }, tr('Door added to the interior wall.'));
   };
   const removeWall = (wid: ID) => {

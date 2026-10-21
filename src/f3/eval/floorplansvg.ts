@@ -14,6 +14,8 @@ export interface PlanSvgOptions {
   selectedRoom?: string | null;
   /** Interactive view: rooms carry data-room / data-i to be clicked. */
   interactive?: boolean;
+  /** Translation of the words drawn ("UP" on a stair). */
+  t?: (english: string) => string;
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -22,7 +24,7 @@ const pt = (p: Vec2) => `${r3(p[0])},${r3(p[1])}`;
 const path = (rings: Vec2[][]) => rings.map((r) => `M${r.map(pt).join('L')}Z`).join('');
 
 /** Margin around the outline for the dimensions and the labels (m). */
-const MARGIN = 2.4;
+const MARGIN = 2.6;
 
 export function floorPlanSvg(fp: FloorPlan, o: PlanSvgOptions = {}): { svg: string; viewBox: [number, number, number, number] } {
   const dec = o.decimal ?? '.';
@@ -37,6 +39,17 @@ export function floorPlanSvg(fp: FloorPlan, o: PlanSvgOptions = {}): { svg: stri
     const attrs = o.interactive ? ` data-i="${i}"${r.id ? ` data-room="${esc(r.id)}"` : ''}` : '';
     s.push(`<path class="rm${r.id && r.id === o.selectedRoom ? ' sel' : ''}" fill-rule="evenodd" d="${path(r.rings)}"${attrs}/>`);
   });
+  // Furniture and stairs, thin; dashed above the cut.
+  for (const sym of fp.symbols) {
+    for (const k of [false, true]) {
+      const d = sym.strokes
+        .filter((x) => x.above === k)
+        .map((x) => `M${x.pts.map(pt).join('L')}${x.closed ? 'Z' : ''}`)
+        .join('');
+      if (d) s.push(`<path d="${d}" fill="none" stroke="#6b6760" stroke-width="0.01" stroke-linejoin="round"${k ? ' stroke-dasharray="0.08 0.05"' : ''}/>`);
+    }
+    if (sym.label) s.push(`<text x="${r3(sym.label.at[0])}" y="${r3(sym.label.at[1])}" font-size="0.16" text-anchor="middle" fill="#55524d">${esc((o.t ?? ((x: string) => x))(sym.label.text))}</text>`);
+  }
   // Cut walls: poche with a heavy outline.
   s.push(`<path d="${path(fp.walls)}" fill="#2b2a28" fill-rule="evenodd" stroke="#111" stroke-width="0.02" stroke-linejoin="miter"/>`);
   // Windows: the two faces of the sill and the glass between them.

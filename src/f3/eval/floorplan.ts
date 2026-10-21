@@ -16,6 +16,7 @@ import { ringsAt } from './parapet';
 import { interiorDoors } from './interiorwalls';
 import { PLAN_CUT, WALL } from './interior';
 import type { Placement } from './facade';
+import { planSymbol, type PlanSymbol } from './plansymbols';
 
 export interface PlanWindow {
   /** Ends on the outer face of the wall, the outward normal and the wall thickness. */
@@ -54,7 +55,7 @@ export interface PlanRoom {
 export interface PlanDim {
   a: Vec2;
   b: Vec2;
-  /** Side of the drawing it stands on and how far out (tier 0: partial chain, 1: overall). */
+  /** Side of the drawing it stands on and how far out (0 nearest the wall: openings, then the corners, the overall size outermost). */
   side: 'top' | 'bottom' | 'left' | 'right';
   tier: number;
 }
@@ -77,6 +78,8 @@ export interface FloorPlan {
   grossArea: number;
   netArea: number;
   dims: PlanDim[];
+  /** Furniture and stairs seen from above (plansymbols.ts). */
+  symbols: PlanSymbol[];
   bbox: { x0: number; z0: number; x1: number; z1: number };
 }
 
@@ -135,6 +138,57 @@ function labelPoint(rings: Vec2[][]): Vec2 {
   return best;
 }
 
+type Box = [number, number, number, number];
+
+/**
+ * Where the label of a room goes when the furniture is in the way of `at`: the nearest point of the room
+ * whose label box (`w` × the two lines, name over area) stays inside it and covers the least furniture.
+ */
+function clearLabel(rings: Vec2[][], at: Vec2, w: number, boxes: Box[]): Vec2 {
+  const up = 0.38,
+    down = 0.44;
+  const cover = (p: Vec2) => {
+    let s = 0;
+    for (const b of boxes) {
+      const ox = Math.min(p[0] + w / 2, b[2]) - Math.max(p[0] - w / 2, b[0]),
+        oz = Math.min(p[1] + down, b[3]) - Math.max(p[1] - up, b[1]);
+      if (ox > 0 && oz > 0) s += ox * oz;
+    }
+    return s;
+  };
+  if (cover(at) < 1e-6) return at;
+  let x0 = Infinity,
+    z0 = Infinity,
+    x1 = -Infinity,
+    z1 = -Infinity;
+  for (const r of rings)
+    for (const p of r) {
+      x0 = Math.min(x0, p[0]);
+      z0 = Math.min(z0, p[1]);
+      x1 = Math.max(x1, p[0]);
+      z1 = Math.max(z1, p[1]);
+    }
+  let best = at,
+    score = cover(at) * 100;
+  for (let x = x0 + w / 2 + 0.05; x <= x1 - w / 2 - 0.05; x += 0.1)
+    for (let z = z0 + up + 0.05; z <= z1 - down - 0.05; z += 0.1) {
+      const p: Vec2 = [x, z];
+      const corners: Vec2[] = [
+        [x - w / 2, z - up],
+        [x + w / 2, z - up],
+        [x + w / 2, z + down],
+        [x - w / 2, z + down],
+      ];
+      if (!corners.every((c) => insideRings(c, rings))) continue;
+      const sc = cover(p) * 100 + Math.hypot(x - at[0], z - at[1]) * 0.05;
+      if (sc < score) {
+        score = sc;
+        best = p;
+      }
+    }
+  return best;
+}
+
 /** Rectangle `len` long along `u` from `o`, from `d0` to `d1` across it (along `n`). */
 function rect(o: Vec2, u: Vec2, n: Vec2, len: number, d0: number, d1: number): [number, number][] {
   const p = (s: number, d: number): [number, number] => [o[0] + u[0] * s + n[0] * d, o[1] + u[1] * s + n[1] * d];
@@ -173,6 +227,7 @@ export function floorPlan(b: Building3, levelIndex: number, placements: readonly
     grossArea: 0,
     netArea: 0,
     dims: [],
+    symbols: [],
     bbox: { x0: 0, z0: 0, x1: 0, z1: 0 },
   };
   const polys = (cs: CrossSection): Vec2[][] => cs.toPolygons().map((r) => r.map((p) => [p[0], p[1]] as Vec2));
@@ -219,8 +274,13 @@ export function floorPlan(b: Building3, levelIndex: number, placements: readonly
 
     // Openings on the facades of this floor.
     const gaps: [number, number][][] = [];
+    const facade: { a: Vec2; b: Vec2; n: Vec2 }[] = [];
     for (const pl of placements) {
-      if (!pl.opening) continue;
+      if (!pl.opening) {
+        const sym = planSymbol(pl, elevation, top, cutY);
+        if (sym) out.symbols.push(sym);
+        continue;
+      }
       const m = pl.frame;
       const y0 = m[13]!,
         y1 = y0 + pl.opening.h;
@@ -240,6 +300,7 @@ export function floorPlan(b: Building3, levelIndex: number, placements: readonly
       const a = add(o, u, -w / 2),
         bb = add(o, u, w / 2);
       gaps.push(rect(a, u, n, w, -depth - 0.05, 0.3));
+      facade.push({ a, b: bb, n });
       if (DOOR_CATS.has(pl.family.category) || y0 < elevation + 0.4) {
         // Exterior doors open in: the hinge on the inner face, the leaf into the room.
         const inA = add(a, n, -depth),
@@ -255,13 +316,24 @@ export function floorPlan(b: Building3, levelIndex: number, placements: readonly
       const a = add(c, ax.u, -d.width / 2),
         bb = add(c, ax.u, d.width / 2);
       gaps.push(rect(a, ax.u, ax.n, d.width, -ax.t / 2 - 0.01, ax.t / 2 + 0.01));
-      const hinge = add(a, ax.n, ax.t / 2);
-      out.doors.push({ hinge, jamb: add(bb, ax.n, ax.t / 2), leaf: add(hinge, ax.n, d.width), width: d.width, a: add(a, ax.n, ax.t / 2), b: add(bb, ax.n, ax.t / 2), n: ax.n, depth: ax.t });
+      const n: Vec2 = d.swing === -1 ? [-ax.n[0], -ax.n[1]] : ax.n;
+      const hinge = add(a, n, ax.t / 2);
+      out.doors.push({ hinge, jamb: add(bb, n, ax.t / 2), leaf: add(hinge, n, d.width), width: d.width, a: add(a, n, ax.t / 2), b: add(bb, n, ax.t / 2), n, depth: ax.t });
     }
     if (gaps.length) walls = keep(walls.subtract(keep(new k.CrossSection(gaps, 'Positive'))));
     out.walls = polys(walls);
 
     // Rooms: each piece of free floor, named after the room drawn inside it.
+    // What each label keeps clear of: the furniture (cut-plane symbols; the dashed ones above are no obstacle).
+    const furnitureBoxes: Box[] = out.symbols.map((sym) => {
+      const ps = sym.strokes.filter((st) => !st.above).flatMap((st) => st.pts);
+      return [Math.min(...ps.map((p) => p[0])), Math.min(...ps.map((p) => p[1])), Math.max(...ps.map((p) => p[0])), Math.max(...ps.map((p) => p[1]))] as Box;
+    }).filter((bx) => Number.isFinite(bx[0]));
+    // And the swing of the doors.
+    for (const d of out.doors) {
+      const ps = [d.hinge, d.jamb, d.leaf, [d.leaf[0] + d.jamb[0] - d.hinge[0], d.leaf[1] + d.jamb[1] - d.hinge[1]] as Vec2];
+      furnitureBoxes.push([Math.min(...ps.map((p) => p[0])), Math.min(...ps.map((p) => p[1])), Math.max(...ps.map((p) => p[0])), Math.max(...ps.map((p) => p[1]))]);
+    }
     const named = (it?.rooms ?? []).filter((r) => r.polygon && r.polygon.length >= 3);
     out.netArea = floor.area();
     for (const piece of floor.decompose()) {
@@ -269,9 +341,10 @@ export function floorPlan(b: Building3, levelIndex: number, placements: readonly
       const area = piece.area();
       if (area < 0.5) continue;
       const rings = polys(piece);
-      const at = labelPoint(rings);
       const r = named.find((x) => insideRings(labelPoint([x.polygon!]), rings));
-      out.rooms.push({ id: r?.id ?? null, name: r?.name ?? '', area, at, rings });
+      const name = r?.name ?? '';
+      const at = clearLabel(rings, labelPoint(rings), Math.max(name.length * 0.19, 1.15), furnitureBoxes);
+      out.rooms.push({ id: r?.id ?? null, name, area, at, rings });
     }
 
     // Dimensions: on the bottom and the right, a chain through the outline corners and the overall size.
@@ -294,10 +367,29 @@ export function floorPlan(b: Building3, levelIndex: number, placements: readonly
       };
       const xs = stops(out.outline.flat().map((p) => p[0]), x0, x1);
       const zs = stops(out.outline.flat().map((p) => p[1]), z0, z1);
-      if (xs.length > 2) for (let i = 0; i + 1 < xs.length; i++) out.dims.push({ a: [xs[i]!, z1], b: [xs[i + 1]!, z1], side: 'bottom', tier: 0 });
-      if (zs.length > 2) for (let i = 0; i + 1 < zs.length; i++) out.dims.push({ a: [x1, zs[i]!], b: [x1, zs[i + 1]!], side: 'right', tier: 0 });
-      out.dims.push({ a: [x0, z1], b: [x1, z1], side: 'bottom', tier: 1 });
-      out.dims.push({ a: [x1, z0], b: [x1, z1], side: 'right', tier: 1 });
+      // Innermost, on each side that has them: the openings of the façades facing it (jamb to jamb).
+      const sides = [
+        ['bottom', [0, 1]],
+        ['top', [0, -1]],
+        ['right', [1, 0]],
+        ['left', [-1, 0]],
+      ] as const;
+      const tier0 = { bottom: 0, top: 0, right: 0, left: 0 };
+      for (const [side, dir] of sides) {
+        const horiz = dir[0] === 0;
+        const ends = facade.filter((f) => f.n[0] * dir[0] + f.n[1] * dir[1] > 0.95).flatMap((f) => (horiz ? [f.a[0], f.b[0]] : [f.a[1], f.b[1]]));
+        if (!ends.length) continue;
+        const cs = horiz ? stops(ends, x0, x1) : stops(ends, z0, z1);
+        const at = side === 'bottom' ? z1 : side === 'top' ? z0 : side === 'right' ? x1 : x0;
+        for (let i = 0; i + 1 < cs.length; i++) out.dims.push(horiz ? { a: [cs[i]!, at], b: [cs[i + 1]!, at], side, tier: 0 } : { a: [at, cs[i]!], b: [at, cs[i + 1]!], side, tier: 0 });
+        tier0[side] = 1;
+      }
+      const tb = tier0.bottom,
+        tr = tier0.right;
+      if (xs.length > 2) for (let i = 0; i + 1 < xs.length; i++) out.dims.push({ a: [xs[i]!, z1], b: [xs[i + 1]!, z1], side: 'bottom', tier: tb });
+      if (zs.length > 2) for (let i = 0; i + 1 < zs.length; i++) out.dims.push({ a: [x1, zs[i]!], b: [x1, zs[i + 1]!], side: 'right', tier: tr });
+      out.dims.push({ a: [x0, z1], b: [x1, z1], side: 'bottom', tier: tb + (xs.length > 2 ? 1 : 0) });
+      out.dims.push({ a: [x1, z0], b: [x1, z1], side: 'right', tier: tr + (zs.length > 2 ? 1 : 0) });
     }
   } finally {
     for (const x of temp) x.delete();

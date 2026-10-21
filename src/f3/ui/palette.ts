@@ -88,7 +88,7 @@ export function mountPalette(ed: Editor3): void {
       mode('vertex', 'Vertex mode', 'modeVertex', '1'),
       mode('edge', 'Edge mode', 'modeEdge', '2'),
       mode('face', 'Face mode', 'modeFace', '3'),
-      { label: 'Interior view', group: 'View', ic: 'cutaway', run: () => ed.shell.viewbar.querySelector<HTMLButtonElement>('[aria-label="Interior view"]')?.click() },
+      { label: 'Interior view', group: 'View', ic: 'cutaway', run: () => ed.shell.viewbar.querySelector<HTMLButtonElement>('[data-interior]')?.click() },
       { label: 'Invert selection', group: 'Select', ic: 'swap', key: 'Ctrl I', run: () => ed.selectAll(true) },
       { label: 'Select similar', group: 'Select', ic: 'template', key: 'Shift G', run: () => ed.selectSimilar() },
       { label: 'Save selection set', group: 'Select', ic: 'bookmark', run: () => ed.saveSelectionSet() },

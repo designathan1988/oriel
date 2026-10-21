@@ -16,6 +16,7 @@ export function mountInteriorView(ed: Editor3): void {
   btn.className = 'f3-tb';
   btn.title = 'Interior view: hide walls, roofs, floors or ceilings; cut by floor';
   btn.setAttribute('aria-label', 'Interior view');
+  btn.dataset.interior = '';
   btn.setAttribute('aria-haspopup', 'dialog');
   btn.innerHTML = icon('cutaway');
   bar.appendChild(btn);

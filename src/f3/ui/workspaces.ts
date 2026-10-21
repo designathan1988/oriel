@@ -179,7 +179,7 @@ export function mountWorkspaces(ed: Editor3): { set(id: WorkspaceId): void } {
       ed.shell.cat.querySelector<HTMLButtonElement>(`[data-tab="${w.library}"]`)?.click();
     } else ed.toggleLibrary(false);
     // The interior panel: opened in Interior, closed when leaving it (the view state stays as set).
-    const intBtn = ed.shell.viewbar.querySelector<HTMLButtonElement>('[aria-label="Interior view"]');
+    const intBtn = ed.shell.viewbar.querySelector<HTMLButtonElement>('[data-interior]');
     const intPop = ed.shell.root.querySelector<HTMLElement>('.f3-interior');
     if (intBtn && intPop && intPop.hidden === !!w.interior) intBtn.click();
     // The plan stage opens the floor plan; the others go back to the 3D view.

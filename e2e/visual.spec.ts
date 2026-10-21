@@ -51,6 +51,7 @@ for (const s of SCENES) {
     await page.addInitScript(frozen);
     await page.addInitScript(() => {
       localStorage.setItem('oriel_lang', 'en');
+    localStorage.setItem('oriel_guide_off', '1');
       (globalThis as any).__orielNoStart = true;
     });
     // The project is the saved one the editor opens (as after a reload): no message, no samples first.

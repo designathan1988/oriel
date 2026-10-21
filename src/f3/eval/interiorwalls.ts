@@ -29,6 +29,8 @@ export interface InteriorDoor {
   u: number;
   width: number;
   height: number;
+  /** Side the leaf opens to: 1 (absent) toward the wall's left normal (−u.z, u.x) going from `a` to `b`, −1 the other. */
+  swing?: 1 | -1;
 }
 
 /** `Interior` with the doors of its walls (the document schema does not type them yet). */
