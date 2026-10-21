@@ -15,6 +15,17 @@ const BIG = 4096;
 const blobs: string[] = [];
 const blobId = new Map<string, number>();
 const REF = '\u0001blob:';
+const REFS = /\u0001blob:(\d+)/g;
+
+/** The undo and redo steps of a project, written out to survive a reload (io/history.ts). */
+export interface History {
+  /** The state shown when it was written: the steps are taken back only onto that same state. */
+  last: string;
+  undo: string[];
+  redo: string[];
+  /** The big data URLs the steps refer to (`REF` + index into this list). */
+  blobs: string[];
+}
 
 /** The project as history text, big data URLs as references. */
 function pack(p: unknown): string {
@@ -219,6 +230,40 @@ export class Store {
 
   json(): string {
     return JSON.stringify(this.project);
+  }
+
+  /** The last `max` undo and redo steps with the data URLs they refer to. */
+  snapshot(max = 40): History {
+    const out: string[] = [];
+    const at = new Map<number, number>();
+    const map = (s: string) =>
+      s.replace(REFS, (_m, i: string) => {
+        let j = at.get(+i);
+        if (j === undefined) at.set(+i, (j = out.push(blobs[+i] ?? '') - 1));
+        return REF + j;
+      });
+    return { last: map(this.last), undo: this.undoStack.slice(-max).map(map), redo: this.redoStack.slice(-max).map(map), blobs: out };
+  }
+
+  /** Takes back saved steps when they were written on the state shown now (else nothing changes). */
+  adopt(h: History): boolean {
+    if (!h || typeof h.last !== 'string' || !Array.isArray(h.undo) || !Array.isArray(h.redo) || !Array.isArray(h.blobs)) return false;
+    const map = (s: string) =>
+      s.replace(REFS, (_m, i: string) => {
+        const v = h.blobs[+i] ?? '';
+        let id = blobId.get(v);
+        if (id === undefined) {
+          id = blobs.push(v) - 1;
+          blobId.set(v, id);
+        }
+        return REF + id;
+      });
+    if (map(h.last) !== this.last || this.undoStack.length || this.redoStack.length) return false;
+    this.undoStack = h.undo.map(map);
+    this.redoStack = h.redo.map(map);
+    this.seq++;
+    this.emit({ kind: 'history' });
+    return true;
   }
 }
 

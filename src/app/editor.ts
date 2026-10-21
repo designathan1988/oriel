@@ -13,6 +13,8 @@ import { autoVersions, openVersions } from './versions';
 import { mountAccount } from './cloud/account';
 import type { ProFeature } from './cloud/plans';
 import { openStart, type ProjectHost } from './projects';
+import { getHistory, putHistory } from '../f3/io/history';
+import type { History } from '../f3/editor/store';
 import { available as storeAvailable, currentProjectId, getProject, newProjectId, putProject, setCurrentProjectId } from '../f3/io/projects';
 import { migrateForma3 } from '../f3/io/migrate';
 import { decimal, loadLang, startI18n, tr } from '../f3/ui/i18n';
@@ -167,13 +169,22 @@ function tourPublish(): TourPublish {
 sentinel?.watchEditor(editor);
 if (startNote) editor.toast(startNote);
 
-// Autosave into the project store; localStorage only where IndexedDB is missing.
+// Autosave into the project store; localStorage only where IndexedDB is missing. The undo steps follow
+// a moment after the edits stop (io/history.ts) and come back on the next visit.
+let historyTimer = 0;
 editor.persist = async (json) => {
   if (!storeAvailable()) return localStorage.setItem('forma3_project', json);
   await putProject(currentId!, editor.project, json);
   setCurrentProjectId(currentId!);
   account.push(currentId!, json);
+  clearTimeout(historyTimer);
+  const id = currentId!;
+  historyTimer = window.setTimeout(() => void putHistory(id, editor.store.snapshot()), 1200);
 };
+if (!firstVisit && storeAvailable()) {
+  const h = await getHistory<History>(currentId);
+  if (h) editor.store.adopt(h);
+}
 if (!firstVisit && storeAvailable()) void Promise.resolve(editor.persist(editor.store.json())).catch(() => undefined);
 const projects: ProjectHost = {
   account,

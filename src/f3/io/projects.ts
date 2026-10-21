@@ -4,6 +4,7 @@
 // https://developer.mozilla.org/docs/Web/API/Web_Storage_API/Using_the_Web_Storage_API), so large
 // projects with images keep saving. The open project's id is remembered in localStorage. No three.
 import type { Project3 } from '../model/schema';
+import { deleteHistory } from './history';
 
 export interface StoredProject {
   id: string;
@@ -74,6 +75,7 @@ export async function putProject(id: string, p: Project3, json = JSON.stringify(
 
 export async function deleteProject(id: string): Promise<void> {
   await tx('readwrite', (s) => s.delete(id));
+  await deleteHistory(id);
 }
 
 export async function renameProject(id: string, name: string): Promise<void> {
