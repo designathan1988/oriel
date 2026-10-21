@@ -188,7 +188,7 @@ Backlog (P1 first):
       side; height follows the floors (typed in floors, Floor ±).
 - [x] P1 Wall types with layers (model/walltypes.ts: ceramic and concrete block, concrete, drywall, insulated
       double wall); thickness = their sum; layer lines in the floor plan (SVG, PDF, DXF A-WALL-PATT).
-      [ ] Layers in the section.
+      Layers in the section too (io/sectionsvg.ts, only where the wall is cut solid).
 - [x] P1 Curtain wall per face (families/curtainwall.ts: U/V grids at most a spacing apart, border and interior
       mullions, glass panels, opaque band at each floor; selected side → Curtain wall). [ ] Door panels.
 - [x] P1 Shafts and atria: a cutter drawn inside a building opens every slab it crosses, and the floor

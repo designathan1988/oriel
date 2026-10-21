@@ -6,6 +6,7 @@
 import type { Project3 } from '../model/schema';
 import { evaluateBuilding } from '../eval/evaluate';
 import { terrainField } from '../model/terrain';
+import { offsetRing, oriented, sampleRing } from '../model/plan';
 import { kernel } from '../kernel/kernel';
 
 /**
@@ -104,6 +105,8 @@ export function sectionSvg(p: Project3, at?: number, dec = '.', t: (s: string) =
   }
   const segs: Seg[] = [];
   const fills: [number, number][][][] = [];
+  /** Boundaries between the layers of typed walls, where the poché is (thin light lines over it). */
+  const layerSegs: Seg[] = [];
   const labels: { x: number; y: number; name: string }[] = [];
   const levels: { x0: number; x1: number; y: number }[] = [];
   for (const b of p.buildings) {
@@ -128,7 +131,49 @@ export function sectionSvg(p: Project3, at?: number, dec = '.', t: (s: string) =
       const sorted = polys.map(area).sort((x, y) => y - x);
       const outer = sorted[0] ?? 0;
       const filled = outer - sorted.slice(1).reduce((a, v) => a + v, 0);
-      if (outer > 0 && filled / outer < 0.55) fills.push(polys);
+      if (outer > 0 && filled / outer < 0.55) {
+        fills.push(polys);
+        // Inside the poché (even-odd over its rings): where a layer line is drawn.
+        const inPoche = (x: number, y: number) => {
+          let n = false;
+          for (const r of polys)
+            for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+              const [xi, yi] = r[i]!,
+                [xj, yj] = r[j]!;
+              if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) n = !n;
+            }
+          return n;
+        };
+        for (const so of b.solids) {
+          if (so.op !== 'add' || so.hidden || !so.wallLayers || so.wallLayers.length < 2) continue;
+          const base = sampleRing(oriented(so.plan.outer, 1)).pts;
+          let at = 0;
+          for (const l of so.wallLayers.slice(0, -1)) {
+            at += l.thickness;
+            const ring = offsetRing(base, base.map(() => at)).map((q) => W(q[0], 0, q[1]));
+            for (let i = 0; i < ring.length; i++) {
+              const A = ring[i]!,
+                B = ring[(i + 1) % ring.length]!;
+              if ((A[2] - zc) * (B[2] - zc) > 0 || A[2] === B[2]) continue;
+              const x = A[0] + ((B[0] - A[0]) * (zc - A[2])) / (B[2] - A[2]);
+              // The vertical line through the wall, kept where the wall is cut solid (not across an opening).
+              let from = -1;
+              const y0 = so.base + e,
+                y1 = so.base + so.height + e;
+              const n = Math.max(2, Math.ceil((y1 - y0) / 0.05));
+              for (let k = 0; k <= n; k++) {
+                const y = y0 + ((y1 - y0) * k) / n;
+                const inside = inPoche(x, y);
+                if (inside && from < 0) from = y;
+                if ((!inside || k === n) && from >= 0) {
+                  if (y - from > 0.1) layerSegs.push([x, from, x, inside ? y : y - (y1 - y0) / n]);
+                  from = -1;
+                }
+              }
+            }
+          }
+        }
+      }
     }
     const xs = mine.flatMap((q) => [q[0], q[2]]),
       ys = mine.flatMap((q) => [q[1], q[3]]);
@@ -160,6 +205,7 @@ export function sectionSvg(p: Project3, at?: number, dec = '.', t: (s: string) =
     ...[{ x0: Math.min(...levels.map((l) => l.x0), X0 + M), y: 0 }, ...levels].map((l) => `<text x="${r2(l.x0 - 1.4)}" y="${r2(-l.y - 0.25)}" font-size="0.7" text-anchor="end" font-family="sans-serif" fill="#333">${l.y >= 0 ? '+' : ''}${l.y.toFixed(2).replace('.', dec)}</text>`),
     // Filled cut (one path per building, even-odd for the holes), then the cut lines over it.
     ...fills.map((polys) => `<path d="${polys.map((r) => `M${r.map((q) => `${r2(q[0])} ${r2(-q[1])}`).join('L')}Z`).join('')}" fill="#3a3d42" fill-rule="evenodd" stroke="none"/>`),
+    ...layerSegs.map((q) => line(q, 0.025, '#9d978c')),
     ...segs.map((q) => line(q, 0.08)),
     ...labels.map((l) => `<text x="${r2(l.x)}" y="${r2(-l.y - 1.2)}" font-size="1.4" text-anchor="middle" font-family="sans-serif" fill="#333">${esc(l.name)}</text>`),
     // 10 m scale bar and the cut position.
