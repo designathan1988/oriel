@@ -221,7 +221,8 @@ Backlog (P1 first):
 - [x] P2 Transfer properties: Copy / Paste properties (Ctrl+Shift+C / V) — roof, facade rules mapped to the
       sides facing the same way, materials, plinth, bands, bevel, walls.
 - [x] P2 View styles: realistic, white model, x-ray (Interior view → Style; view.style).
-- [ ] P2 Parking along a path; renovation phases; design options.
+- [x] P2 Parking along a path (families/parking.ts: 90°, 60°, 45°, one or both sides, lines, wheel stops).
+- [ ] P2 Renovation phases; design options.
 
 ### Procedural objects and methods (research 2026-10-13: three agent reports in the session)
 
