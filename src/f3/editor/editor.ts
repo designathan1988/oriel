@@ -477,11 +477,11 @@ export class Editor3 {
     if (this.context && !this.store.building(this.context)) this.context = null;
     const ctxB = this.store.building(this.context);
     this.infer.axisAngle = ctxB?.rotation ?? 0;
-    this.infer.refresh(p, [...this.store.revision.entries()].map(([k, v]) => k + v).join(',') + p.buildings.map((x) => x.position.join() + x.rotation).join());
+    this.infer.refresh(p, [...this.store.revision.entries()].map(([k, v]) => k + v).join(',') + p.buildings.map((x) => x.position.join() + x.rotation).join() + JSON.stringify([p.guides ?? null, p.axes ?? null]));
     this.warnings = [];
     for (const [id, built] of this.view.built) if (!this.context || id === this.context) this.warnings.push(...built.ev.warnings);
     this.drawRoomLabels();
-    if (p.notes?.length || p.axes?.length || this.shell.view.querySelector('.f3-dimlbl')) this.drawDims();
+    if (p.notes?.length || p.axes?.length || p.guides?.length || this.shell.view.querySelector('.f3-dimlbl') || this.snapOverlay.getObjectByName('guides')) this.drawDims();
     if (p.lots.length) {
       const own = this.store.building(this.context)?.name;
       this.warnings.push(...setbackWarnings(p).filter((w) => !own || w.startsWith(own + ' ')));
@@ -3190,7 +3190,7 @@ export class Editor3 {
         push: "Drag a face · type the distance",
         extrude: "Drag a face · type the depth",
         cut: "Click a wall to split it · on a top, two points cut the volume",
-        tape: "Click two points · Shift+click: label · Alt+click a dimension deletes it",
+        tape: "Click two points · Ctrl on the second: a guide line · Shift+click: label · Alt+click a dimension deletes it",
         rect: "Two corners · or type 10x8",
         circle: "Centre, then radius · or type the radius",
         polygon: "Click the corners · type the lengths · Enter closes",
@@ -6711,6 +6711,15 @@ export class Editor3 {
         this.tapeOn = this.pickAt(e)?.building.id ?? null;
         return;
       }
+      // Ctrl on the second point: an endless guide line through both instead of a dimension.
+      if (e.ctrlKey || e.metaKey) {
+        const ga: Vec2 = [this.tapeFrom.x, this.tapeFrom.z],
+          gb: Vec2 = [p.x, p.z];
+        this.tapeFrom = null;
+        this.tapeOn = null;
+        if (Math.hypot(gb[0] - ga[0], gb[1] - ga[1]) < 0.05) return;
+        return void this.changeSite((pr) => void (pr.guides ??= []).push({ id: uid(), a: ga, b: gb }), 'Guide line: the drawing tools snap to it.');
+      }
       // Both points on the same building: the dimension is that building's (it follows it).
       const on = this.tapeOn && this.pickAt(e)?.building.id === this.tapeOn ? this.tapeOn : null;
       const a = this.noteLocal(this.tapeFrom, on),
@@ -6888,6 +6897,27 @@ export class Editor3 {
       old.geometry.dispose();
     }
     this.shell.view.querySelectorAll('.f3-dimlbl').forEach((x) => x.remove());
+    // Guide lines: long thin dashed lines on the ground (endless in use; drawn 200 m each way).
+    const oldG = this.snapOverlay.getObjectByName('guides') as THREE.LineSegments | undefined;
+    if (oldG) {
+      this.snapOverlay.remove(oldG);
+      oldG.geometry.dispose();
+      (oldG.material as THREE.Material).dispose();
+    }
+    if (this.project.guides?.length) {
+      const pos: number[] = [];
+      for (const g of this.project.guides) {
+        const d: Vec2 = [g.b[0] - g.a[0], g.b[1] - g.a[1]];
+        const l = Math.hypot(d[0], d[1]) || 1;
+        pos.push(g.a[0] - (d[0] / l) * 200, 0.02, g.a[1] - (d[1] / l) * 200, g.a[0] + (d[0] / l) * 200, 0.02, g.a[1] + (d[1] / l) * 200);
+      }
+      const gg = new THREE.BufferGeometry();
+      gg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      const gl = new THREE.LineSegments(gg, new THREE.LineDashedMaterial({ color: '#7a4fd1', dashSize: 0.5, gapSize: 0.35, transparent: true, opacity: 0.8 }));
+      gl.computeLineDistances();
+      gl.name = 'guides';
+      this.snapOverlay.add(gl);
+    }
     // Grid axes: a dashed line on the ground and its label in a circle at each end.
     const axes = this.project.axes ?? [];
     const old2 = this.snapOverlay.getObjectByName('axes') as THREE.LineSegments | undefined;
@@ -7592,7 +7622,11 @@ export class Editor3 {
         } else this.exitContext();
       }
       else if (k === 'delete' && e.shiftKey) {
-        if (this.project.notes?.length) this.changeSite((p) => void delete p.notes, 'Dimensions and labels cleared.');
+        if (this.project.notes?.length || this.project.guides?.length)
+          this.changeSite((p) => {
+            delete p.notes;
+            delete p.guides;
+          }, 'Dimensions, labels and guides cleared.');
       } else if (k === 'delete' || k === 'backspace') {
         if (this.draft && (this.tool === 'polygon' || this.tool === 'spline') && this.draft.points.length > 1) this.draft.points.pop();
         else if (k === 'delete' && !this.sel.building && this.deleteSite()) return;

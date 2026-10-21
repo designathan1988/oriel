@@ -788,6 +788,10 @@ export function validateForma3(raw: unknown): string[] {
         if (!ok) e.add('Project', 'invalid dimension or label.');
       }
   }
+  if (p.guides !== undefined) {
+    const g2 = (q: unknown) => vec(q, 2) && (q as number[]).every((c) => Math.abs(c) <= LIMITS3.worldExtent);
+    if (!Array.isArray(p.guides) || p.guides.length > 500 || !p.guides.every((x) => isObj(x) && str(x.id) && g2(x.a) && g2(x.b))) e.add('Project', 'invalid guide lines (at most 500).');
+  }
   if (p.axes !== undefined) {
     const v2 = (q: unknown) => vec(q, 2) && (q as number[]).every((c) => Math.abs(c) <= LIMITS3.worldExtent);
     if (!Array.isArray(p.axes) || p.axes.length > 200 || !p.axes.every((x) => isObj(x) && str(x.id) && v2(x.a) && v2(x.b) && str(x.label, 8))) e.add('Project', 'invalid grid axes (at most 200).');

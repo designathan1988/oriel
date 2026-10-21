@@ -34,6 +34,8 @@ export interface Project3 {
    * that building's frame and follow it when it moves or turns; without, they are in the world.
    */
   notes?: Note[];
+  /** Guide lines (SketchUp's construction lines): endless lines on the plan the drawing tools snap to. */
+  guides?: { id: ID; a: Vec2; b: Vec2 }[];
   /** Grid axes (Revit's grids, ArchiCAD's grid elements): lines of the structural grid, labelled 1, 2, 3… and A, B, C…, in the world. */
   axes?: GridAxis[];
   /** Saved views (SketchUp's scenes, Revit's saved 3D views): camera, time, interior view and layers. */

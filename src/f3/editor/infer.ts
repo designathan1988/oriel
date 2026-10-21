@@ -64,6 +64,8 @@ export class Inference {
   axisAngle = 0;
   private features: Feature[] = [];
   private segs: Seg[] = [];
+  /** Endless lines on the plan (guide lines and grid axes): a point and a unit direction. */
+  private lines: { a: THREE.Vector3; d: THREE.Vector3 }[] = [];
   private key = '';
 
   constructor(private view: View) {}
@@ -74,6 +76,12 @@ export class Inference {
     this.key = revisionKey;
     this.features = [];
     this.segs = [];
+    this.lines = [];
+    for (const g of [...(p.guides ?? []), ...(p.axes ?? [])]) {
+      const d = new THREE.Vector3(g.b[0] - g.a[0], 0, g.b[1] - g.a[1]);
+      if (d.lengthSq() < 1e-6) continue;
+      this.lines.push({ a: new THREE.Vector3(g.a[0], 0, g.a[1]), d: d.normalize() });
+    }
     for (const b of p.buildings)
       for (const s of b.solids) {
         if (s.hidden || skip?.(b, s.id)) continue;
@@ -142,6 +150,17 @@ export class Inference {
       const q = new THREE.Vector3(best.f.p.x, y, best.f.p.z);
       return { kind: best.f.kind, p: q, label: LABELS[best.f.kind], color: SNAP_COLORS[best.f.kind] };
     }
+    // 1b) Where two guide lines (or grid axes) cross.
+    for (let i = 0; i < this.lines.length; i++)
+      for (let j = i + 1; j < this.lines.length; j++) {
+        const A = this.lines[i]!,
+          B = this.lines[j]!;
+        const den = A.d.x * B.d.z - A.d.z * B.d.x;
+        if (Math.abs(den) < 1e-6) continue;
+        const t = ((B.a.x - A.a.x) * B.d.z - (B.a.z - A.a.z) * B.d.x) / den;
+        const q = new THREE.Vector3(A.a.x + A.d.x * t, y, A.a.z + A.d.z * t);
+        if (this.screen(q).distanceTo(mouse) < tolPx) return { kind: 'vertex', p: q, label: 'Guide crossing', color: SNAP_COLORS.vertex };
+      }
     // 2) Axes from the last point (red/blue in the building frame).
     const axes = this.axes();
     if (from && opts.axes !== false) {
@@ -178,6 +197,15 @@ export class Inference {
       const t = Math.max(0, Math.min(1, raw.clone().sub(s.a).dot(ab) / ab.lengthSq()));
       const p = s.a.clone().addScaledVector(ab, t);
       if (this.screen(p).distanceTo(mouse) < tolPx * 0.7) return { kind: 'edge', p, label: LABELS.edge, color: SNAP_COLORS.edge };
+    }
+    // 4b) On a guide line (or a grid axis), at the grid step along it.
+    for (const l of this.lines) {
+      const t = raw.clone().sub(l.a).setY(0).dot(l.d);
+      const p = new THREE.Vector3(l.a.x + l.d.x * t, y, l.a.z + l.d.z * t);
+      if (this.screen(p).distanceTo(mouse) < tolPx * 0.7) {
+        const q = new THREE.Vector3(l.a.x + l.d.x * this.quant(t), y, l.a.z + l.d.z * this.quant(t));
+        return { kind: 'edge', p: q, label: 'On guide', color: SNAP_COLORS.edge };
+      }
     }
     // 5) Grid (in the frame of the building being edited).
     return { kind: 'grid', p: this.gridSnap(raw), label: '', color: SNAP_COLORS.grid };
