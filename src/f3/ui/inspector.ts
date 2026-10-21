@@ -265,7 +265,7 @@ function buildingPanel(b: Building3, _inside = false, groups = '', project?: Pro
     ['public', 'Public'],
     ['mixed', 'Mixed'],
   ] as const;
-  return `<div class="f3-title"><input data-b="name" value="${esc(b.name)}" aria-label="Building name"><span class="f3-kind">Building</span></div>
+  return `<div class="f3-title"><input data-b="name" value="${esc(tr(b.name))}" aria-label="Building name"><span class="f3-kind">Building</span></div>
   ${groups}
   <div class="f3-sec"><h3>Transform</h3>
     ${prow('Position', 'move', [nk('px', 'Position X', b.position[0], axis('x')), nk('py', 'Elevation (Z): base above the ground', b.elevation ?? 0, axis('y')), nk('pz', 'Position Y', b.position[1], axis('z'))])}
@@ -355,7 +355,7 @@ function solidPanel(ed: Editor3, b: Building3, s: Solid): string {
     ['subtract', 'subtract', 'Subtract'],
     ['intersect', 'intersect', 'Intersect'],
   ] as const;
-  return `<div class="f3-title"><input data-s="name" value="${esc(s.name)}" aria-label="Volume name"><span class="f3-kind">${s.op === 'add' ? 'Volume' : s.op === 'subtract' ? 'Cutter' : 'Intersect'}</span></div>
+  return `<div class="f3-title"><input data-s="name" value="${esc(tr(s.name))}" aria-label="Volume name"><span class="f3-kind">${s.op === 'add' ? 'Volume' : s.op === 'subtract' ? 'Cutter' : 'Intersect'}</span></div>
   ${facePart}
   ${s.shell && s.op === 'add' ? `<div class="f3-sec"><h3>Walls</h3>
     ${prow('Type', 'layers', [selectCell('data-walltype', 'Wall type (its layers, outside in)', [['', 'Custom'], ...WALL_TYPES.map((t) => [t.id, t.name] as const)], WALL_TYPES.find((t) => JSON.stringify(t.layers) === JSON.stringify(s.wallLayers))?.id ?? '')], { wide: true })}
@@ -554,7 +554,7 @@ function itemPanel(ed: Editor3, b: Building3, id: string): string {
   const values = resolveParams(f, t.params, it.params);
   const users = ed.project.buildings.reduce((n, x) => n + x.items.filter((q) => q.type === t.id).length + x.solids.reduce((m, s) => m + s.facade.filter((r) => r.type === t.id).length, 0), 0);
   const arr = it.array;
-  return `<div class="f3-title"><span style="flex:1;font-weight:600">${esc(t.name)}</span><span class="f3-kind">${esc(f.name)}</span></div>
+  return `<div class="f3-title"><span style="flex:1;font-weight:600">${esc(tr(t.name))}</span><span class="f3-kind">${esc(f.name)}</span></div>
   <div class="f3-sec" style="padding-top:8px"><div class="f3-row"><span class="f3-kind" title="Type fields change every occurrence; blue fields apply to this one only">Type in ${users} use(s)</span><span class="f3-sp"></span>
   ${it.origin ? `<button class="f3-btn" data-act="restore" title="Deletes this free part and returns the position to the facade rule">Back to rule</button>` : ''}<button class="f3-btn" data-act="unique" title="Creates a type of its own for this occurrence">${icon('unique')}Make unique</button><button class="f3-btn" data-act="design" title="Every parameter of this component with a live picture (a library type: a copy of it)">${icon('pencil')}Design</button><button class="f3-btn ic danger" data-act="del" title="Delete">${icon('trash')}</button></div></div>
   <div class="f3-sec"><h3>${icon('array')} Array</h3>
