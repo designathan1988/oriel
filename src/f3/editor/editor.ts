@@ -4041,6 +4041,18 @@ export class Editor3 {
         if (!m) return false;
         const a = parseFloat(m[1]!.replace(',', '.')),
           c = m[2] ? parseFloat(m[2].replace(',', '.')) : NaN;
+        // The box as it is now: a value typed after the drag sizes what the drag left (the box of when
+        // the drag began gave 12.6 for a typed 12).
+        const nb = this.store.building(b.id);
+        if (!nb) return false;
+        [x0, x1, z0, z1] = [Infinity, -Infinity, Infinity, -Infinity];
+        for (const id of ids)
+          for (const v of findSolid(nb, id)?.plan.outer ?? []) {
+            x0 = Math.min(x0, v.p[0]);
+            x1 = Math.max(x1, v.p[0]);
+            z0 = Math.min(z0, v.p[1]);
+            z1 = Math.max(z1, v.p[1]);
+          }
         const W0 = x1 - x0,
           D0 = z1 - z0;
         const wantW = h.sx ? a : W0,
@@ -5101,7 +5113,8 @@ export class Editor3 {
     this.shell.dim.hidden = true;
     // A press without a drag did nothing, so typing has nothing to correct: digits and 1/2/3 keep their
     // normal meaning (SketchUp's measurements box follows the last operation, not a click).
-    if (!d.moved) this.clearMeasure();
+    // Push and Extrude are the exception (SketchUp Push/Pull: click the face, type the distance, Enter).
+    if (!d.moved && !(this.tool === 'push' || this.tool === 'extrude' || d.data.handle === 'push')) this.clearMeasure();
     if (!d.moved && d.data.sub) {
       // Still click in a sub-element mode: the selection made on press stays.
       this.store.revert();
