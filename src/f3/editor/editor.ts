@@ -9,6 +9,7 @@ import { building as newBuilding, circlePlan, facadeRule, levelsFor, planVertice
 import { bendEdge, cloneBuilding, inside, locateVertex, cloneSolid, dirToLocal, edgeNormal, findSolid, mirrorSolid, moveVertex, planCenter, planValid as planValidOps, pushEdge, removeVertex, rotateSolid, splitEdge, toLocal, topRing, toWorld, topAt, translateSolid } from '../model/ops';
 import { solidRings } from '../eval/body';
 import { stairClashes } from '../eval/clashes';
+import { terrainField, type TerrainField } from '../model/terrain';
 import { adoptOffsetSides, sideCurve, stackOnTop, edgeLength, extrudeSide, hostedFrame, insetSide, insetTop, offsetCopy, offsetSolid, setSideDepth, setSolidSize, splitAtHeight, splitByLine, splitSideAt } from '../model/modeling';
 import { activeLayer, buildingHidden, buildingLocked, ensureLayers, explodeGap, itemHidden, itemLocked, solidHidden, solidLocked, viewOf } from '../model/layers';
 import { boxPicks, combine, marqueeRect, selMode } from './selection';
@@ -206,6 +207,12 @@ export class Editor3 {
   wallThickness = 0.25;
   /** Height of new walls (the tool options in the top bar). */
   wallHeight = 3;
+  private terrainCache: { seq: number; field: TerrainField | null } | null = null;
+  /** The project's shaped ground (model/terrain.ts), kept until the next history step. */
+  terrain(): TerrainField | null {
+    if (this.terrainCache?.seq !== this.store.seq) this.terrainCache = { seq: this.store.seq, field: terrainField(this.store.project) };
+    return this.terrainCache.field;
+  }
   /** Height the Terrain tool gives the ground at a new point (the tool options in the top bar). */
   terrainHeight = 1;
   /**
@@ -6684,14 +6691,18 @@ export class Editor3 {
     // Free: on the ground (or on the flat top under the pointer). It belongs to the building under it,
     // else the one being edited, else the nearest one (before: the first of the project, wherever it was).
     const onTop = !!hit?.face && hit.normal.y > 0.9;
-    const y = onTop ? hit!.point.y : 0;
-    const sn = this.infer.snap(e, y, null, null);
+    // On a shaped ground (terrain) the part stands on it, at the ground's height where it is put.
+    const field = onTop ? null : this.terrain();
+    const gy = field ? (this.view.onGround(e)?.y ?? 0) : 0;
+    const sn = this.infer.snap(e, onTop ? hit!.point.y : gy, null, null);
     if (!sn) return null;
+    const y = onTop ? hit!.point.y : field ? field.at(sn.p.x, sn.p.z) : 0;
     // On a flat top it belongs to that building; on the ground the ray may have crossed a roof in front
     // of the point, so it is the building being edited or the nearest one to where it stands.
     const b = (onTop ? hit!.building : undefined) ?? this.ownerAt(sn.p.x, sn.p.z);
     const l = toLocal(b, [sn.p.x, sn.p.z]);
-    return { b, host: { kind: 'free', p: [l[0], y, l[1]], rot: 0 }, frame: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, l[0], y, l[1], 1], label: `${fmt(l[0])}; ${fmt(l[1])}` };
+    const ly = field ? y - (b.elevation ?? 0) : y;
+    return { b, host: { kind: 'free', p: [l[0], ly, l[1]], rot: 0 }, frame: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, l[0], ly, l[1], 1], label: `${fmt(l[0])}; ${fmt(l[1])}` };
   }
 
   private pathDraft: { pts: Vec3[] } | null = null;
@@ -6759,9 +6770,10 @@ export class Editor3 {
     this.shell.dim.hidden = true;
     // Say where it went when it was not obvious (no building under the pointer and none being edited).
     const fresh = !this.store.building(pl.b.id);
-    const owner = this.context === pl.b.id ? '' : fresh ? ` It belongs to a new building, ${pl.b.name} (no building nearby).` : ` It belongs to ${pl.b.name}.`;
+    // The site (open ground) needs no mention; another building does.
+    const owner = this.context === pl.b.id || fresh || /^Site( \d+)?$/.test(pl.b.name) ? '' : ` (in ${pl.b.name})`;
     this.adopt(pl.b);
-    this.change(pl.b.id, (b) => void b.items.push(it), `${t.name} placed.${owner} Click again for one more; Esc finishes.`);
+    this.change(pl.b.id, (b) => void b.items.push(it), `${t.name} placed${owner}. Click again for one more; Esc finishes.`);
     this.context = pl.b.id;
     this.select({ building: pl.b.id, item: it.id });
     this.lastItem = it.id;
