@@ -3362,5 +3362,8 @@
 "Cutter created. Type its height and Enter; draw the next one, or Esc.": "Cortador criado. Digite a altura e Enter; desenhe o próximo, ou Esc.",
 "Volume created. Type 10x8 (width × depth) or 6 (height) and Enter; draw the next one, or Esc.": "Volume criado. Digite 10x8 (largura × profundidade) ou 6 (altura) e Enter; desenhe o próximo, ou Esc.",
 "Volume created. Type the height and Enter; draw the next one, or Esc.": "Volume criado. Digite a altura e Enter; desenhe o próximo, ou Esc.",
-"{0} × {1} m · click the other corner or type 20x30": "{0} × {1} m · clique no outro canto ou digite 20x30"
+"{0} × {1} m · click the other corner or type 20x30": "{0} × {1} m · clique no outro canto ou digite 20x30",
+"{0} buildings": "{0} edificações",
+"{0} elements": "{0} elementos",
+"{0} components": "{0} componentes"
 }
