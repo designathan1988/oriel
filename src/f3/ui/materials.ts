@@ -135,10 +135,9 @@ export function paintPanel(ed: Editor3): string {
       const th = materialThumb(pm.ref);
       const n = materialUses(ed.project, pm.ref);
       return `<div class="f3-matrow"><button class="sw" data-lib="${pm.id}" title="Take ${esc(pm.name)} in the bucket" style="background:${th ? `url('${th}') center/cover` : pm.ref.color}"></button><input data-libname="${pm.id}" value="${esc(pm.name)}" aria-label="Material name" maxlength="60"><small title="Faces that carry it">${n}</small><button class="f3-btn ic" data-libset="${pm.id}" title="Change it everywhere to the bucket material (${n} face${n === 1 ? '' : 's'})">${icon('restore')}</button><button class="f3-btn ic danger" data-libdel="${pm.id}" title="Remove from the library (the faces keep it)">${icon('trash')}</button></div>`;
-    }).join('') || '<p class="f3-empty" style="padding:0">Save the bucket material to reuse it, and to change every face that has it at once.</p>'}</div>
+    }).join('') || ''}</div>
     <div class="f3-btns n1"><button class="f3-btn" data-libadd title="Keep the bucket material in this project">${icon('add')}Save bucket material</button></div>
-  </div>
-  <div class="f3-sec"><p class="f3-empty" style="padding:6px 0 0">Click a face to paint only it · <kbd>Shift</kbd> the whole volume · a window or door paints its frames (every one of its rule) · <kbd>Alt</kbd> copies the material.</p></div>`;
+  </div>`;
 }
 
 export function bindPaintPanel(ed: Editor3, root: HTMLElement): void {

@@ -6432,6 +6432,13 @@ export class Editor3 {
       let y = (lv ? lv.elevation : solid.base) + sill - solid.base;
       if (e && 'altKey' in e && (e as PointerEvent).altKey) y = (local.x - fr.o[0]) * fr.v[0] + (local.y - fr.o[1]) * fr.v[1] + (local.z - fr.o[2]) * fr.v[2] - f.size(params)[1] / 2;
       if (this.infer.enabled) s = Math.round(s / 0.1) * 0.1;
+      // Inside the wall it lands on: never past a corner nor above the top (the evaluation hid such a
+      // door or window right after it was "placed").
+      const [pw, ph] = f.size(params);
+      const half = (pw ?? 1) / 2 + 0.05;
+      if (fr.s1 - fr.s0 > 2 * half) s = Math.min(fr.s1 - half, Math.max(fr.s0 + half, s));
+      const top = solid.height - 0.05 - (ph ?? 1);
+      if (top >= 0) y = Math.min(top, Math.max(0, y));
       const ds = s - fr.s0;
       const p: Vec3 = [fr.o[0] + fr.u[0] * ds + fr.v[0] * y, fr.o[1] + fr.u[1] * ds + fr.v[1] * y, fr.o[2] + fr.u[2] * ds + fr.v[2] * y];
       return { b, host: { kind: 'face', solid: solid.id, edge: hit.face.edge!, u: s, y }, frame: faceMatrix(p, fr.u, fr.v, fr.n), label: `${fmt(s)} m along · ${fmt(y + solid.base)} m high` };
@@ -6571,6 +6578,31 @@ export class Editor3 {
     if (!hit?.face) return;
     const b = hit.building;
     const f = hit.face;
+    // The inside: a room's floor, or the walls, ceilings and floors of a floor (its interior finishes).
+    // The outside of the same wall keeps its own material (each side is painted on its own).
+    const local = hit.point.clone().applyMatrix4(this.view.buildingMatrix(b).invert());
+    const room = /^room:([^:]+):(.+)$/.exec(f.solid);
+    const hollow = f.kind === 'cutter' && f.solid.includes('~shell');
+    const inner = room ? null : hollow ? (hit.normal.y < -0.7 ? 'ceiling' : hit.normal.y > 0.7 ? 'floor' : 'walls') : f.kind === 'innerWall' ? 'walls' : f.kind === 'ceiling' ? 'ceiling' : f.kind === 'floor' ? 'floor' : null;
+    if (room || inner) {
+      if (e.altKey) return this.toast('Pick a material from an outside face or the library.');
+      const m = structuredClone(this.paintMat);
+      let lv = room?.[1];
+      if (!lv) {
+        const at = inner === 'ceiling' ? local.y - 0.1 : local.y + 0.05;
+        for (const l of [...b.levels].sort((p, q) => p.elevation - q.elevation)) if (at >= l.elevation) lv = l.id;
+      }
+      if (!lv) return;
+      const level = lv;
+      return void this.change(b.id, (x) => {
+        const it = interiorOf(x, level);
+        // A floor clicked inside a room paints that room (Chief Architect, SketchUp: the face clicked).
+        const under = inner === 'floor' ? it.rooms.find((q) => q.polygon && inside([local.x, local.z], q.polygon)) : undefined;
+        const r = room ? it.rooms.find((q) => q.id === room[2]) : under;
+        if (r) r.finish = m;
+        else it.finishes = { ...(it.finishes ?? {}), [inner!]: m };
+      }, room ? 'Room floor painted.' : inner === 'walls' ? 'Inside of the walls painted (this floor).' : inner === 'ceiling' ? 'Ceiling painted (this floor).' : 'Floor painted (this floor).');
+    }
     const s = findSolid(b, f.solid);
     if (!s) return;
     // Which volume material each face kind uses (paint and eyedropper).

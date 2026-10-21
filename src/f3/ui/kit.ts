@@ -39,7 +39,7 @@ export interface NumCell {
 
 /** A number cell: glyph (drag it to change the value), the number and its unit. */
 export function numCell(c: NumCell): string {
-  const v = typeof c.value === 'number' ? decimal(show(c.value)) : c.value;
+  const v = typeof c.value === 'number' ? decimal(show(c.value)) : /^-?\d+(\.\d+)?$/.test(c.value) ? decimal(c.value) : c.value;
   return `<label class="f3-cell${c.over ? ' over' : ''}" title="${escA(c.name)}">${c.glyph}<input ${c.attr} inputmode="decimal" value="${escA(v)}" data-step="${c.step ?? 0.1}" aria-label="${escA(c.name)}"${c.placeholder !== undefined ? ` placeholder="${escA(c.placeholder)}"` : ''}>${c.unit ? `<em>${c.unit}</em>` : ''}</label>`;
 }
 
