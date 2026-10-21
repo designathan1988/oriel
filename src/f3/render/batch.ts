@@ -65,7 +65,17 @@ interface Entry {
   /** In the camera's / the sun shadow's frustum (both true until the first cull). */
   inMain: boolean;
   inShadow: boolean;
+  /** Small on screen: its detail (furniture behind the windows, ornaments) is not drawn (LOD). */
+  far: boolean;
 }
+
+/**
+ * Categories left out of a building that is small on screen (a level of detail by screen size, like
+ * Unreal's per-primitive cull distance): pieces that would be a few pixels behind glass or on a ledge.
+ */
+const DETAIL = new Set(['furniture', 'ornament']);
+/** A building whose bounding sphere spans less than this share of the view height is far. */
+const FAR_SHARE = 0.12;
 
 interface Batch {
   mesh: THREE.BatchedMesh;
@@ -275,7 +285,7 @@ export class Batcher {
       l.push(it);
     }
     const pr = partsRef as Drawing['parts'];
-    const e: Entry = { shell: shellRef, parts: partsRef, group, matrix: new THREE.Matrix4().copy(group.matrixWorld), items, visible: true, gap, batches: [...byBatch.keys()], byBatch, hidden: pr.hidden ?? new Set(), hiddenKey: pr.hiddenKey ?? '', box, sphere: new THREE.Sphere(), inMain: true, inShadow: true };
+    const e: Entry = { shell: shellRef, parts: partsRef, group, matrix: new THREE.Matrix4().copy(group.matrixWorld), items, visible: true, gap, batches: [...byBatch.keys()], byBatch, hidden: pr.hidden ?? new Set(), hiddenKey: pr.hiddenKey ?? '', box, sphere: new THREE.Sphere(), inMain: true, inShadow: true, far: false };
     for (const b of e.batches) b.entries.add(e);
     this.place(e);
     // Parts of hidden categories start switched off.
@@ -374,7 +384,8 @@ export class Batcher {
   /** A building's instances in one batch, visible as its state, that batch's pass and its categories say. */
   private applyIn(e: Entry, b: Batch): void {
     const on = e.visible && (b.pass === 0 ? e.inMain : b.pass === 1 ? e.inShadow : true);
-    for (const it of e.byBatch.get(b)!) b.mesh.setVisibleAt(it.inst, on && !(it.cat !== undefined && e.hidden.has(it.cat)));
+    const far = e.far && b.pass !== 2;
+    for (const it of e.byBatch.get(b)!) b.mesh.setVisibleAt(it.inst, on && !(it.cat !== undefined && (e.hidden.has(it.cat) || (far && DETAIL.has(it.cat)))));
   }
 
   private mainCamera: THREE.Camera | null = null;
@@ -384,6 +395,8 @@ export class Batcher {
   private culling = false;
   private hasShadow = false;
   private tmpBox = new THREE.Box3();
+  private camPos = new THREE.Vector3();
+  private shareK = 0;
 
   /**
    * Frustum culling per building, as the buildings' own meshes had: call before each render with the
@@ -402,6 +415,10 @@ export class Batcher {
       this.fShadow.copy(sun.shadow.getFrustum());
     }
     this.culling = true;
+    // Screen share of a unit radius at unit distance (perspective only; a parallel view keeps detail).
+    const pc = camera as THREE.PerspectiveCamera;
+    this.shareK = pc.isPerspectiveCamera ? 1 / Math.tan((pc.fov * Math.PI) / 360) : 0;
+    this.camPos.setFromMatrixPosition(camera.matrixWorld);
     for (const e of this.entries.values()) this.test(e);
   }
 
@@ -409,9 +426,12 @@ export class Batcher {
     if (!this.culling) return;
     const m = this.fMain.intersectsSphere(e.sphere);
     const s = this.hasShadow && this.fShadow.intersectsSphere(e.sphere);
-    if (m === e.inMain && s === e.inShadow) return;
+    const d = this.camPos.distanceTo(e.sphere.center);
+    const far = this.shareK > 0 && d > e.sphere.radius && (e.sphere.radius / d) * this.shareK < FAR_SHARE;
+    if (m === e.inMain && s === e.inShadow && far === e.far) return;
     e.inMain = m;
     e.inShadow = s;
+    e.far = far;
     if (e.visible) for (const b of e.batches) this.applyIn(e, b);
   }
 

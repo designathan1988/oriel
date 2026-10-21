@@ -310,8 +310,13 @@ only), Müller 2006 CGA, CityEngine docs, Houdini Labs, TestFit, Forma):
 ### Stage 9: wrap-up
 - [x] Lots and indices; game JSON with every component; building styles. [x] forma/2 migration of what is left: brises (a louver panel over each window; shading that cuts no opening may stand over a window), cornices (a cornice band), slabs (thin volumes with their cut-outs), stairs (a flight between their floors) and interior doors (openings of the wall's plan); pilotis and roof gardens stay a note (no equivalent).
 - [x] Sun by date, latitude and north; plans, sections and areas (SVG/DXF); DXF import.
-- [ ] Performance items (material key per face, incremental sync and inference, batched unions,
-      reuse of family meshes, LOD); the five validation buildings from scratch; docs.
+- [x] Performance items: material key per face (a finishes-only edit redraws the shell without a
+      boolean), incremental sync per building revision and inference keyed by revision, batched
+      unions (disjoint cutters composed, booleans only where boxes overlap), family meshes shared in
+      BatchedMesh, and LOD by screen size (a building smaller than 12 % of the view leaves out its
+      furniture and ornaments, `render/batch.ts`).
+- [ ] The five validation buildings from scratch (house, apartment block with verandas, factory,
+      curved, irregular with a courtyard) through the interface; docs.
 
 ## Verification (2026-10-13): seconds, not hours
 
