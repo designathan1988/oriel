@@ -329,6 +329,24 @@ only), Müller 2006 CGA, CityEngine docs, Houdini Labs, TestFit, Forma):
       way: the courtyard refused a 17 m irregular plan (its wings now fit the plan's inradius), Bevel and
       Chamfer shared one Portuguese word, warnings and the building-use message showed in English.
 
+## Verification (2026-10-21): the app checks itself, the check takes seconds
+
+The exact pictures under SwiftShader (about a minute) ran at the end of every Claude Code turn and
+on every commit, and still missed what only the running app shows. Research in
+`docs/research/fast-verification.md`. Now `npm run check` (pre-commit and the Stop hook) is about
+15 s, and `npm run check:full` adds every unit test and the exact pictures.
+- [x] Sentinel (`src/f3/kernel/problems.ts`, `src/app/sentinel.ts`, development only): exceptions,
+  rejected promises, console and shader errors, lost WebGL context, worker failures, meshes Manifold
+  refused (`usable`) and documents the validator refuses after any history step, in a panel on screen.
+- [x] Smoke check (`e2e/smoke.spec.ts`): one page on the real GPU (installed Chrome, D3D11), every
+  fixed scene without a reload, fails on any sentinel error or a frame over its ceilings (about 10 s).
+- [x] Golden geometry (`test/unit/golden.test.ts`): a hash of what every scene evaluates to (2.5 s).
+- [x] Properties (`test/unit/properties.test.ts`, fast-check): random edit sequences keep the
+  document valid, undo/redo are exact, open → save is stable, edited buildings evaluate finite.
+- [x] TypeScript 7 (types in under a second), Vitest `--changed` with `recordDependencies`.
+- [x] Production monitoring (`src/app/monitoring.ts`, Sentry), only with `VITE_SENTRY_DSN` set:
+  replay of the minute before an error, text masked, images and canvas blocked.
+
 ## Verification (2026-10-13): seconds, not hours
 
 The old gate timed medians of evaluation runs against ms budgets, measured frame times in a visible
