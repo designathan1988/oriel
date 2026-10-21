@@ -13,6 +13,7 @@ import { emptyParts3, faceMatrix, FrameSink } from '../eval/parts';
 import { buildPartsMesh } from '../render/parts';
 import { row } from './elements';
 import { fmt } from './support';
+import type { FaceInfo } from '../eval/faces';
 import type { Editor3 } from './editor';
 
 export function placeHover(ed: Editor3, e: PointerEvent): void {
@@ -60,6 +61,25 @@ export function placementAt(ed: Editor3, e: { clientX: number; clientY: number }
   if (!t || !f) return null;
   const params = resolveParams(f, { ...t.params, ...ed.instanceParams(f) });
   const hit = ed.pickAt(e);
+  // The inside face of a hollow wall (seen from inside the room, or in the floor cut): the door or window
+  // goes on that wall, so the outer side whose plane is nearest to the point takes it.
+  if (f.host === 'face' && hit?.face && hit.face.kind !== 'side' && Math.abs(hit.normal.y) < 0.5) {
+    const built = ed.view.built.get(hit.building.id);
+    const local = hit.point.clone().applyMatrix4(ed.view.buildingMatrix(hit.building).invert());
+    let best: { face: FaceInfo; d: number } | null = null;
+    for (const fc of built?.ev.faces ?? []) {
+      const fr = fc.frame;
+      if (fc.kind !== 'side' || !fr) continue;
+      const dx = local.x - fr.o[0],
+        dy = local.y - fr.o[1],
+        dz = local.z - fr.o[2];
+      const along = fr.s0 + dx * fr.u[0] + dy * fr.u[1] + dz * fr.u[2];
+      if (along < fr.s0 - 0.05 || along > fr.s1 + 0.05) continue;
+      const d = Math.abs(dx * fr.n[0] + dy * fr.n[1] + dz * fr.n[2]);
+      if (d < 1.2 && (!best || d < best.d)) best = { face: fc, d };
+    }
+    if (best) hit.face = best.face;
+  }
   if (f.host === 'face') {
     if (!hit?.face || hit.face.kind !== 'side' || !hit.face.frame) return null;
     const b = hit.building;
