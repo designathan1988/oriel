@@ -24,6 +24,8 @@ export interface PlanSymbol {
   label?: { at: Vec2; text: string };
   /** A stair (the walker of a published tour may climb it). */
   stair?: boolean;
+  /** The stair seen on the floor it arrives at (drawn there; it is climbed from the floor below). */
+  arriving?: boolean;
 }
 
 const rect = (x0: number, z0: number, x1: number, z1: number): Vec2[] => [
@@ -218,6 +220,30 @@ export function planSymbol(pl: Placement, elevation: number, top: number, cutY: 
   if (pl.family.host !== 'free') return null;
   const m = pl.frame;
   const baseY = m[13]!;
+  // A stair that comes up from the floor below to this one: seen from above, every tread drawn and
+  // "DOWN" at its top (ABNT plans and Revit show the flight in the floor it arrives at too).
+  if (pl.family.id === 'stair' && baseY < elevation - 0.05 && baseY + num(pl.params, 'rise') >= elevation - 0.3) {
+    const ux = m[0]!,
+      uz = m[2]!,
+      vx = m[8]!,
+      vz = m[10]!,
+      ox = m[12]!,
+      oz = m[14]!;
+    const place = (q: Vec2): Vec2 => [ox + ux * q[0] + vx * q[1], oz + uz * q[0] + vz * q[1]];
+    const { local, walk } = stair(pl.params, baseY + 1000, baseY);
+    const strokes: PlanStroke[] = local.map((st) => ({ pts: st.pts.map(place), closed: st.closed, above: false }));
+    const wk = walk.map(place);
+    if (wk.length >= 2) strokes.push({ pts: wk, closed: false, above: false });
+    // The word inside the flight, a little below its top (not over the room's name).
+    const end = wk[wk.length - 1],
+      before = wk[wk.length - 2];
+    let at: Vec2 | null = null;
+    if (end && before) {
+      const L = Math.hypot(end[0] - before[0], end[1] - before[1]) || 1;
+      at = [end[0] - ((end[0] - before[0]) / L) * 0.7, end[1] - ((end[1] - before[1]) / L) * 0.7];
+    }
+    return { strokes, stair: true, arriving: true, ...(at ? { label: { at, text: 'DOWN' } } : {}) };
+  }
   if (baseY < elevation - 0.05 || baseY >= top - 0.05) return null;
   const above = baseY > cutY;
   const ux = m[0]!,

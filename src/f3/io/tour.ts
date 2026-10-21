@@ -249,7 +249,7 @@ export function tourData(p: Project3, glb: Uint8Array, o: TourOptions = {}): Tou
   all.forEach((f, i) => {
     const pl = plans[i]!;
     for (const sym of f.plan.symbols) {
-      if (!sym.stair) continue;
+      if (!sym.stair || sym.arriving) continue;
       const lo: [number, number] = [Infinity, Infinity],
         hi: [number, number] = [-Infinity, -Infinity];
       for (const st of sym.strokes)

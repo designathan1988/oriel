@@ -118,8 +118,11 @@ describe('stairs in the plan', () => {
       expect(st.strokes.some((s) => s.above)).toBe(true);
       expect(st.strokes.some((s) => !s.above)).toBe(true);
       expect(st.label?.text).toBe('UP');
-      // Upstairs, the stair that starts below is not drawn again as furniture of that floor.
-      expect(floorPlan(b, 1, ev.placements).symbols.length).toBe(0);
+      // Upstairs, the flight that arrives from below: every tread drawn, DOWN at its top.
+      const up = floorPlan(b, 1, ev.placements).symbols;
+      expect(up.length).toBe(1);
+      expect(up[0]!.label?.text).toBe('DOWN');
+      expect(up[0]!.strokes.every((s) => !s.above)).toBe(true);
     }
   });
 });
