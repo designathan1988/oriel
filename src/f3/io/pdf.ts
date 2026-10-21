@@ -7,7 +7,7 @@
 // floor, the area of each room). Each drawing at the largest usual scale that fits (1:50, 1:75, 1:100…).
 // Browser only (svg2pdf needs a real DOM); loaded on demand from the export menu.
 import { BRAND } from '../model/brand';
-import type { Project3 } from '../model/schema';
+import type { Building3, Project3 } from '../model/schema';
 import { planSvg } from './plansvg';
 import { sectionSvg } from './sectionsvg';
 import { evaluateBuilding } from '../eval/evaluate';
@@ -45,8 +45,8 @@ interface Sheet {
 }
 
 /** The floor plans of the project: every visible building with walls, every floor of it. */
-export function projectPlans(p: Project3): { building: string; level: string; plan: FloorPlan }[] {
-  const out: { building: string; level: string; plan: FloorPlan }[] = [];
+export function projectPlans(p: Project3): { building: string; level: string; plan: FloorPlan; b: Building3 }[] {
+  const out: { building: string; level: string; plan: FloorPlan; b: Building3 }[] = [];
   for (const b of p.buildings) {
     if (b.hidden || !b.solids.some((s) => s.op === 'add' && !s.hidden)) continue;
     let ev;
@@ -57,7 +57,7 @@ export function projectPlans(p: Project3): { building: string; level: string; pl
     }
     sortedLevels(b).forEach((lv, i) => {
       const plan = floorPlan(b, i, ev.placements);
-      if (plan.walls.length) out.push({ building: b.name, level: lv.name, plan });
+      if (plan.walls.length) out.push({ building: b.name, level: lv.name, plan, b });
     });
   }
   return out;

@@ -7,6 +7,8 @@
 import type { Building3, ID, Solid } from '../model/schema';
 import { mirrorSolid, translateSolid } from '../model/ops';
 import { offsetRing, ringValid, signedArea2 } from '../model/plan';
+import { slabOpeningFor, stairRun } from '../model/stairs';
+import { typeById } from '../families/index';
 
 /** The volume an evaluated face belongs to: a copy made by a modifier answers for its source. */
 export const sourceId = (id: ID): ID => {
@@ -98,15 +100,57 @@ export function shellCutter(s: Solid): Solid | null {
   return c;
 }
 
+/** Suffix of the cutters that open a shell's floor for a stair (interior.ts leaves them out of the rooms). */
+export const STAIR_OPENING = '~open';
+
+/**
+ * The inside of a hollow volume of several floors: one cutter per floor, so a slab as thick as the
+ * shell stays at every level above the ground, and an opening in each slab a stair climbs through
+ * (its footprint, as the stair tool cuts it: model/stairs.ts).
+ */
+export function shellCutters(s: Solid, b: Pick<Building3, 'levels' | 'items'>): Solid[] {
+  const one = shellCutter(s);
+  if (!one) return [];
+  const t = s.shell ?? 0;
+  const lo = one.base,
+    hi = one.base + one.height;
+  const levels = [...b.levels].sort((p, q) => p.elevation - q.elevation).filter((l) => l.elevation > lo + 0.5 && l.elevation + t < hi - 0.5);
+  if (!levels.length) return [one];
+  const out: Solid[] = [];
+  const bands = [lo, ...levels.map((l) => l.elevation)];
+  bands.forEach((y0, i) => {
+    const base = i === 0 ? y0 : y0 + t;
+    const top = i + 1 < bands.length ? bands[i + 1]! : hi;
+    if (top - base < 0.3) return;
+    out.push({ ...structuredClone(one), id: `${one.id}${i ? `-${i}` : ''}`, base, height: top - base });
+  });
+  for (const it of b.items ?? []) {
+    if (it.host.kind !== 'free' || typeById(it.type)?.family !== 'stair') continue;
+    const rise = typeof it.params.rise === 'number' ? it.params.rise : 3;
+    const going = typeof it.params.going === 'number' ? it.params.going : 0.28;
+    const maxRiser = typeof it.params.maxRiser === 'number' ? it.params.maxRiser : 0.18;
+    const reach = it.host.p[1] + rise;
+    const lv = levels.find((l) => Math.abs(l.elevation - reach) < 0.15);
+    if (!lv) continue;
+    const ring = slabOpeningFor(it, stairRun(rise, going, maxRiser)).outer;
+    // Counterclockwise like every outline (the plan's sign rule), whatever the stair's turn.
+    const pts = signedArea2(ring) * signedArea2(s.plan.outer.map((v) => v.p)) < 0 ? [...ring].reverse() : ring;
+    out.push({
+      ...structuredClone(one),
+      id: `${one.id}${STAIR_OPENING}-${it.id}`,
+      plan: { outer: pts.map((p, i) => ({ id: `${it.id}~o${i}`, p })), holes: [] },
+      base: lv.elevation - 0.02,
+      height: t + 0.04,
+    });
+  }
+  return out;
+}
+
 /** The building as the evaluation sees it: each volume followed by its modifiers' copies. */
 export function withModifiers(b: Building3): Building3 {
   if (!b.solids.some((s) => (s.repeat && s.repeat.count > 1) || s.mirror || s.shell)) return b;
   return {
     ...b,
-    solids: b.solids.flatMap((s) => {
-      const copies = [s, ...modifierCopies(s)];
-      const cut = shellCutter(s);
-      return cut ? [...copies, cut] : copies;
-    }),
+    solids: b.solids.flatMap((s) => [s, ...modifierCopies(s), ...shellCutters(s, b)]),
   };
 }

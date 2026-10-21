@@ -22,6 +22,8 @@ export interface PlanSymbol {
   strokes: PlanStroke[];
   /** Where a text goes ("UP" of a stair) in the plan frame. */
   label?: { at: Vec2; text: string };
+  /** A stair (the walker of a published tour may climb it). */
+  stair?: boolean;
 }
 
 const rect = (x0: number, z0: number, x1: number, z1: number): Vec2[] => [
@@ -244,9 +246,9 @@ export function planSymbol(pl: Placement, elevation: number, top: number, cutY: 
       const fx = (s1[0] - s0[0]) / L0,
         fz = (s1[1] - s0[1]) / L0;
       strokes.push({ pts: ellipse(s0[0], s0[1], 0.05, 0.05, 10), closed: true, above: false });
-      return { strokes, label: { at: [s0[0] + fx * 0.3 + fz * 0.22, s0[1] + fz * 0.3 - fx * 0.22 + 0.05], text: 'UP' } };
+      return { strokes, stair: true, label: { at: [s0[0] + fx * 0.3 + fz * 0.22, s0[1] + fz * 0.3 - fx * 0.22 + 0.05], text: 'UP' } };
     }
-    return { strokes };
+    return { strokes, stair: true };
   }
   const size = pl.family.size(pl.params) as [number, number, number];
   const local = furniture(pl.family.id, pl.params, size);

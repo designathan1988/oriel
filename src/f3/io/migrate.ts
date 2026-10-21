@@ -767,6 +767,19 @@ export function validateForma3(raw: unknown): string[] {
         else if (st.treesBuilding !== undefined && !str(st.treesBuilding)) e.add(w, 'invalid trees building.');
       }
   }
+  if (p.tour !== undefined) {
+    const t = p.tour as unknown as Record<string, unknown>;
+    const v3 = (q: unknown) => vec(q, 3) && (q as number[]).every((c) => Math.abs(c) <= LIMITS3.worldExtent);
+    const text = (v: unknown, max: number) => v === undefined || (typeof v === 'string' && v.length <= max);
+    if (!isObj(t) || !Array.isArray(t.stops) || t.stops.length > 200 || !Array.isArray(t.hotspots) || t.hotspots.length > 200) e.add('Project', 'invalid virtual tour (at most 200 stops and 200 points).');
+    else {
+      if (![t.title, t.subtitle, t.author, t.phone, t.email].every((x) => text(x, 300))) e.add('Project', 'invalid tour title or contact.');
+      if (t.autoplay !== undefined && !(fin(t.autoplay) && (t.autoplay as number) >= 0 && (t.autoplay as number) <= 120)) e.add('Project', 'invalid tour autoplay (0–120 s).');
+      for (const k of ['walk', 'vr', 'plans']) if (t[k] !== undefined && typeof t[k] !== 'boolean') e.add('Project', `invalid tour option ${k}.`);
+      for (const st of t.stops as Record<string, unknown>[]) if (!isObj(st) || !str(st.id) || !str(st.name, 120) || !text(st.note, 2000) || !v3(st.eye) || !v3(st.target) || (st.walk !== undefined && typeof st.walk !== 'boolean')) e.add('Project', 'invalid tour stop.');
+      for (const h of t.hotspots as Record<string, unknown>[]) if (!isObj(h) || !str(h.id) || !str(h.title, 120) || !text(h.text, 2000) || !v3(h.at)) e.add('Project', 'invalid tour point of interest.');
+    }
+  }
   if (p.layers !== undefined) {
     if (!Array.isArray(p.layers) || p.layers.length > 200) e.add('Project', 'invalid layers.');
     else for (const l of p.layers) if (!isObj(l) || !str(l.id) || !str(l.name, 60) || typeof l.visible !== 'boolean' || typeof l.locked !== 'boolean' || !str(l.color)) e.add('Project', 'invalid layer.');

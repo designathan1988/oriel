@@ -15,6 +15,7 @@
     "visual": "node scripts/pw.mjs --project=visual",
     "visual:accept": "node scripts/pw.mjs --project=visual --update-snapshots",
     "flows": "node scripts/pw.mjs --project=flows",
+    "tour": "node scripts/pw.mjs --project=tour",
     "perf:app": "node scripts/perf-app.mjs",
     "shot": "node scripts/shot.mjs"
   },

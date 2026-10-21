@@ -22,6 +22,7 @@ import { mountLayers } from '../f3/ui/layers';
 import { mountPalette } from '../f3/ui/palette';
 import { mountPlanView } from '../f3/ui/planview';
 import { openQuantities } from '../f3/ui/quantities';
+import { openTour, type TourPublish } from '../f3/ui/tour';
 import { mountTime } from '../f3/ui/time';
 import { mountActions } from '../f3/ui/actions';
 import { mountLastOp } from '../f3/ui/lastop';
@@ -72,6 +73,78 @@ mountInteriorView(editor);
 mountWorkspaces(editor);
 mountPlanView(editor);
 editor.quantitiesRequested = () => openQuantities(editor);
+editor.tourRequested = () => openTour(editor, tourPublish());
+
+// ── Virtual tour: the site (one HTML file) and the installable app (PWA in a ZIP), io/tour.ts ──
+async function tourParts() {
+  editor.toast('Preparing the virtual tour…');
+  const { optimizeGlb } = await import('../f3/io/glbopt');
+  const tour = await import('../f3/io/tour');
+  // Hollow (walls with their thickness, a slab per floor, the interior walls): the visitor walks inside.
+  const glb = await optimizeGlb(new Uint8Array(await exportGLB(editor.project, { expandInstances: true, hollow: true })), { maxTexture: 1024 });
+  const pt = loadLang() === 'pt-BR';
+  const data = tour.tourData(editor.project, glb, { t: tr, decimal: pt ? ',' : '.', lang: pt ? 'pt-BR' : 'en' });
+  const runtime = await tour.tourRuntime();
+  return { tour, data, runtime };
+}
+
+/** A square PNG icon of the app: the current view of the model under the project's initials. */
+async function tourIcon(size: number): Promise<Uint8Array> {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#1b1c1f';
+  g.fillRect(0, 0, size, size);
+  try {
+    const v = editor.view;
+    v.renderer.render(v.scene, v.camera);
+    const src = v.renderer.domElement;
+    const s = Math.min(src.width, src.height);
+    g.drawImage(src, (src.width - s) / 2, (src.height - s) / 2, s, s, 0, 0, size, size);
+  } catch {
+    // The initials alone.
+  }
+  const grad = g.createLinearGradient(0, size * 0.45, 0, size);
+  grad.addColorStop(0, 'rgba(27,28,31,0)');
+  grad.addColorStop(1, 'rgba(27,28,31,0.92)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, size, size);
+  const initials = (editor.project.tour?.title || editor.project.name).split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || 'O';
+  g.fillStyle = '#ffffff';
+  g.font = `700 ${Math.round(size * 0.26)}px Inter, system-ui, sans-serif`;
+  g.textAlign = 'center';
+  g.fillText(initials, size / 2, size * 0.86);
+  g.fillStyle = '#e86a1e';
+  g.fillRect(size * 0.38, size * 0.9, size * 0.24, size * 0.025);
+  const blob = await new Promise<Blob | null>((ok) => c.toBlob(ok, 'image/png'));
+  return new Uint8Array(await blob!.arrayBuffer());
+}
+
+function tourPublish(): TourPublish {
+  return {
+    autoStops: async () => (await import('../f3/io/tour')).autoStops(editor.project, () => crypto.randomUUID(), tr),
+    preview: async () => {
+      // Opened at the click (a window opened after the wait would be blocked as a popup).
+      const w = window.open('', '_blank');
+      const { tour, data, runtime } = await tourParts();
+      const url = URL.createObjectURL(new Blob([tour.tourHtml(data, runtime)], { type: 'text/html' }));
+      if (w) w.location.href = url;
+      else window.open(url, '_blank');
+      editor.toast('Preview opened in a new tab.');
+    },
+    site: async () => {
+      const { tour, data, runtime } = await tourParts();
+      download(tour.tourHtml(data, runtime), fileName(editor.project.name + '-tour', 'html'), 'text/html');
+      editor.toast('Site ready: open it in any browser, or put it on a host to share the link.');
+    },
+    app: async () => {
+      const { tour, data, runtime } = await tourParts();
+      const zip = tour.tourApp(data, runtime, { s192: await tourIcon(192), s512: await tourIcon(512) }, tr);
+      download(zip as BlobPart, fileName(editor.project.name + '-app', 'zip'), 'application/zip');
+      editor.toast('App ready: put the folder on a host (see HOW-TO-PUBLISH); phones install it from the address.');
+    },
+  };
+}
 (globalThis as { forma3?: Editor3 }).forma3 = editor;
 if (startNote) editor.toast(startNote);
 
@@ -135,6 +208,7 @@ function exportMenu(anchor: HTMLElement): void {
   // Grouped by what people deliver: drawings first, then BIM and 3D, the project file, game engines last.
   const items: [string, string, (() => Promise<void> | void) | null][] = [
     ['Client', '', null],
+    ['Virtual tour and site (walk through, share a link, app)…', '.html', () => openTour(editor, tourPublish())],
     ['Presentation for the client: 3D, plans and areas (HTML)', '.html', async () => {
       editor.toast('Preparing the presentation…');
       const { optimizeGlb } = await import('../f3/io/glbopt');

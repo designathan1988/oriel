@@ -3,7 +3,8 @@ import { defineConfig } from '@playwright/test';
 // Two suites, on their own origin (5795), never on 5792, where the projects of whoever uses the editor
 // are saved (the tests clear and fill the page storage):
 // - visual: the fixed scenes captured once and compared with their references (e2e/visual.spec.ts);
-// - flows: gestures with mouse and keyboard (e2e/f3.spec.ts).
+// - flows: gestures with mouse and keyboard (e2e/f3.spec.ts);
+// - tour: the virtual tour published and opened as a visitor (e2e/tour.spec.ts).
 // Every wait has an end: a test fails at its timeout, the run at globalTimeout, and nothing is retried
 // (a test that passes on a second try hides a real fault).
 export default defineConfig({
@@ -33,6 +34,8 @@ export default defineConfig({
   projects: [
     { name: 'visual', testMatch: 'visual.spec.ts', timeout: 30_000 },
     { name: 'flows', testMatch: 'f3.spec.ts', timeout: 60_000 },
+    // The published tour, made and walked through: one long test (two exports of the model).
+    { name: 'tour', testMatch: 'tour.spec.ts', timeout: 600_000 },
   ],
   webServer: {
     command: 'npx vite --port 5795 --strictPort --host 127.0.0.1',

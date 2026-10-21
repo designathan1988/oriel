@@ -4,6 +4,7 @@
 import type { Building3, Item, Project3, Vec2 } from '../model/schema';
 import { building, facadeRule, levelsFor, mat, project, rectPlan, roofSpec, solid, uid } from '../model/defaults';
 import { sampleBuildings } from '../model/samples';
+import { stairBetween } from '../model/stairs';
 import { addInteriorWall, interiorDoors, interiorOf, loopAround, roomArea, type InteriorWithDoors } from '../eval/interiorwalls';
 
 export interface Template {
@@ -46,7 +47,7 @@ function doorAt(b: Building3, levelId: string, at: Vec2, into: Vec2, width = 0.8
 }
 
 /** A piece of furniture standing free on the floor: `rot` turns it (degrees; 0 has its back to −z). */
-const free = (type: string, x: number, z: number, rot = 0): Item => ({ id: uid(), type, params: {}, host: { kind: 'free', p: [x, 0, z], rot } });
+const free = (type: string, x: number, z: number, rot = 0, y = 0): Item => ({ id: uid(), type, params: {}, host: { kind: 'free', p: [x, y, z], rot } });
 
 const tiles = { wall: mat('plaster', '#efe9de'), roof: mat('tile', '#a4583a'), trim: mat('paint', '#ffffff'), base: mat('stone', '#a29a8c') };
 
@@ -104,12 +105,72 @@ function house(): Project3 {
   return project({ name: 'Casa térrea', buildings: [b] });
 }
 
-/** Two-storey house, 8 × 10 m, gable roof. */
+/** Two-storey house, 8 × 10 m, gable roof: living, kitchen and a lavatory below, two bedrooms and a
+ *  bathroom above, joined by a straight stair along the east wall (it opens the upper slab itself). */
 function townhouse(): Project3 {
-  const plan = rectPlan(8, 10);
+  const W = 8,
+    D = 10,
+    T = 0.15;
+  const plan = rectPlan(W, D);
   const s = solid({ name: 'Paredes', plan: { outer: plan, holes: [] }, height: 5.8, roof: roofSpec('gable', { pitch: 30, overhang: 0.5 }), materials: tiles, facade: [facadeRule('door-panel', { levels: 'ground', edges: [plan[0]!.id], mode: 'count', value: 1 }), facadeRule('win-casement', { mode: 'max', value: 3 })] });
-  s.shell = 0.15;
-  return project({ name: 'Sobrado', buildings: [building({ name: 'Sobrado', use: 'residential', levels: levelsFor(2, 2.9, 2.9), solids: [s] })] });
+  s.shell = T;
+  const b = building({ name: 'Sobrado', use: 'residential', levels: levelsFor(2, 2.9, 2.9), solids: [s] });
+  const [g, u] = [b.levels[0]!, b.levels[1]!];
+  const x = W / 2 - T,
+    z = D / 2 - T;
+  // Ground floor: the living room with the stair, the kitchen and the lavatory at the back.
+  addInteriorWall(b, g.id, [-x, 1.5], [x, 1.5], 0.12, uid);
+  addInteriorWall(b, g.id, [0.8, 1.5], [0.8, z], 0.12, uid);
+  roomsAt(b, g.id, W, D, T, [
+    { name: 'Sala', at: [-1, -2] },
+    { name: 'Cozinha', at: [-1.5, 3.2] },
+    { name: 'Lavabo e serviço', at: [2.3, 3.2] },
+  ]);
+  doorAt(b, g.id, [-1.5, 1.5], [-1.5, 2.5], 0.9);
+  doorAt(b, g.id, [2.2, 1.5], [2.2, 2.5]);
+  // The stair: 17 risers of 17 cm, from the front of the living room up to the middle of the upper floor.
+  b.items.push(stairBetween(b, g.id, u.id, [x - 0.5, -4], 0, 1));
+  // Upper floor: a hall beside the stair opening, two bedrooms on the west, the bathroom at the back.
+  addInteriorWall(b, u.id, [1.6, -z], [1.6, z], 0.12, uid);
+  addInteriorWall(b, u.id, [-x, 0], [1.6, 0], 0.12, uid);
+  addInteriorWall(b, u.id, [1.6, 1.8], [x, 1.8], 0.12, uid);
+  roomsAt(b, u.id, W, D, T, [
+    { name: 'Quarto 1', at: [-1, -2.4] },
+    { name: 'Quarto 2', at: [-1, 2.4] },
+    { name: 'Circulação', at: [2.2, -2] },
+    { name: 'Banheiro', at: [2.7, 3.3] },
+  ]);
+  doorAt(b, u.id, [1.6, -0.7], [0, -0.7]);
+  doorAt(b, u.id, [1.6, 1.0], [0, 1.0]);
+  doorAt(b, u.id, [2.25, 1.8], [2.25, 3], 0.7);
+  const up = u.elevation;
+  b.items.push(
+    // Living, dining and kitchen.
+    free('sofa-3', 1.9, -2.6, -90),
+    free('tv-unit', -x + 0.25, -2.6, 90),
+    free('table-dining', -1.2, 0.2),
+    free('chair', -1.7, -0.55),
+    free('chair', -0.7, -0.55),
+    free('chair', -1.7, 0.95, 180),
+    free('chair', -0.7, 0.95, 180),
+    free('kitchen-planned', -1.75, z - 0.3, 180),
+    free('fridge', 0.3, z - 0.35, 180),
+    // Lavatory.
+    free('toilet', 1.4, z - 0.35, 180),
+    free('sink-vanity', 2.4, z - 0.3, 180),
+    // Bedroom 1.
+    free('bed-double', -x + 1.05, -2.4, 90, up),
+    free('wardrobe-sliding', -1.0, -0.36, 180, up),
+    // Bedroom 2.
+    free('bed-double', -x + 1.05, 2.4, 90, up),
+    free('wardrobe', -1.0, 0.36, 0, up),
+    free('desk', 0.5, z - 0.3, 180, up),
+    // Bathroom.
+    free('toilet', 2.0, z - 0.35, 180, up),
+    free('sink-vanity', 3.0, z - 0.3, 180, up),
+    free('shower', x - 0.45, 2.36, 0, up),
+  );
+  return project({ name: 'Sobrado', buildings: [b] });
 }
 
 /** Warehouse, 30 × 20 m, 9 m high, metal gable roof, loading doors. */
@@ -129,7 +190,7 @@ function apartments(): Project3 {
 export const TEMPLATES: Template[] = [
   { id: 'blank', name: 'Em branco', note: 'Terreno vazio para começar do zero', make: () => project({ name: 'Projeto sem título' }) },
   { id: 'house', name: 'Casa térrea', note: '12 × 9 m, 4 cômodos mobiliados, telhado de quatro águas', make: house },
-  { id: 'townhouse', name: 'Sobrado', note: '8 × 10 m, 2 pavimentos, telhado de duas águas', make: townhouse },
+  { id: 'townhouse', name: 'Sobrado', note: '8 × 10 m, 2 pavimentos com escada, 7 cômodos mobiliados', make: townhouse },
   { id: 'warehouse', name: 'Galpão', note: '30 × 20 m, 9 m de altura, docas de carga', make: warehouse },
   { id: 'apartments', name: 'Prédio residencial', note: 'Térreo + 5 pavimentos, cobertura plana', make: apartments },
   { id: 'samples', name: 'Exemplos', note: 'Onze edifícios para explorar as ferramentas', make: () => project({ name: 'Exemplos', buildings: sampleBuildings() }) },

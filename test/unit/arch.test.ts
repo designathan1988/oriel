@@ -61,14 +61,16 @@ const MAY: Record<string, string[]> = {
   'f3/eval': ['f3/model', 'f3/families', 'f3/kernel', ...BASE],
   'f3/worker': ['f3/eval', 'f3/model', 'f3/kernel', ...BASE],
   'f3/render': ['f3/eval', 'f3/families', 'f3/model', 'render', ...BASE],
-  'f3/io': ['f3/eval', 'f3/families', 'f3/model', 'f3/kernel', 'f3/render', 'render', ...BASE],
+  'f3/io': ['f3/eval', 'f3/families', 'f3/model', 'f3/kernel', 'f3/render', 'f3/tour', 'render', ...BASE],
+  // The published tour: a page of its own (bundled into the exported file), it reaches nothing of the editor.
+  'f3/tour': [],
   'f3/editor': ['f3/eval', 'f3/families', 'f3/model', 'f3/kernel', 'f3/render', 'f3/ui', 'render', 'ui', ...BASE],
   'f3/ui': ['f3/editor', 'f3/eval', 'f3/families', 'f3/model', 'f3/render', 'ui', ...BASE],
   ui: [],
   app: ['f3/editor', 'f3/io', 'f3/kernel', 'f3/model', 'f3/ui'],
 };
 /** The only layers that draw (three.js); the rest is data and can run in a worker or in Node. */
-const THREE_OK = new Set(['render', 'f3/render', 'f3/editor', 'f3/io']);
+const THREE_OK = new Set(['render', 'f3/render', 'f3/editor', 'f3/io', 'f3/tour']);
 /** Pure layers: the same document always gives the same result (no clock, no chance). */
 const PURE = new Set(['f3/eval', 'f3/families', 'f3/kernel', 'geometry']);
 /** Exceptions to purity: none (the straight skeleton stops after a count of events since 2026-10-13). */

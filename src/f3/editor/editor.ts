@@ -1442,6 +1442,8 @@ export class Editor3 {
   guideRequested: (() => void) | null = null;
   /** Opens the quantities and cost estimate (ui/quantities.ts). */
   quantitiesRequested: (() => void) | null = null;
+  /** Opens the virtual tour panel (ui/tour.ts). */
+  tourRequested: (() => void) | null = null;
   /** Mouse navigation preset (ui/prefs.ts): which middle-button drag pans and which orbits. */
   navPreset: 'forma' | 'sketchup' | 'blender' = 'forma';
 

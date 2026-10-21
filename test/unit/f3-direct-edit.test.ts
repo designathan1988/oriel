@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { loadKernel } from '../../src/f3/kernel/kernel';
 import { evaluateBuilding } from '../../src/f3/eval/evaluate';
-import { building, facadeRule, rectPlan, roofSpec, solid } from '../../src/f3/model/defaults';
+import { building, facadeRule, levelsFor, rectPlan, roofSpec, solid } from '../../src/f3/model/defaults';
 import { dimParams, partBox } from '../../src/f3/eval/partsize';
 import { shellCutter, withModifiers } from '../../src/f3/eval/modifiers';
 import { family } from '../../src/f3/families/index';
@@ -56,7 +56,10 @@ describe('hollow shell and sweep', () => {
     expect(cut.base).toBeCloseTo(0.3, 6);
     expect(cut.height).toBeCloseTo(5.4, 6);
     expect(Math.max(...cut.plan.outer.map((v) => v.p[0]))).toBeCloseTo(4.7, 6);
-    expect(withModifiers(building({ solids: [s] })).solids).toHaveLength(2);
+    // One floor: one cutter. Two floors (3.4 m apart): a cutter per floor, the slab between them kept.
+    expect(withModifiers(building({ solids: [s], levels: levelsFor(1, 6, 6) })).solids).toHaveLength(2);
+    const two = withModifiers(building({ solids: [s] })).solids.filter((x) => x.op === 'subtract');
+    expect(two.map((x) => [x.base, x.base + x.height].map((v) => +v.toFixed(2)))).toEqual([[0.3, 3.4], [3.7, 5.7]]);
     const ev = evaluateBuilding(building({ solids: [s] }));
     expect(ev.warnings).toEqual([]);
   });

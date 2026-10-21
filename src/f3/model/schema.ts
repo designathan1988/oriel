@@ -31,6 +31,44 @@ export interface Project3 {
   streets?: Street[];
   /** Project material library: named materials to reuse (and to change everywhere at once). */
   materials?: ProjectMaterial[];
+  /** The virtual tour published as a site or an app: its stops, points of interest and who to call. */
+  tour?: TourSpec;
+}
+
+/** A stop of the virtual tour: a view (eye and the point it looks at, world metres) with a caption. */
+export interface TourStop {
+  id: ID;
+  name: string;
+  note?: string;
+  eye: Vec3;
+  target: Vec3;
+  /** Seen walking (eye height, collisions) rather than turning around the model. */
+  walk?: boolean;
+}
+
+/** A point of interest: a numbered marker on the model that opens a card. */
+export interface TourHotspot {
+  id: ID;
+  title: string;
+  text?: string;
+  at: Vec3;
+}
+
+export interface TourSpec {
+  title?: string;
+  subtitle?: string;
+  /** Who made it and how to reach them (shown on the site; WhatsApp and e-mail become links). */
+  author?: string;
+  phone?: string;
+  email?: string;
+  stops: TourStop[];
+  hotspots: TourHotspot[];
+  /** Seconds per stop when the tour plays by itself (0: only by hand). */
+  autoplay?: number;
+  /** What the published tour offers. */
+  walk?: boolean;
+  vr?: boolean;
+  plans?: boolean;
 }
 
 export interface ProjectMaterial {

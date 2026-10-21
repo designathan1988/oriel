@@ -76,6 +76,7 @@ export function mountPalette(ed: Editor3): void {
       { label: 'Preferences (theme, navigation)', group: 'View', ic: 'props', run: () => ed.prefsRequested?.() },
       ...(Object.entries(WORKSPACES) as [string, { label: string }][]).map(([w, d]) => ({ label: `Stage: ${d.label}`, group: 'View', ic: 'layers', key: 'Alt PgUp/PgDn', run: () => ed.workspaceRequested?.(w) })),
       { label: 'Quantities and cost estimate', group: 'Project', ic: 'count', run: () => ed.quantitiesRequested?.() },
+      { label: 'Virtual tour and site', group: 'Project', ic: 'enter', run: () => ed.tourRequested?.() },
       { label: 'Show the stage guide', group: 'Help', ic: 'help', run: () => ed.guideRequested?.() },
       { label: 'Parallel / perspective view', group: 'View', ic: 'grid', key: 'Numpad 5', run: () => ed.view.setParallel(!ed.view.parallel) },
       { label: 'Undo', group: 'Edit', ic: 'undo', key: 'Ctrl Z', run: () => ed.command('undo') },

@@ -13,6 +13,7 @@ import type { FaceKind, FaceTable } from './faces';
 import type { InstPart, Parts3 } from './parts';
 import type { BodyCategory } from '../model/layers';
 import { slabOpeningFor } from '../model/stairs';
+import { STAIR_OPENING } from './modifiers';
 import { typeById } from '../families/index';
 
 /** Which part of the body a face belongs to (null: always drawn, like the section cut). */
@@ -106,7 +107,7 @@ export function floorVoids(b: Building3, hidden: (s: Solid) => boolean, table: F
       const cs = keep(new k.CrossSection(rings, 'EvenOdd'));
       return grow ? keep(cs.offset(grow, 'Miter', 2)) : cs;
     };
-    const cutters = b.solids.filter((s) => s.op === 'subtract');
+    const cutters = b.solids.filter((s) => s.op === 'subtract' && !s.id.includes(STAIR_OPENING));
     for (const s of b.solids) {
       if (s.op !== 'add' || hidden(s)) continue;
       const top = s.base + s.height;
@@ -380,7 +381,7 @@ export function exteriorWalls(b: Building3, hidden: (s: Solid) => boolean, table
       const cs = keep(new k.CrossSection(rings, 'EvenOdd'));
       return grow ? keep(cs.offset(grow, 'Miter', 2)) : cs;
     };
-    const cutters = b.solids.filter((s) => s.op === 'subtract');
+    const cutters = b.solids.filter((s) => s.op === 'subtract' && !s.id.includes(STAIR_OPENING));
     const INSET = WALL + 0.02;
     for (const s of b.solids) {
       if (s.op !== 'add' || hidden(s)) continue;
