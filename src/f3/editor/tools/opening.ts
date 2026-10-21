@@ -116,6 +116,13 @@ export class OpeningTool {
         s1 = Math.max(this.a.s, p.s),
         y0 = Math.min(this.a.y, p.y),
         y1 = Math.max(this.a.y, p.y);
+      if (this.mode === 'circle') {
+        // Circle: from its center; the square around it drawn, the diameter shown.
+        const r = Math.hypot(p.s - this.a.s, p.y - this.a.y);
+        this.drawRect(this.a.s - r, this.a.y - r, this.a.s + r, this.a.y + r);
+        this.h.showDim(`⌀ ${fmt(2 * r)} m`, e);
+        return;
+      }
       this.drawRect(s0, y0, s1, y1);
       this.h.showDim(`${fmt(s1 - s0)} × ${fmt(y1 - y0)} m`, e);
       return;
@@ -124,14 +131,14 @@ export class OpeningTool {
   }
 
   /** 'pull': the rectangle tool drawing on a wall (the rectangle is pulled out or carved in). */
-  private mode: 'opening' | 'pull' = 'opening';
+  private mode: 'opening' | 'pull' | 'circle' = 'opening';
 
   /** Is there a wall under the pointer (for the rectangle tool to draw on it)? */
   onAWall(e: { clientX: number; clientY: number }): boolean {
     return !!this.wallAt(e);
   }
 
-  down(e: PointerEvent, mode: 'opening' | 'pull' = 'opening'): void {
+  down(e: PointerEvent, mode: 'opening' | 'pull' | 'circle' = 'opening'): void {
     const w = this.wallAt(e);
     if (!w) return this.h.toast('Point at a wall.');
     this.mode = mode;
@@ -157,6 +164,18 @@ export class OpeningTool {
     if (!b || !s) return;
     const moved = Math.hypot(e.clientX - a.x, e.clientY - a.yScreen) > 8 && this.b;
     if (!moved && this.mode === 'pull') return this.h.toast('Drag a rectangle on the wall, then choose: pull it out or carve it in.');
+    if (this.mode === 'circle') {
+      if (!moved) return this.h.toast('Drag from the center of the circle on the wall.');
+      // As drawn, but never past the wall around its center (its trim included).
+      const len = edgeLength(s, w.edge);
+      const room = Math.min(a.s, len - a.s, a.y, s.height - a.y) - 0.15;
+      const r = Math.min(Math.hypot(this.b!.s - a.s, this.b!.y - a.y), room);
+      const d = Math.round(2 * r * 100) / 100;
+      if (d < 0.3) return this.h.toast('A round window is at least 30 cm across.');
+      const it: Item = { id: uid(), type: this.windowType(s), params: { width: d, height: d, shape: 'round', shutters: 'none' }, host: { kind: 'face', solid: s.id, edge: w.edge, u: Math.round(a.s * 100) / 100, y: Math.round(Math.max(0, a.y - r) * 100) / 100 } };
+      if (this.h.change(b.id, (x) => void x.items.push(it), `Round window ⌀ ${fmt(d)} m.`)) this.h.selectItem(b.id, it.id);
+      return;
+    }
     if (!moved) return this.placeWindow(b, s, w, a.s, a.y);
     const len = edgeLength(s, w.edge);
     const r = { s0: Math.max(0, Math.min(a.s, this.b!.s)), s1: Math.min(len, Math.max(a.s, this.b!.s)), y0: Math.max(0, Math.min(a.y, this.b!.y)), y1: Math.min(s.height, Math.max(a.y, this.b!.y)) };

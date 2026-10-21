@@ -6309,6 +6309,8 @@ export class Editor3 {
   private drawDown(e: PointerEvent): void {
     // A rectangle started on a wall: drawn on the wall, then pulled out or carved in (tools/opening.ts).
     if (!this.draft && this.tool === 'rect' && this.opening.onAWall(e)) return this.opening.down(e, 'pull');
+    // A circle started on a wall: a round window (oculus) of that size.
+    if (!this.draft && this.tool === 'circle' && this.opening.onAWall(e)) return this.opening.down(e, 'circle');
     if (!this.draft) {
       const pl = this.drawPlane(e);
       const sn = this.infer.snap(e, pl.y, null, null);

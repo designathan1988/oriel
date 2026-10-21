@@ -144,7 +144,10 @@ From its version 3 (sent the same day):
 - [x] Linear and ring (radial) arrays and mirror X/Z as live modifiers of a volume; hollow shell
       (`Solid.shell`, a cutter made at evaluation).
 - [x] A rectangle drawn on a wall is pulled out or carved in (R on a wall); drag a wall to curve it,
-      snapping to straight and to a half circle. [ ] Circle and polygon on a wall. [x] An arch drawn as an opening (Opening tool:
+      snapping to straight and to a half circle. [x] Circle on a wall: a round window of that size
+      (Circle tool started on a wall). Polygon on a wall: decided against — volumes are plans extruded upward,
+      so a free outline on a vertical face has no volume to become; rectangles, arches and circles cover the
+      openings. [x] An arch drawn as an opening (Opening tool:
       arched window, arched door).
 - [x] A rule element's size "only at this position" (`FacadeRule.sizes`, handles on one selected element).
 - [x] Size handles on any part of any family (`eval/partsize.ts`: the parameter behind each side found by
