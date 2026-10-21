@@ -272,7 +272,7 @@ function exportMenu(anchor: HTMLElement): void {
     ['BIM and 3D', '', null],
     ['BIM model (IFC4)', '.ifc', async () => {
       const { exportIFC } = await import('../f3/io/ifc');
-      download(exportIFC(editor.project), fileName(editor.project.name, 'ifc'), 'application/x-step');
+      download(exportIFC(editor.project, tr), fileName(editor.project.name, 'ifc'), 'application/x-step');
     }, 'ifc'],
     ['3D model (GLB)', '.glb', async () => download(await exportGLB(editor.project), fileName(editor.project.name, 'glb'), 'model/gltf-binary')],
     ['3D model, compact (GLB, meshopt + WebP)', '.glb', async () => {

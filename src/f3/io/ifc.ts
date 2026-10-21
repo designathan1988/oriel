@@ -14,7 +14,7 @@ import { apply, type M4 } from '../eval/parts';
 import { family as familyOf } from '../families/index';
 import { floorPlan } from '../eval/floorplan';
 import { SLAB } from '../eval/interior';
-import { interiorWallMeshes } from '../eval/interiorwalls';
+import { interiorDoors, interiorWallMeshes } from '../eval/interiorwalls';
 import { FaceTable } from '../eval/faces';
 
 const B64 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$';
@@ -71,7 +71,7 @@ const hex = (c: string): [number, number, number] => {
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
 };
 
-export function exportIFC(p: Project3): string {
+export function exportIFC(p: Project3, t: (s: string) => string = (x) => x): string {
   const lines: string[] = [];
   let n = 0;
   const add = (body: string): number => {
@@ -145,7 +145,7 @@ export function exportIFC(p: Project3): string {
       const lp = add(`IFCCARTESIANPOINT((0.,0.,${real(l.elevation)}))`);
       const la = add(`IFCAXIS2PLACEMENT3D(${ref(lp)},$,$)`);
       const place = add(`IFCLOCALPLACEMENT(${ref(bPlace)},${ref(la)})`);
-      return { id: add(`IFCBUILDINGSTOREY(${str(ifcGuid('s' + l.id))},$,${str(l.name)},$,$,${ref(place)},$,$,.ELEMENT.,${real(l.elevation)})`), elevation: l.elevation, height: l.height, place, items: [] as number[] };
+      return { id: add(`IFCBUILDINGSTOREY(${str(ifcGuid('s' + l.id))},$,${str(t(l.name))},$,$,${ref(place)},$,$,.ELEMENT.,${real(l.elevation)})`), elevation: l.elevation, height: l.height, place, items: [] as number[] };
     });
     if (!storeys.length) continue;
     add(`IFCRELAGGREGATES(${str(ifcGuid('agg-b' + b.id))},$,$,$,${ref(bld)},${list(storeys.map((s) => s.id))})`);
@@ -196,7 +196,8 @@ export function exportIFC(p: Project3): string {
       const f = ev.faces[sh.faceOf[t]!];
       if (!f || /^room|^cut|^cutter|^roofCut/.test(f.kind)) continue;
       const cls = f.kind === 'roof' || f.kind === 'gable' || f.kind === 'fascia' || f.kind === 'soffit' || f.kind === 'glazing' ? 'IFCROOF' : f.kind === 'top' || f.kind === 'bottom' || f.kind === 'floor' || f.kind === 'ceiling' ? 'IFCSLAB' : 'IFCWALL';
-      const key = `${cls}|${f.solid}`;
+      // One IfcWall per side of a volume (Revit and ArchiCAD walls are per side), slabs and roofs per volume.
+      const key = cls === 'IFCWALL' && f.edge ? `${cls}|${f.solid}|${f.edge.replace(/:c$/, '')}` : `${cls}|${f.solid}`;
       let g = groups.get(key);
       if (!g) groups.set(key, (g = { cls, solid: f.solid, tris: { pos: [], idx: [] }, minY: Infinity }));
       let vm = vmap.get(key);
@@ -217,7 +218,7 @@ export function exportIFC(p: Project3): string {
       }
     }
     const solidOf = (id: string): Solid | undefined => b.solids.find((s) => s.id === id || id.startsWith(s.id + '~'));
-    const names: Record<string, string> = { IFCWALL: 'Walls', IFCSLAB: 'Slabs', IFCROOF: 'Roof' };
+    const names: Record<string, string> = { IFCWALL: t('Wall'), IFCSLAB: t('Slab'), IFCROOF: t('Roof') };
     for (const [key, g] of groups) {
       const s = solidOf(g.solid);
       const st = storeyAt(g.minY);
@@ -253,6 +254,37 @@ export function exportIFC(p: Project3): string {
         if (id) st.items.push(id);
       }
     }
+    // Doors of the interior walls (openings in the plan): an IfcDoor each, its leaf in the opening.
+    levels.forEach((lv, li) => {
+      const it = b.interiors[lv.id];
+      const st = storeys[li];
+      if (!it || !st) return;
+      const node = new Map(it.nodes.map((n) => [n.id, n.p]));
+      interiorDoors(it).forEach((d, di) => {
+        const w = it.walls.find((x) => x.id === d.wall);
+        const A = w && node.get(w.a),
+          C = w && node.get(w.b);
+        if (!w || !A || !C) return;
+        const L = Math.hypot(C[0] - A[0], C[1] - A[1]) || 1;
+        const ux = (C[0] - A[0]) / L,
+          uz = (C[1] - A[1]) / L;
+        const nx = -uz,
+          nz = ux;
+        const tk = 0.04;
+        const corner = (along: number, across: number, y: number): [number, number, number] => {
+          const x = A[0] + ux * along + nx * across,
+            z = A[1] + uz * along + nz * across;
+          return [x, -z, y];
+        };
+        const a0 = d.u - d.width / 2,
+          a1 = d.u + d.width / 2;
+        const v: [number, number, number][] = [];
+        for (const y of [0, d.height]) for (const c of [-tk / 2, tk / 2]) for (const al of [a0, a1]) v.push(corner(al, c, y));
+        const q = [0, 1, 3, 0, 3, 2, 4, 6, 7, 4, 7, 5, 0, 4, 5, 0, 5, 1, 2, 3, 7, 2, 7, 6, 0, 2, 6, 0, 6, 4, 1, 5, 7, 1, 7, 3];
+        const id = product('IFCDOOR', `idoor|${b.id}|${lv.id}|${di}`, t('Door'), st.place, { pos: v.flat(), idx: q }, '#b08d62', tail('IFCDOOR'));
+        if (id) st.items.push(id);
+      });
+    });
     // Components: one product per tag (a window, a door, a bench), from its instances and meshes.
     const parts = ev.parts;
     const byTag = new Map<number, { tris: Tris; colour: string; minY: number }>();
