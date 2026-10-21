@@ -3597,8 +3597,23 @@ export class Editor3 {
     if (this.tool === 'paint') return this.paintAt(e);
   }
 
+  /** The last plain click on the model (where, when, how deep): a click again there picks what is behind. */
+  private lastPick: { x: number; y: number; t: number; depth: number } | null = null;
+
   private clickSelect(hit: Hit | null, e: Mods): void {
     const mode = selMode(e);
+    // Clicking again on the same spot (slower than a double click) goes one thing deeper: the window under
+    // the eaves, the wall behind a tree, the part inside another one.
+    const at = this.pointerAt;
+    if (hit && at && mode === 'replace') {
+      const now = performance.now();
+      const lp = this.lastPick;
+      const again = !!lp && Math.hypot(at.clientX - lp.x, at.clientY - lp.y) < 4 && now - lp.t > 380 && now - lp.t < 2500;
+      const depth = again ? lp!.depth + 1 : 0;
+      const deeper = depth ? this.view.pick(this.store.project, at, null, false, undefined, depth) : null;
+      if (deeper) hit = deeper;
+      this.lastPick = { x: at.clientX, y: at.clientY, t: now, depth: deeper ? depth : 0 };
+    }
     // A tree or lamp planted along a street (a building with parts only) picks the street on a click;
     // inside that building (double click) the parts themselves are picked.
     if (hit && !hit.building.solids.length && this.context !== hit.building.id && mode === 'replace' && this.pointerAt && this.pickSiteAt(this.pointerAt)) return;

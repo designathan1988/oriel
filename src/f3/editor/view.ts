@@ -1051,7 +1051,27 @@ export class View {
     return best;
   }
 
-  pick(p: Project3, e: { clientX: number; clientY: number }, only?: ID | null, wallsOnly = false, skip?: Set<ID>): Hit | null {
+  /**
+   * What is under the pointer. `nth` > 0 passes over that many different things in front (a click again
+   * on the same spot picks what is behind: Blender's click cycling, Revit's Tab), the last one when fewer.
+   */
+  pick(p: Project3, e: { clientX: number; clientY: number }, only?: ID | null, wallsOnly = false, skip?: Set<ID>, nth = 0): Hit | null {
+    if (nth > 0) {
+      const seen: string[] = [];
+      let last: Hit | null = null;
+      for (const h of this.pickAll(p, e, only, wallsOnly, skip)) {
+        const key = `${h.building.id}|${h.part?.item ?? h.part?.key ?? h.face?.solid ?? ''}`;
+        if (seen.includes(key)) continue;
+        seen.push(key);
+        last = h;
+        if (seen.length > nth) return h;
+      }
+      return last;
+    }
+    return this.pickAll(p, e, only, wallsOnly, skip).next().value ?? null;
+  }
+
+  private *pickAll(p: Project3, e: { clientX: number; clientY: number }, only?: ID | null, wallsOnly = false, skip?: Set<ID>): Generator<Hit> {
     const ray = this.rayFrom(e);
     const groups = [...this.built.entries()].filter(([id]) => (!only || id === only) && !skip?.has(id) && this.built.get(id)!.group.visible).map(([, b]) => b.group);
     const hits = ray.intersectObjects(groups, true);
@@ -1077,15 +1097,15 @@ export class View {
         // (the side face of the same volume nearest to the point), not "nowhere".
         if (face?.kind === 'plinth') face = this.sideBehind(built.ev.faces, face.solid, h.point.clone().applyMatrix4(built.group.matrixWorld.clone().invert())) ?? face;
         // A copy made by a modifier (repeat, mirror) answers for its source volume.
-        return { building: b, point: h.point.clone(), normal, face: face && face.solid.includes('~') ? { ...face, solid: sourceId(face.solid) } : face };
+        yield { building: b, point: h.point.clone(), normal, face: face && face.solid.includes('~') ? { ...face, solid: sourceId(face.solid) } : face };
+        continue;
       }
       if (wallsOnly) continue;
       const tag = built.parts.pick(h);
       const ti = tag?.item ? b.items.find((x) => x.id === tag.item) : undefined;
       if (ti && itemLocked(p, ti)) continue;
-      return { building: b, point: h.point.clone(), normal, ...(tag ? { part: tag } : {}) };
+      yield { building: b, point: h.point.clone(), normal, ...(tag ? { part: tag } : {}) };
     }
-    return null;
   }
 
   toScreen(p: THREE.Vector3): { x: number; y: number; behind: boolean } {
