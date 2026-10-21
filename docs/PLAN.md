@@ -119,8 +119,9 @@ Decisions taken (the questions that waited for the user):
 - [x] D3 building dimensions measure the body (walls, roof, eave). Hip vs Gable on a curved front: they
       differ (gable ends found on the short sides; checked in Node). D6 curved walls smooth: normals summed by position (the booleans left a duplicate vertex), walls
       textured along their outline, shadow normal offset 8 cm (the flat segments shadowed each other).
-- [ ] Functional sweep of what the audit never reached (tools, Ctrl+K, keys, menus, save/open,
-      export, time, grid, cube, layers, shed/sawtooth, paste, window panel, material fields).
+- [x] Functional sweep (2026-10-21, real app, scripted): all 26 tool keys, Ctrl+K (prefix ranking fixed), help,
+      the 22 Export entries (downloads, no errors), save/open round trip of every new field, all 11 roof
+      kinds, view cube, grid, time, layers, copy/paste/undo: no error, no problem reported.
 
 Ideas taken from "Estúdio de Construção" (a smaller three.js + Manifold constructor the user sent on
 2026-10-13; only its ideas, reimplemented here):
