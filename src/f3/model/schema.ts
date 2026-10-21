@@ -33,6 +33,17 @@ export interface Project3 {
   materials?: ProjectMaterial[];
   /** The virtual tour published as a site or an app: its stops, points of interest and who to call. */
   tour?: TourSpec;
+  /** What the title block of the sheets says (ABNT NBR 10068/13532): client, site, who answers for it. */
+  info?: ProjectInfo;
+}
+
+export interface ProjectInfo {
+  client?: string;
+  address?: string;
+  /** The architect or engineer responsible, and the registration (CAU / CREA). */
+  author?: string;
+  registration?: string;
+  revision?: string;
 }
 
 /** A stop of the virtual tour: a view (eye and the point it looks at, world metres) with a caption. */

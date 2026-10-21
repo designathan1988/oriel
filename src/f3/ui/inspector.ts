@@ -184,6 +184,17 @@ export function mountInspector(ed: Editor3): void {
     }
     if (!b) {
       side.innerHTML = emptyHelp(ed.project);
+      side.querySelectorAll<HTMLInputElement>('[data-pinfo]').forEach((inp) =>
+        inp.addEventListener('change', () => {
+          const k = inp.dataset.pinfo as keyof NonNullable<Project3['info']>;
+          const info = { ...(ed.store.project.info ?? {}) };
+          const v = inp.value.trim().slice(0, 160);
+          if (v) info[k] = v;
+          else delete info[k];
+          ed.store.project.info = info;
+          ed.store.commit(null, 'Title block updated.', false);
+        }),
+      );
       polish(side);
       return;
     }
@@ -222,12 +233,19 @@ function projectSummary(p: Project3): string {
     <div class="f3-sumstats">${stat(String(p.buildings.length), 'buildings')}${stat(String(floors), 'floors')}${stat(m2(footprint), 'footprint')}${stat(m2(gfa), 'floor area')}</div></div>`;
 }
 
+/** The title block of the sheets (client, address, the professional responsible, registration, revision). */
+function projectInfo(p: Project3): string {
+  const i = p.info ?? {};
+  const f = (k: keyof NonNullable<Project3['info']>, label: string) => `<label class="f3-field w"><span>${label}</span><input data-pinfo="${k}" value="${esc(i[k] ?? '')}" maxlength="160" data-i18n-skip></label>`;
+  return `<div class="f3-sec"><h3>Title block</h3><div class="f3-grid2">${f('client', 'Client')}${f('address', 'Address')}${f('author', 'Responsible')}${f('registration', 'CAU / CREA')}${f('revision', 'Revision')}</div></div>`;
+}
+
 /**
  * Nothing selected: the project's numbers, or for an empty project the three ways to start. Renders,
  * tours, drawings and quantities are in Export (one place); the shortcuts are under ? (one place).
  */
 function emptyHelp(p: Project3): string {
-  if (p.buildings.length) return projectSummary(p);
+  if (p.buildings.length) return projectSummary(p) + projectInfo(p);
   const k = (keys: string, what: string) => `<span><kbd>${keys}</kbd></span><span>${what}</span>`;
   return `<div class="f3-empty"><b>Start a project</b>
   <div class="f3-keys">${k('W', 'Walls: click point to point, type the lengths')}${k('R', 'Rectangle: a volume to shape')}${k('K', 'Library: furniture, doors, windows, plants')}</div></div>`;

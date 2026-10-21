@@ -786,6 +786,7 @@ export function validateForma3(raw: unknown): string[] {
   }
   if (p.view !== undefined && (!isObj(p.view) || !Array.isArray(p.view.hiddenCategories))) e.add('Project', 'invalid view state.');
   else if (p.view !== undefined && ((p.view.hiddenBody !== undefined && !(Array.isArray(p.view.hiddenBody) && p.view.hiddenBody.every((c: unknown) => typeof c === 'string'))) || (p.view.cutLevel !== undefined && !(Number.isInteger(p.view.cutLevel) && (p.view.cutLevel as number) >= 0)) || (p.view.explode !== undefined && !(fin(p.view.explode) && (p.view.explode as number) >= 0 && (p.view.explode as number) <= 50)) || (p.view.onlyLevel !== undefined && typeof p.view.onlyLevel !== 'boolean'))) e.add('Project', 'invalid view state.');
+  if (p.info !== undefined && (!isObj(p.info) || Object.entries(p.info).some(([k, v]) => !['client', 'address', 'author', 'registration', 'revision'].includes(k) || typeof v !== 'string' || v.length > 160))) e.add('Project', 'invalid project information.');
   if (p.selectionSets !== undefined) {
     const strs = (x: unknown) => Array.isArray(x) && x.every((v) => typeof v === 'string');
     if (!Array.isArray(p.selectionSets) || p.selectionSets.length > 200) e.add('Project', 'invalid selection sets.');

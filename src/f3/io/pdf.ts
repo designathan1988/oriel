@@ -20,7 +20,7 @@ const PT_PER_MM = 72 / 25.4;
 const PAGE = { w: 420, h: 297 };
 const LEFT = 25,
   EDGE = 7;
-const BLOCK = { w: 178, h: 36 };
+const BLOCK = { w: 178, h: 48 };
 
 export interface DrawingSetOptions {
   /** Section line (z of the scene) for the section sheet. */
@@ -100,6 +100,7 @@ export async function drawingsPdf(p: Project3, opts: DrawingSetOptions | number 
   }
 
   const date = new Date().toLocaleDateString(dec === ',' ? 'pt-BR' : 'en-GB');
+  const info = p.info ?? {};
   const host = document.createElement('div');
   host.style.cssText = 'position:fixed;left:-10000px;top:0;width:0;height:0;overflow:hidden';
   document.body.appendChild(host);
@@ -143,8 +144,8 @@ export async function drawingsPdf(p: Project3, opts: DrawingSetOptions | number 
       doc.setLineWidth(0.4);
       doc.line(P(bx), P(by + 12), P(bx + BLOCK.w), P(by + 12));
       doc.line(P(bx), P(by + 24), P(bx + BLOCK.w), P(by + 24));
-      doc.line(P(bx + 60), P(by + 24), P(bx + 60), P(by + BLOCK.h));
-      doc.line(P(bx + 120), P(by + 24), P(bx + 120), P(by + BLOCK.h));
+      doc.line(P(bx + 60), P(by + 24), P(bx + 60), P(by + 36));
+      doc.line(P(bx + 120), P(by + 24), P(bx + 120), P(by + 36));
       const label = (s: string, x: number, y: number) => {
         doc.setFontSize(6.5);
         doc.setTextColor(110);
@@ -165,9 +166,17 @@ export async function drawingsPdf(p: Project3, opts: DrawingSetOptions | number 
       label(t('Scale'), bx + 3, by + 28);
       value(scale ? `1:${scale}` : '—', bx + 3, by + 33);
       label(t('Date'), bx + 63, by + 28);
-      value(date, bx + 63, by + 33);
+      value(info.revision ? `${date} · ${t('Rev.')} ${info.revision}` : date, bx + 63, by + 33, 10, 55);
       label(t('Sheet'), bx + 123, by + 28);
       value(`${String(i + 1).padStart(2, '0')} / ${String(sheets.length).padStart(2, '0')}`, bx + 123, by + 33);
+      // Client and site, the professional responsible and the registration (CAU / CREA).
+      doc.setLineWidth(0.4);
+      doc.line(P(bx), P(by + 36), P(bx + BLOCK.w), P(by + 36));
+      doc.line(P(bx + 89), P(by + 36), P(bx + 89), P(by + BLOCK.h));
+      label(t('Client and address'), bx + 3, by + 40);
+      value([info.client, info.address].filter(Boolean).join(' · ') || '—', bx + 3, by + 45, 8.5, 84);
+      label(t('Responsible'), bx + 92, by + 40);
+      value([info.author, info.registration].filter(Boolean).join(' · ') || '—', bx + 92, by + 45, 8.5, 84);
     }
   } finally {
     host.remove();
