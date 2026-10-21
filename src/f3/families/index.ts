@@ -5,6 +5,7 @@ import type { Family } from './family';
 import { BAY_WINDOW, WINDOW } from './windows';
 import { CURTAIN_WALL } from './curtainwall';
 import { PARKING } from './parking';
+import { ELEVATOR } from './elevator';
 import { DOOR, GARAGE_DOOR, LOADING_DOOR, SHOPFRONT } from './doors';
 import { BALCONY, VERANDA } from './balconies';
 import { FENCE, GATE, HEDGE, SWEEP, WALL_RUN } from './fences';
@@ -36,7 +37,7 @@ export function allFamilies(): Family[] {
   return [...families.values()];
 }
 
-for (const f of [WINDOW, BAY_WINDOW, CURTAIN_WALL, PARKING, DOOR, GARAGE_DOOR, LOADING_DOOR, SHOPFRONT, BALCONY, VERANDA, RAILING, JULIETTE, WALL_RUN, FENCE, GATE, HEDGE, SWEEP, COLUMN, BEAM, PERGOLA, PORTICO, STAIR, RAMP, CANOPY, AWNING, PORCH_ROOF, BRISE, COBOGO, ROLL_SHUTTER, CORNICE, PILASTER, QUOINS, PEDIMENT, BAND, SIGN, CLOCK, DOWNPIPE, CHIMNEY, SKYLIGHT, SOLAR, WATER_TANK, VENT, CUPOLA, DORMER, SILO, STACK, LADDER, TANK, IMAGE_DECAL, CLADDING, WALL_LAMP, STREET_LAMP]) registerFamily(f);
+for (const f of [WINDOW, BAY_WINDOW, CURTAIN_WALL, PARKING, ELEVATOR, DOOR, GARAGE_DOOR, LOADING_DOOR, SHOPFRONT, BALCONY, VERANDA, RAILING, JULIETTE, WALL_RUN, FENCE, GATE, HEDGE, SWEEP, COLUMN, BEAM, PERGOLA, PORTICO, STAIR, RAMP, CANOPY, AWNING, PORCH_ROOF, BRISE, COBOGO, ROLL_SHUTTER, CORNICE, PILASTER, QUOINS, PEDIMENT, BAND, SIGN, CLOCK, DOWNPIPE, CHIMNEY, SKYLIGHT, SOLAR, WATER_TANK, VENT, CUPOLA, DORMER, SILO, STACK, LADDER, TANK, IMAGE_DECAL, CLADDING, WALL_LAMP, STREET_LAMP]) registerFamily(f);
 // Interior, planting, street furniture and facade grilles.
 for (const f of [SOFA, ARMCHAIR, BED, DINING_TABLE, CHAIR, DESK, OFFICE_CHAIR, KITCHEN_COUNTER, WARDROBE, BOOKSHELF, TV_UNIT, TOILET, SINK, BATHTUB, SHOWER, FRIDGE, STOVE]) registerFamily(f);
 for (const f of [TREE_DECIDUOUS, TREE_CONIFER, PALM, BUSH, PLANTER, FLOWER_BED, GRASS_PATCH, ORNAMENTAL_GRASS, FERN]) registerFamily(f);
@@ -118,6 +119,7 @@ export const BUILTIN_TYPES: ComponentType[] = [
   t('stair-spiral', 'stair', 'Spiral stair', { shape: 'spiral', structure: 'center', treadColor: '#4a4f52', treadFinish: 'metal' }),
   t('stair-steel', 'stair', 'Steel stair', { structure: 'stringers', treadColor: '#5b6064', treadFinish: 'metal', structColor: '#3a3e41' }),
   t('ramp', 'ramp', 'Accessible ramp'),
+  t('elevator', 'elevator', 'Elevator'),
   t('canopy-concrete', 'canopy', 'Concrete canopy'),
   t('canopy-glass', 'canopy', 'Glass canopy', { kind: 'glass', thick: 0.04, rods: true }),
   t('canopy-metal', 'canopy', 'Metal canopy', { kind: 'metal', color: '#3b3f43', tilt: 8 }),

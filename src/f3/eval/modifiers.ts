@@ -4,7 +4,7 @@
 // The copies are volumes of their own for the evaluation, with the source's side IDs (its facade rules and
 // exceptions apply to them) and an ID `<source>~<n>`; picking one selects the source (sourceId).
 // No three.
-import type { Building3, ID, Solid } from '../model/schema';
+import type { Building3, ID, Solid, Vec2 } from '../model/schema';
 import { mirrorSolid, translateSolid } from '../model/ops';
 import { offsetRing, ringValid, signedArea2 } from '../model/plan';
 import { slabOpeningFor, stairRun } from '../model/stairs';
@@ -142,6 +142,36 @@ export function shellCutters(s: Solid, b: Pick<Building3, 'levels' | 'items'>): 
       base: lv.elevation - 0.02,
       height: t + 0.04,
     });
+  }
+  // Elevator shafts open every slab they pass through.
+  shaftOpenings(b).forEach((o, i) => {
+    if (!levels.some((l) => Math.abs(l.elevation - o.y) < 0.01)) return;
+    const pts = signedArea2(o.ring) * signedArea2(s.plan.outer.map((v) => v.p)) < 0 ? [...o.ring].reverse() : o.ring;
+    out.push({ ...structuredClone(one), id: `${one.id}${STAIR_OPENING}-shaft${i}`, plan: { outer: pts.map((p, j) => ({ id: `shaft${i}~o${j}`, p })), holes: [] }, base: o.y - 0.02, height: t + 0.04 });
+  });
+  return out;
+}
+
+/**
+ * The openings an elevator shaft needs: its footprint (building frame, counterclockwise) in every slab
+ * between its base and its top (the levels it passes through, above its own floor).
+ */
+export function shaftOpenings(b: Pick<Building3, 'levels' | 'items'>): { ring: Vec2[]; y: number }[] {
+  const out: { ring: Vec2[]; y: number }[] = [];
+  for (const it of b.items ?? []) {
+    if (it.host.kind !== 'free' || typeById(it.type)?.family !== 'elevator') continue;
+    const n = (k: string, d: number) => (typeof it.params[k] === 'number' ? (it.params[k] as number) : d);
+    const w = n('width', 2),
+      d = n('depth', 2),
+      H = n('height', 6);
+    const [x, y0, z] = it.host.p;
+    const a = (it.host.rot * Math.PI) / 180,
+      c = Math.cos(a),
+      s = Math.sin(a);
+    const at = (u: number, v: number): Vec2 => [x + u * c + v * s, z - u * s + v * c];
+    const ring = [at(-w / 2, -d / 2), at(w / 2, -d / 2), at(w / 2, d / 2), at(-w / 2, d / 2)];
+    const ccw = signedArea2(ring) > 0 ? ring : [...ring].reverse();
+    for (const l of b.levels) if (l.elevation > y0 + 0.5 && l.elevation < y0 + H - 0.1) out.push({ ring: ccw, y: l.elevation });
   }
   return out;
 }

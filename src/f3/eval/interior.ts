@@ -13,6 +13,7 @@ import type { FaceKind, FaceTable } from './faces';
 import type { InstPart, Parts3 } from './parts';
 import type { BodyCategory } from '../model/layers';
 import { slabOpeningFor } from '../model/stairs';
+import { shaftOpenings } from './modifiers';
 import { STAIR_OPENING } from './modifiers';
 import { typeById } from '../families/index';
 
@@ -144,6 +145,12 @@ export function floorVoids(b: Building3, hidden: (s: Solid) => boolean, table: F
         const ring = slabOpeningFor(it, run).outer.map((q) => [q[0], q[1]] as [number, number]);
         const cs = keep(new k.CrossSection([ring], 'EvenOdd'));
         const hole = extrudeSection(k, cs, top - SLAB - 0.02, top + SLAB + 0.02, { top: id, bottom: id, side: id }, (x) => scope.keep(x));
+        if (hole) rooms.push(hole);
+      }
+      // Elevator shafts: an opening in every slab they pass through.
+      for (const o of shaftOpenings(b)) {
+        const cs = keep(new k.CrossSection([o.ring.map((q) => [q[0], q[1]] as [number, number])], 'EvenOdd'));
+        const hole = extrudeSection(k, cs, o.y - SLAB - 0.02, o.y + SLAB + 0.02, { top: id, bottom: id, side: id }, (x) => scope.keep(x));
         if (hole) rooms.push(hole);
       }
     }
