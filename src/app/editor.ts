@@ -1,5 +1,5 @@
 // FORMA 3 app (full editor).
-import { areasTable } from '../f3/io/plansvg';
+import { areasTable, planSvg } from '../f3/io/plansvg';
 import { sectionSvg } from '../f3/io/sectionsvg';
 import { polylinesToBuildings } from '../f3/io/dxf';
 import { readCadDxf } from '../f3/io/cad';
@@ -259,6 +259,7 @@ function exportMenu(anchor: HTMLElement): void {
       const { drawingsPdf } = await import('../f3/io/pdf');
       download(await drawingsPdf(editor.project, { sectionAt: b ? b.position[1] : undefined, t: tr, decimal: loadLang() === 'pt-BR' ? ',' : '.' }), fileName(editor.project.name + '-drawings', 'pdf'), 'application/pdf');
     }],
+    ['Site plan', '.svg', () => download(planSvg(editor.project), fileName(editor.project.name + '-site', 'svg'), 'image/svg+xml')],
     ['Floor plans for CAD', '.dxf', async () => {
       const { collectFloorPlans, floorPlansToDxf } = await import('../f3/io/cadplan');
       const plans = collectFloorPlans(editor.project, (id) => editor.view.built.get(id)?.ev.placements ?? [], tr);

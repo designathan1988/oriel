@@ -13,6 +13,8 @@ import type { Building3, Project3, Vec2 } from '../model/schema';
 import { oriented, sampleRing } from '../model/plan';
 import { toWorld } from '../model/ops';
 import { buildingAreas } from '../model/lots';
+import { ribbon } from '../model/site';
+import { contourSegments, terrainField } from '../model/terrain';
 
 const round3 = (v: number): number => Math.round(v * 1000) / 1000;
 const round2 = (v: number): number => Math.round(v * 100) / 100;
@@ -95,6 +97,40 @@ export function planSvg(p: Project3, opts: { scale?: number; showLots?: boolean 
     return `${parts.join(' ')} Z`;
   };
 
+  // Streets (asphalt dark, sidewalks light) under everything, then the lots.
+  const streets: Shape[] = [];
+  for (const st of p.streets ?? []) {
+    for (const q of ribbon(st.points, st.width / 2, st.width / 2 + st.sidewalk)) {
+      for (const v of q) grow(v[0], v[1]);
+      streets.push({ d: path(q), fill: '#ecebe7', stroke: '#9a9a9a', dash: '', width: 0.6 });
+    }
+    for (const q of ribbon(st.points, 0, st.width / 2)) streets.push({ d: path(q), fill: '#c9c9c9', stroke: 'none', dash: '', width: 0 });
+    let best = 0,
+      bi = 1;
+    for (let i = 1; i < st.points.length; i++) {
+      const l = Math.hypot(st.points[i]![0] - st.points[i - 1]![0], st.points[i]![1] - st.points[i - 1]![1]);
+      if (l > best) [best, bi] = [l, i];
+    }
+    const a = st.points[bi - 1]!,
+      b = st.points[bi]!;
+    labels.push({ x: X((a[0] + b[0]) / 2), y: Y((a[1] + b[1]) / 2), text: st.name });
+  }
+  // The ground's contour lines (1 m, every fifth heavier with its height), when it is shaped.
+  const field = terrainField(p);
+  const contours = field ? contourSegments(field, 1, Math.max(0.5, Math.max(field.box[2] - field.box[0], field.box[3] - field.box[1]) / 160)) : [];
+  const contourMarks: { x: number; y: number; text: string }[] = [];
+  if (field) {
+    // The terrain fills the sheet only where it is shaped near the project (its box can be wide).
+    const seen = new Set<number>();
+    for (const c of contours) {
+      grow(c[0], c[1]);
+      if (!seen.has(c[4]) && (c[4] % 5 === 0 || Math.abs(c[4]) <= 5)) {
+        seen.add(c[4]);
+        contourMarks.push({ x: X(c[0]), y: Y(c[1]), text: `${c[4] > 0 ? '+' : ''}${c[4]}` });
+      }
+    }
+  }
+
   if (showLots) {
     for (const l of p.lots) {
       const ring: Vec2[] = l.polygon.map((q) => [q[0], q[1]]);
@@ -151,6 +187,15 @@ export function planSvg(p: Project3, opts: { scale?: number; showLots?: boolean 
     `<svg xmlns="http://www.w3.org/2000/svg" width="${round3(vbW)}" height="${round3(vbH)}" viewBox="${round3(vbX)} ${round3(vbY)} ${round3(vbW)} ${round3(vbH)}">`,
   );
   svg.push(`<rect x="${round3(vbX)}" y="${round3(vbY)}" width="${round3(vbW)}" height="${round3(vbH)}" fill="#ffffff"/>`);
+  for (const s of streets) svg.push(`<path d="${s.d}" fill="${s.fill}" stroke="${s.stroke}"${s.width ? ` stroke-width="${s.width}"` : ''}/>`);
+  if (contours.length) {
+    svg.push('<g stroke="#a89f88" fill="none">');
+    for (const c of contours) svg.push(`<line x1="${round3(X(c[0]))}" y1="${round3(Y(c[1]))}" x2="${round3(X(c[2]))}" y2="${round3(Y(c[3]))}" stroke-width="${c[4] % 5 === 0 ? 1.1 : 0.5}"/>`);
+    svg.push('</g>');
+    svg.push(`<g font-family="sans-serif" font-size="${round3(Math.max(6, scale * 1.6))}" fill="#7d745e">`);
+    for (const m of contourMarks) svg.push(`<text x="${round3(m.x)}" y="${round3(m.y)}">${esc(m.text)}</text>`);
+    svg.push('</g>');
+  }
   svg.push('<g fill-rule="evenodd">');
   for (const s of add) svg.push(`<path d="${s.d}" fill="${s.fill}" stroke="${s.stroke}" stroke-width="${s.width}"/>`);
   for (const s of cut) svg.push(`<path d="${s.d}" fill="${s.fill}" stroke="${s.stroke}" stroke-width="${s.width}"${s.dash ? ` stroke-dasharray="${s.dash}"` : ''}/>`);

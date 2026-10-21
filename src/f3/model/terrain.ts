@@ -89,3 +89,44 @@ export function terrainField(p: Project3): TerrainField | null {
   const m = R;
   return { at, box: [Math.min(...xs) - m, Math.min(...zs) - m, Math.max(...xs) + m, Math.max(...zs) + m] };
 }
+
+/**
+ * Contour lines of the ground every `step` metres (marching squares on a grid of `cell` metres over its
+ * box): segments [x1, z1, x2, z2, height], the "curvas de nível" of a site plan. The base level 0 is left out.
+ */
+export function contourSegments(t: TerrainField, step = 1, cell = 1): [number, number, number, number, number][] {
+  const [x0, z0, x1, z1] = t.box;
+  const nx = Math.max(1, Math.ceil((x1 - x0) / cell)),
+    nz = Math.max(1, Math.ceil((z1 - z0) / cell));
+  const X = (i: number) => x0 + ((x1 - x0) * i) / nx,
+    Z = (j: number) => z0 + ((z1 - z0) * j) / nz;
+  const h: number[] = [];
+  for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) h.push(t.at(X(i), Z(j)));
+  const out: [number, number, number, number, number][] = [];
+  for (let j = 0; j < nz; j++)
+    for (let i = 0; i < nx; i++) {
+      const c: [number, number, number][] = [
+        [X(i), Z(j), h[j * (nx + 1) + i]!],
+        [X(i + 1), Z(j), h[j * (nx + 1) + i + 1]!],
+        [X(i + 1), Z(j + 1), h[(j + 1) * (nx + 1) + i + 1]!],
+        [X(i), Z(j + 1), h[(j + 1) * (nx + 1) + i]!],
+      ];
+      const ys = c.map((q) => q[2]);
+      for (let k = Math.ceil(Math.min(...ys) / step); k <= Math.floor(Math.max(...ys) / step); k++) {
+        const lv = k * step;
+        if (lv === 0) continue;
+        const cut: [number, number][] = [];
+        for (let e = 0; e < 4; e++) {
+          const a = c[e]!,
+            b = c[(e + 1) % 4]!;
+          if ((a[2] < lv) !== (b[2] < lv)) {
+            const s = (lv - a[2]) / (b[2] - a[2]);
+            cut.push([a[0] + (b[0] - a[0]) * s, a[1] + (b[1] - a[1]) * s]);
+          }
+        }
+        if (cut.length >= 2) out.push([cut[0]![0], cut[0]![1], cut[1]![0], cut[1]![1], lv]);
+        if (cut.length === 4) out.push([cut[2]![0], cut[2]![1], cut[3]![0], cut[3]![1], lv]);
+      }
+    }
+  return out;
+}
