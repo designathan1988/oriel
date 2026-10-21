@@ -166,7 +166,7 @@ From its version 4:
       after PKWARE APPNOTE; `game.json` + `buildings/<id>.glb` in their own frame + `scene.glb`).
 
 ### Stage 2: interface and navigation
-- [ ] `editor.ts` split by tool and mode (`editor/tools/*`, selection, dimensions, keys).
+- [x] `editor.ts` split (8 137 → 2 721 lines): `keys`, `pointer`, `drag`, `selview` (selection drawing and dimensions), `selcmds`, `drawing` (shape tools, Cut, blocks), `construct` (walls, rooms, slabs, columns, beams, terrain, mirror), `place` (parts and Paint), `annotate` (Measure, axes, labels), `modelcmds`, and the shared types and helpers in `support`; each module's functions take the editor, the class keeps one-line delegates.
 - [x] One command registry: the tools (id, icon, name, key, tip, search name) live in `editor/commands.ts` and the tool bar, the single-key shortcuts, Ctrl+K and the shortcuts help read them; the contextual bar, its More menu, the right-click menu and Ctrl+K share the actions of `ui/actions.ts`.
 - [x] Workspaces (Model, Components, Materials, Interior, Present), later removed: they only hid tools (5b35034). [x] Light theme and system theme; preferences (theme, navigation preset), `ui/prefs.ts`.
 - [x] Parallel (orthographic) view: Numpad 5, the ∥ button on the cube; navigation presets (FORMA/Revit,
