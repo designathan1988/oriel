@@ -247,7 +247,7 @@ export const CSS = `
 .f3-cube-face>span.off{cursor:not-allowed;opacity:.45}
 .f3-cube-face>span.off:hover{background:none;color:inherit}
 .f3-snap{position:absolute;z-index:8;pointer-events:none;font:600 11px Inter,system-ui;padding:2px 6px;border-radius:4px;color:#fff;transform:translate(12px,12px);white-space:nowrap;box-shadow:0 2px 6px #0003}
-.f3-dimlbl{pointer-events:auto!important}.f3-dimlbl.note{background:#fff;color:#1d1f23;font-family:inherit;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.f3-dimlbl{pointer-events:auto!important}.f3-axislbl{position:absolute;z-index:8;transform:translate(-50%,-50%);width:26px;height:26px;border-radius:50%;border:1.5px solid #c0392b;background:#fff;color:#c0392b;font:700 12px/23px system-ui,sans-serif;text-align:center}.f3-dimlbl.note{background:#fff;color:#1d1f23;font-family:inherit;font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 .f3-dim{position:absolute;z-index:8;pointer-events:none;font:600 11.5px ui-monospace,Consolas,monospace;background:#1d1f23;color:#fff;padding:2px 6px;border-radius:4px;transform:translate(-50%,-50%);white-space:nowrap;box-shadow:0 2px 6px #0003}
 
 

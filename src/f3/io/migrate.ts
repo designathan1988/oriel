@@ -786,6 +786,10 @@ export function validateForma3(raw: unknown): string[] {
         if (!ok) e.add('Project', 'invalid dimension or label.');
       }
   }
+  if (p.axes !== undefined) {
+    const v2 = (q: unknown) => vec(q, 2) && (q as number[]).every((c) => Math.abs(c) <= LIMITS3.worldExtent);
+    if (!Array.isArray(p.axes) || p.axes.length > 200 || !p.axes.every((x) => isObj(x) && str(x.id) && v2(x.a) && v2(x.b) && str(x.label, 8))) e.add('Project', 'invalid grid axes (at most 200).');
+  }
   if (p.scenes !== undefined) {
     if (!Array.isArray(p.scenes) || p.scenes.length > 100) e.add('Project', 'invalid scenes (at most 100).');
     else

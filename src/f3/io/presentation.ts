@@ -34,7 +34,7 @@ export function presentationHtml(p: Project3, glb: Uint8Array, o: PresentationOp
   const date = new Date().toLocaleDateString(o.lang ?? 'pt-BR');
   const planHtml = plans
     .map((f) => {
-      const svg = floorPlanSvg(f.plan, { decimal: dec, t, site: f.index === 0 ? siteContext(p, f.b) : null }).svg;
+      const svg = floorPlanSvg(f.plan, { decimal: dec, t, site: siteContext(p, f.b, f.index === 0) }).svg;
       return `<figure><figcaption>${esc(t('Floor plan'))} · ${esc(t(f.level))} · ${esc(f.building)}</figcaption>${svg}</figure>`;
     })
     .join('');

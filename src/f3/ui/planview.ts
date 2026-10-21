@@ -157,7 +157,7 @@ export function mountPlanView(ed: Editor3): PlanView {
     empty.hidden = true;
     const lv = sortedLevels(b)[level];
     const title = `${tr('Floor plan')} · ${tr(lv?.name ?? '')} · ${b.name}`;
-    const out = floorPlanSvg(fp, { title, decimal, interactive: true, selectedRoom: room, t: tr, site: level === 0 ? siteContext(ed.project, b) : null });
+    const out = floorPlanSvg(fp, { title, decimal, interactive: true, selectedRoom: room, t: tr, site: siteContext(ed.project, b, level === 0) });
     svgText = out.svg;
     // A different drawing (another building, floor or a new size) is fitted again; an edit keeps the view.
     if (!fitted || fitted.join() !== out.viewBox.join() || !vb) {

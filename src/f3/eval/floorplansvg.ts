@@ -42,6 +42,14 @@ export function floorPlanSvg(fp: FloorPlan, o: PlanSvgOptions = {}): { svg: stri
     if (o.site.streets.length) s.push(`<path d="${path(o.site.streets)}" fill="#eeede9" stroke="#b5b2aa" stroke-width="0.02"/>`);
     if (o.site.lots.length) s.push(`<path d="${path(o.site.lots)}" fill="none" stroke="#8a8a8a" stroke-width="0.025" stroke-dasharray="0.3 0.15"/>`);
     if (o.site.contours.length) s.push(`<path d="${o.site.contours.map((c) => `M${pt(c[0])}L${pt(c[1])}`).join('')}" fill="none" stroke="#b9ae93" stroke-width="0.02"/>`);
+    // Grid axes: a dash-dot line and its label in a circle at each end (inside the sheet).
+    for (const x of o.site.axes ?? []) {
+      // Cut to the sheet (less the label's radius): the labels sit at the ends that are seen.
+      const seg = clipSeg(x.a, x.b, vb[0] + 0.35, vb[1] + 0.35, vb[0] + vb[2] - 0.35, vb[1] + vb[3] - 0.35);
+      if (!seg) continue;
+      s.push(`<path d="M${pt(seg[0])}L${pt(seg[1])}" stroke="#c0392b" stroke-width="0.02" stroke-dasharray="0.6 0.15 0.08 0.15" fill="none"/>`);
+      for (const c of seg) s.push(`<circle cx="${r3(c[0])}" cy="${r3(c[1])}" r="0.3" fill="#fff" stroke="#c0392b" stroke-width="0.025"/><text x="${r3(c[0])}" y="${r3(c[1] + 0.1)}" font-size="0.28" font-weight="bold" text-anchor="middle" fill="#c0392b">${esc(x.label)}</text>`);
+    }
   }
   // Rooms (under everything: the floor of each, clickable).
   fp.rooms.forEach((r, i) => {
@@ -115,3 +123,22 @@ export function floorPlanSvg(fp: FloorPlan, o: PlanSvgOptions = {}): { svg: stri
 
 const sub = (a: Vec2, b: Vec2): Vec2 => [a[0] - b[0], a[1] - b[1]];
 const cross = (a: Vec2, b: Vec2) => a[0] * b[1] - a[1] * b[0];
+
+/** A segment cut to a box (Liang–Barsky), or null when it lies outside. */
+function clipSeg(a: Vec2, b: Vec2, x0: number, y0: number, x1: number, y1: number): [Vec2, Vec2] | null {
+  let t0 = 0,
+    t1 = 1;
+  const dx = b[0] - a[0],
+    dy = b[1] - a[1];
+  for (const [p, q] of [[-dx, a[0] - x0], [dx, x1 - a[0]], [-dy, a[1] - y0], [dy, y1 - a[1]]] as const) {
+    if (p === 0) {
+      if (q < 0) return null;
+      continue;
+    }
+    const r = q / p;
+    if (p < 0) t0 = Math.max(t0, r);
+    else t1 = Math.min(t1, r);
+    if (t0 > t1) return null;
+  }
+  return [[a[0] + dx * t0, a[1] + dy * t0], [a[0] + dx * t1, a[1] + dy * t1]];
+}

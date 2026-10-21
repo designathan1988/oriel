@@ -13,12 +13,19 @@ export interface SiteContext {
   streets: Vec2[][];
   /** Contour segments with their height. */
   contours: [Vec2, Vec2, number][];
+  /** Grid axes (every floor shows them). */
+  axes: { a: Vec2; b: Vec2; label: string }[];
 }
 
-/** The surroundings of `b` within `reach` metres of its position, or null when there is nothing. */
-export function siteContext(p: Project3, b: Building3, reach = 60): SiteContext | null {
+/**
+ * The surroundings of `b` within `reach` metres of its position, or null when there is nothing. `ground`:
+ * the ground floor (lots, streets, contours); the grid axes go on every floor.
+ */
+export function siteContext(p: Project3, b: Building3, ground = true, reach = 60): SiteContext | null {
   const near = (q: Vec2) => Math.hypot(q[0] - b.position[0], q[1] - b.position[1]) < reach;
   const L = (q: Vec2) => toLocal(b, q);
+  const axes = (p.axes ?? []).map((x) => ({ a: L(x.a), b: L(x.b), label: x.label }));
+  if (!ground) return axes.length ? { lots: [], streets: [], contours: [], axes } : null;
   const lots = p.lots.filter((l) => l.polygon.some(near)).map((l) => l.polygon.map(L));
   const streets = (p.streets ?? []).flatMap((s) => [...ribbon(s.points, 0, s.width / 2), ...ribbon(s.points, s.width / 2, s.width / 2 + s.sidewalk)]).filter((r) => r.some(near)).map((r) => r.map(L));
   const field = terrainField(p);
@@ -27,5 +34,5 @@ export function siteContext(p: Project3, b: Building3, reach = 60): SiteContext 
         .filter((c) => near([c[0], c[1]]))
         .map((c) => [L([c[0], c[1]]), L([c[2], c[3]]), c[4]])
     : [];
-  return lots.length || streets.length || contours.length ? { lots, streets, contours } : null;
+  return lots.length || streets.length || contours.length || axes.length ? { lots, streets, contours, axes } : null;
 }

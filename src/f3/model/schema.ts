@@ -34,6 +34,8 @@ export interface Project3 {
    * that building's frame and follow it when it moves or turns; without, they are in the world.
    */
   notes?: Note[];
+  /** Grid axes (Revit's grids, ArchiCAD's grid elements): lines of the structural grid, labelled 1, 2, 3… and A, B, C…, in the world. */
+  axes?: GridAxis[];
   /** Saved views (SketchUp's scenes, Revit's saved 3D views): camera, time, interior view and layers. */
   scenes?: Scene[];
   /** The ground's shape: heights set at points (Revit's topography from points), flat under the buildings. */
@@ -115,6 +117,13 @@ export interface Scene {
   view: Pick<ViewState, 'time' | 'hiddenBody' | 'cutLevel' | 'onlyLevel' | 'explode' | 'style'>;
   /** Visibility of each layer when it was saved. */
   layers?: Record<ID, boolean>;
+}
+
+export interface GridAxis {
+  id: ID;
+  a: Vec2;
+  b: Vec2;
+  label: string;
 }
 
 export interface WallLayer {

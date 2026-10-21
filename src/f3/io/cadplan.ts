@@ -18,7 +18,7 @@ export function collectFloorPlans(p: Project3, placementsOf: (id: ID) => Placeme
     sortedLevels(b).forEach((lv, i) => {
       try {
         const fp = floorPlan(b, i, placementsOf(b.id));
-        if (fp.walls.length) out.push({ fp, title: `${b.name} · ${t(lv.name)}`, site: i === 0 ? siteContext(p, b) : null });
+        if (fp.walls.length) out.push({ fp, title: `${b.name} · ${t(lv.name)}`, site: siteContext(p, b, i === 0) });
       } catch {
         /* a floor that cannot be cut is left out */
       }
@@ -44,6 +44,7 @@ const LAYERS: [string, number][] = [
   ['C-PROP', 8],
   ['C-ROAD', 9],
   ['C-TOPO', 34],
+  ['S-GRID', 1],
 ];
 
 /** A segment cut to a box (Liang–Barsky), or null when it lies outside. */
@@ -88,6 +89,11 @@ export function floorPlansToDxf(plans: { fp: FloorPlan; title: string; site?: Si
       for (const r of site.lots) r.forEach((q, i) => cut(q, r[(i + 1) % r.length]!, 'C-PROP'));
       for (const r of site.streets) r.forEach((q, i) => cut(q, r[(i + 1) % r.length]!, 'C-ROAD'));
       for (const c of site.contours) cut(c[0], c[1], 'C-TOPO');
+      for (const x of site.axes ?? []) {
+        cut(x.a, x.b, 'S-GRID');
+        const c = clip(x.a, x.b, x0 - M, z0 - M, x1 + M, z1 + M);
+        if (c) dxf.addText(point3d(c[0][0] + ox, -c[0][1], 0), 0.35, x.label, { layerName: 'S-GRID' });
+      }
     }
     for (const r of fp.walls) dxf.addLWPolyline(r.map((q) => ({ point: P(q) })), { flags: LWPolylineFlags.Closed, layerName: 'A-WALL' });
     for (const r of fp.layers ?? []) dxf.addLWPolyline(r.map((q) => ({ point: P(q) })), { flags: LWPolylineFlags.Closed, layerName: 'A-WALL-PATT' });

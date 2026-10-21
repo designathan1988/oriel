@@ -2,6 +2,7 @@
 import { ICON_PATHS } from '../../ui/icons';
 
 const EXTRA: Record<string, string> = {
+  axis: 'M12 8v14 M12 2a3 3 0 100 6 3 3 0 000-6 M12 11v2 M12 16v2',
   railing: 'M3 7h18 M3 20h18 M5 7v13 M9.5 7v13 M14.5 7v13 M19 7v13',
   terrain: 'M2 19l6-8 4 5 3-4 7 7z M15 6a2 2 0 100 .01',
   // Location line of the walls: the wall's two faces and where the clicks run (centre, outer, inner face).

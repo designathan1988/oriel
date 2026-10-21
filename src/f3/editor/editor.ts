@@ -54,7 +54,7 @@ import { clipperOffset } from '../eval/clipoffset';
 import { between, column, elemKey, elementsOf, groupElements, grow, row, rowOnFace, sameFace, sameType, shift, shrink, type Elem, type GroupRow } from './elements';
 import { placeLabels } from './labels';
 
-export type Tool = 'select' | 'move' | 'rotate' | 'scale' | 'push' | 'extrude' | 'cut' | 'opening' | 'iwall' | 'room' | 'walls' | 'slab' | 'column' | 'beam' | 'stair' | 'lot' | 'street' | 'terrain' | 'rect' | 'arc' | 'circle' | 'polygon' | 'spline' | 'place' | 'paint' | 'block' | 'tape';
+export type Tool = 'select' | 'move' | 'rotate' | 'scale' | 'push' | 'extrude' | 'cut' | 'opening' | 'iwall' | 'room' | 'walls' | 'slab' | 'column' | 'beam' | 'stair' | 'lot' | 'street' | 'terrain' | 'axis' | 'rect' | 'arc' | 'circle' | 'polygon' | 'spline' | 'place' | 'paint' | 'block' | 'tape';
 
 export interface Selection {
   building: ID | null;
@@ -370,6 +370,16 @@ export class Editor3 {
     this.view.overlay.add(this.selOverlay, this.snapOverlay);
     // A pinned dimension or label: Alt+click deletes it.
     this.shell.view.addEventListener('pointerdown', (e) => {
+      const ax = (e.target as HTMLElement).closest<HTMLElement>('.f3-axislbl[data-axis]');
+      if (ax && e.altKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        const aid = ax.dataset.axis!;
+        return void this.changeSite((p) => {
+          p.axes = (p.axes ?? []).filter((x) => x.id !== aid);
+          if (!p.axes.length) delete p.axes;
+        }, 'Deleted.');
+      }
       const el = (e.target as HTMLElement).closest<HTMLElement>('.f3-dimlbl[data-note]');
       if (!el || !e.altKey) return;
       e.preventDefault();
@@ -384,7 +394,7 @@ export class Editor3 {
       this.handles.draw();
       this.drawRoomLabels();
       this.placeCtxBar();
-      if (this.project.notes?.length) this.drawDims();
+      if (this.project.notes?.length || this.project.axes?.length) this.drawDims();
       this.drawSelDims();
     };
     this.store.on((e) => {
@@ -471,7 +481,7 @@ export class Editor3 {
     this.warnings = [];
     for (const [id, built] of this.view.built) if (!this.context || id === this.context) this.warnings.push(...built.ev.warnings);
     this.drawRoomLabels();
-    if (p.notes?.length || this.shell.view.querySelector('.f3-dimlbl')) this.drawDims();
+    if (p.notes?.length || p.axes?.length || this.shell.view.querySelector('.f3-dimlbl')) this.drawDims();
     if (p.lots.length) {
       const own = this.store.building(this.context)?.name;
       this.warnings.push(...setbackWarnings(p).filter((w) => !own || w.startsWith(own + ' ')));
@@ -3066,7 +3076,7 @@ export class Editor3 {
       { id: 'stair', tools: [T('stair', 'floorUp', 'Stair', 'Shift+I', 'Click the foot, then where it ends')] },
       { id: 'shape', tools: [T('rect', 'rect', 'Rectangle', 'R', 'A volume: two corners, or type 10x8'), T('circle', 'circle', 'Circle', 'C', 'A round volume: centre, then the radius'), T('polygon', 'polygon', 'Polygon', 'L', 'A volume: click its corners'), T('arc', 'arc', 'Arc', 'Shift+C', 'The two ends, then a point of the arc'), T('spline', 'path', 'Curve', 'Shift+P', 'A smooth outline through the points')] },
       { id: 'push', tools: [T('push', 'push', 'Push', 'P', 'Drag a face in or out; type the distance'), T('extrude', 'extrude', 'Extrude', 'E', 'A new volume from a face'), T('cut', 'knife', 'Cut', 'U', 'Split a face or a volume')] },
-      { id: 'site', tools: [T('lot', 'lot', 'Lot', 'Shift+L', 'Drag the lot on the ground; its setbacks show where to build'), T('street', 'street', 'Street', 'Shift+S', 'Click the points of its centre line'), T('terrain', 'terrain', 'Terrain', 'Shift+T', 'Click the ground to set its height there')] },
+      { id: 'site', tools: [T('lot', 'lot', 'Lot', 'Shift+L', 'Drag the lot on the ground; its setbacks show where to build'), T('street', 'street', 'Street', 'Shift+S', 'Click the points of its centre line'), T('terrain', 'terrain', 'Terrain', 'Shift+T', 'Click the ground to set its height there'), T('axis', 'axis', 'Grid axis', 'Shift+A', 'Click the two ends of a grid line')] },
       { id: 'catalog', tools: [T('catalog', 'catalog', 'Library', 'K', 'Furniture, doors, windows, plants and blocks')] },
       { id: 'paint', tools: [T('paint', 'paint', 'Paint', 'B', 'Click a surface with the chosen material (Alt: pick one)')] },
       { id: 'tape', tools: [T('tape', 'tape', 'Measure', 'T', 'Click two points: a dimension; Shift+click: a label')] },
@@ -3197,6 +3207,7 @@ export class Editor3 {
         lot: "Drag the lot",
         street: "Click the centre line · Enter ends",
         terrain: "Click the ground: a point at the height in the bar · drag a point up or down · Alt+click removes",
+        axis: "Click the two ends of the grid line · type its label after · Alt+click a label deletes it",
         block: "Click the ground, a roof or a wall",
         place: "Click to place",
         paint: "Click a face · Alt picks the material",
@@ -3638,6 +3649,7 @@ export class Editor3 {
     if (this.tool === 'room') return this.roomDown(e);
     if (this.tool === 'lot') return this.site.lotDown(e);
     if (this.tool === 'terrain') return this.terrainAt(e, true);
+    if (this.tool === 'axis') return this.axisAt(e, true);
     if (this.tool === 'street') return this.site.streetDown(e);
     if (this.tool === 'paint') return this.paintAt(e);
   }
@@ -3810,6 +3822,7 @@ export class Editor3 {
     if (this.tool === 'room') return this.roomMove(e);
     if (this.tool === 'lot') return this.site.lotMove(e, (e.buttons & 1) === 1);
     if (this.tool === 'terrain') return this.terrainDrag && (e.buttons & 1) ? this.terrainDragMove(e) : this.terrainAt(e, false);
+    if (this.tool === 'axis') return this.axisAt(e, false);
     if (this.tool === 'street') return this.site.streetMove(e);
   }
 
@@ -3960,6 +3973,7 @@ export class Editor3 {
     this.beamB = null;
     this.clearBeamDraft();
     this.clearTerrainMarks();
+    this.axisFrom = null;
     this.roomFrom = null;
     this.marquee = null;
     if (this.marqueeEl) this.marqueeEl.hidden = true;
@@ -5734,6 +5748,56 @@ export class Editor3 {
 
   private terrainDrag: { id: ID; y0: number; sy: number; moved: boolean } | null = null;
 
+  private axisFrom: THREE.Vector3 | null = null;
+
+  /**
+   * Grid axis tool (Revit's Grid): two clicks on the ground draw a grid line; it is numbered (1, 2, 3…)
+   * when it runs mostly front to back and lettered (A, B, C…) across, the next free one; a typed label
+   * renames it.
+   */
+  private axisAt(e: PointerEvent, commit: boolean): void {
+    const sn = this.infer.snap(e, 0, this.axisFrom, null);
+    if (!sn) return;
+    const p = sn.p;
+    const old = this.snapOverlay.getObjectByName('axis-draft') as THREE.Line | undefined;
+    if (old) {
+      this.snapOverlay.remove(old);
+      old.geometry.dispose();
+    }
+    if (!this.axisFrom) {
+      if (commit) this.axisFrom = p.clone();
+      else this.showDim('Click the first end of the grid line', e);
+      return this.view.mark();
+    }
+    if (!commit) {
+      const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([this.axisFrom, p]), new THREE.LineBasicMaterial({ color: '#c0392b', depthTest: false }));
+      l.name = 'axis-draft';
+      l.renderOrder = 26;
+      this.snapOverlay.add(l);
+      this.showDim(`${fmt(this.axisFrom.distanceTo(p))} m`, e);
+      return this.view.mark();
+    }
+    const a: Vec2 = [this.axisFrom.x, this.axisFrom.z],
+      b: Vec2 = [p.x, p.z];
+    this.axisFrom = null;
+    this.shell.dim.hidden = true;
+    if (Math.hypot(b[0] - a[0], b[1] - a[1]) < 1) return;
+    const numbered = Math.abs(b[1] - a[1]) >= Math.abs(b[0] - a[0]);
+    const used = new Set((this.project.axes ?? []).map((x) => x.label));
+    let label = '';
+    for (let i = 0; i < 200 && !label; i++) {
+      const c = numbered ? String(i + 1) : i < 26 ? String.fromCharCode(65 + i) : String.fromCharCode(65 + Math.floor(i / 26) - 1) + String.fromCharCode(65 + (i % 26));
+      if (!used.has(c)) label = c;
+    }
+    const id = uid();
+    this.changeSite((pr) => void (pr.axes ??= []).push({ id, a, b, label }), `Grid line ${label}.`);
+    this.setMeasure('Label', (txt) => {
+      const t = txt.trim().slice(0, 8);
+      if (!t) return false;
+      return this.changeSite((pr) => void (pr.axes!.find((x) => x.id === id)!.label = t), `Grid line ${t}.`);
+    });
+  }
+
   private terrainDragMove(e: PointerEvent): void {
     const d = this.terrainDrag!;
     const q = this.store.project.terrain?.points.find((x) => x.id === d.id);
@@ -6714,6 +6778,38 @@ export class Editor3 {
       old.geometry.dispose();
     }
     this.shell.view.querySelectorAll('.f3-dimlbl').forEach((x) => x.remove());
+    // Grid axes: a dashed line on the ground and its label in a circle at each end.
+    const axes = this.project.axes ?? [];
+    const old2 = this.snapOverlay.getObjectByName('axes') as THREE.LineSegments | undefined;
+    if (old2) {
+      this.snapOverlay.remove(old2);
+      old2.geometry.dispose();
+      (old2.material as THREE.Material).dispose();
+    }
+    if (axes.length) {
+      const pos: number[] = [];
+      for (const x of axes) pos.push(x.a[0], 0.03, x.a[1], x.b[0], 0.03, x.b[1]);
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      const ls = new THREE.LineSegments(g, new THREE.LineDashedMaterial({ color: '#c0392b', dashSize: 1.2, gapSize: 0.4 }));
+      ls.computeLineDistances();
+      ls.name = 'axes';
+      this.snapOverlay.add(ls);
+      for (const x of axes)
+        for (const end of [x.a, x.b]) {
+          const sp = this.view.toScreen(new THREE.Vector3(end[0], 0.03, end[1]));
+          if (sp.behind) continue;
+          const el = document.createElement('div');
+          el.className = 'f3-dimlbl f3-axislbl';
+          el.dataset.axis = x.id;
+          el.title = 'Alt+click deletes';
+          el.setAttribute('data-i18n-skip', '');
+          el.textContent = x.label;
+          el.style.left = `${sp.x}px`;
+          el.style.top = `${sp.y}px`;
+          this.shell.view.appendChild(el);
+        }
+    }
     // Text labels: a tag at their point.
     for (const n of this.project.notes ?? []) {
       if (n.kind !== 'label') continue;
@@ -7300,6 +7396,7 @@ export class Editor3 {
       else if (k === 'l') this.setTool('polygon');
       else if (k === 'b') this.setTool('paint');
       else if (k === 't' && e.shiftKey) this.setTool('terrain');
+      else if (k === 'a' && e.shiftKey) this.setTool('axis');
       else if (k === 't') this.setTool('tape');
       else if (k === 'u') this.setTool('cut');
       else if (k === 'o') this.setTool('opening');

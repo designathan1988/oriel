@@ -77,7 +77,7 @@ export async function drawingsPdf(p: Project3, opts: DrawingSetOptions | number 
 
   const sheets: Sheet[] = [{ title: t('Site plan'), svg: { text: planSvg(p), perMetre: 4 } }];
   for (const f of plans) {
-    sheets.push({ title: `${t('Floor plan')} · ${t(f.level)} · ${f.building}`, svg: { text: floorPlanSvg(f.plan, { decimal: dec, t, site: f.index === 0 ? siteContext(p, f.b) : null }).svg, perMetre: 1 } });
+    sheets.push({ title: `${t('Floor plan')} · ${t(f.level)} · ${f.building}`, svg: { text: floorPlanSvg(f.plan, { decimal: dec, t, site: siteContext(p, f.b, f.index === 0) }).svg, perMetre: 1 } });
   }
   // The four elevations (facades), then the section.
   if (plans.length) for (const side of ['front', 'right', 'back', 'left'] as const) sheets.push({ title: t(ELEVATION_NAMES[side]), svg: { text: elevationSvg(p, side, dec, t), perMetre: 1 } });

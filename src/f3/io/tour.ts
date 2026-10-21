@@ -264,7 +264,7 @@ export function tourData(p: Project3, glb: Uint8Array, o: TourOptions = {}): Tou
       const r2 = (v: number) => Math.round(v * 100) / 100;
       if (Number.isFinite(lo[0])) stairs.push({ min: [r2(lo[0] - 0.15), r2(lo[1] - 0.15)], max: [r2(hi[0] + 0.15), r2(hi[1] + 0.15)], y0: r2(pl.floor), y1: r2(pl.top + 0.5) });
     }
-    plans[i]!.svg = floorPlanSvg(f.plan, { decimal: dec, t, site: f.index === 0 ? siteContext(p, f.b) : null }).svg;
+    plans[i]!.svg = floorPlanSvg(f.plan, { decimal: dec, t, site: siteContext(p, f.b, f.index === 0) }).svg;
     gross += f.plan.grossArea;
     areas.push({ name: `${f.building} · ${t(f.level)}`, area: Math.round(f.plan.grossArea * 100) / 100, level: true });
     for (const r of [...f.plan.rooms].sort((a, b) => b.area - a.area)) areas.push({ name: r.name || t('Unnamed room'), area: Math.round(r.area * 100) / 100 });

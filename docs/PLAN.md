@@ -213,7 +213,8 @@ Backlog (P1 first):
       each keeps its position, rotation, name and lot; Make independent.
 - [ ] P2 Corner window; curved interior walls; trim/extend; openings in interior walls; door swing in plan.
 - [ ] P2 Roof by profile, openings in roofs; stair landings/winders; ramp tool; elevator core.
-- [ ] P2 Grid axes with labels; automatic beams between columns; section box; guide lines; loft by
+- [x] P2 Grid axes with labels (Shift+A; numbered and lettered; 3D, every floor plan, DXF S-GRID).
+- [ ] P2 Automatic beams between columns; section box; guide lines; loft by
       several sections; mirror about a drawn axis; transfer properties; component from selection.
 - [x] P2 View styles: realistic, white model, x-ray (Interior view → Style; view.style).
 - [ ] P2 Parking along a path; renovation phases; design options.
