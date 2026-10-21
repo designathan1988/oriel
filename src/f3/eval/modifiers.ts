@@ -92,7 +92,8 @@ export function shellCutter(s: Solid): Solid | null {
   c.op = 'subtract';
   c.plan = { outer, holes };
   c.base = s.base + t;
-  c.height = s.height - 2 * t;
+  // Open at the top (walls of their own with a flat top): the cut goes through it, no slab closes it.
+  c.height = s.openTop && s.roof.kind === 'flat' ? s.height - t + 1 : s.height - 2 * t;
   c.roof = { ...s.roof, kind: 'flat', parapet: 0, overhang: 0 };
   c.facade = [];
   c.edges = {};

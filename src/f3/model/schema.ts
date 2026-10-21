@@ -459,6 +459,8 @@ export interface Solid {
   twist?: number;
   /** Hollow shell (a modifier): walls, floor and top this thick, the inside empty (m). */
   shell?: number;
+  /** A hollow volume open at the top (walls drawn with the Walls tool): no slab until a roof is chosen. */
+  openTop?: boolean;
   /** A wall drawn by the Walls tool: its centre line (building frame); new walls start and end on it. */
   wallAxis?: [Vec2, Vec2];
   /** The layers of the walls of a hollow volume, outside in (model/walltypes.ts); `shell` is their sum. */

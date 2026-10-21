@@ -204,10 +204,15 @@ export function buildingAreas(b: Building3): { footprint: number; gfa: number; v
   let gfa = 0;
   for (const l of perLevel) gfa += l.area;
   let volume = 0;
+  // A cutter only takes away what lies within the added volumes' height (a shell open at the top cuts
+  // above it).
+  const lo = Math.min(...add.map((s) => s.base)),
+    hi = Math.max(...add.map((s) => s.base + s.height));
   for (const s of b.solids) {
     if (s.op === 'intersect') continue;
     const a = Math.abs(ringArea(worldRing(b, s.plan.outer)));
-    volume += (s.op === 'subtract' ? -1 : 1) * a * s.height;
+    const h = s.op === 'subtract' ? Math.max(0, Math.min(hi, s.base + s.height) - Math.max(lo, s.base)) : s.height;
+    volume += (s.op === 'subtract' ? -1 : 1) * a * h;
   }
   return { footprint, gfa, volume, perLevel };
 }

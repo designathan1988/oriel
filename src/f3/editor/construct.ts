@@ -410,9 +410,10 @@ export function wallsDone(ed: Editor3, pts: Vec2[], closed: boolean, line = ed.w
   const wh = ed.wallHeight;
   const b = newBuilding({ name: tr(`Building ${ed.project.buildings.length + 1}`), position: c, levels: levelsFor(1, wh, wh) });
   // Walls and nothing else: no parapet, no stone plinth (a wall drawing is not a massing study); the
-  // roof slab closes the top until a roof is chosen.
+  // open at the top (no slab) until a roof is chosen, so the rooms inside are seen.
   const s = newSolid({ name: tr('Walls'), plan: { outer: planVertices(outer.map((p) => [p[0] - c[0], p[1] - c[1]] as Vec2)), holes: [] }, height: wh, roof: roofSpec('flat', { parapet: 0 }) });
   s.shell = t;
+  s.openTop = true;
   s.plinth = 0;
   b.solids.push(s);
   ed.store.project.buildings.push(b);
