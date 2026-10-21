@@ -87,12 +87,11 @@ function house(): Project3 {
     free('chair', -2.1, 0.45),
     free('chair', -3.1, 1.95, 180),
     free('chair', -2.1, 1.95, 180),
-    free('kitchen-counter', -3.6, 4.05, 180),
-    free('stove', -2.05, 4.05, 180),
+    free('kitchen-planned', -3.45, 4.05, 180),
     free('fridge', -5.4, 4.0, 180),
     // Bedroom 1.
     free('bed-double', 2.31, -2.4, 90),
-    free('wardrobe', 4.6, -0.36, 180),
+    free('wardrobe-sliding', 4.6, -0.36, 180),
     // Bathroom.
     free('toilet', 1.6, 3.0, 90),
     free('sink-vanity', 2.89, 2.4, -90),

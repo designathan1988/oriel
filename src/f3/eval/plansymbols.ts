@@ -9,6 +9,7 @@ import type { Vec2 } from '../model/schema';
 import type { Placement } from './facade';
 import { num, str, bool } from '../families/family';
 import { stairCount } from '../families/stairs';
+import { kitchenLayout } from '../families/furniture';
 
 export interface PlanStroke {
   pts: Vec2[];
@@ -78,13 +79,36 @@ function furniture(id: string, p: Placement['params'], size: [number, number, nu
     case 'office-chair':
       return [...box, line([x0, z0 + 0.08], [x1, z0 + 0.08])];
     case 'kitchen-counter': {
-      const out: Local = [...box, line([x0, z1 - 0.03], [x1, z1 - 0.03])];
-      if (bool(p, 'sink')) out.push({ pts: rect(-0.25, z0 + 0.1, 0.25, z1 - 0.12), closed: true }, { pts: ellipse(0, z0 + 0.2, 0.025, 0.025, 10), closed: true });
+      const lay = kitchenLayout(p);
+      const out: Local = [...box];
+      // The module joints along the front, the sink bowl, the cooktop burners.
+      for (const m of lay.mods.slice(1)) out.push(line([m.x - m.w / 2, z1 - 0.05], [m.x - m.w / 2, z1]));
+      if (lay.sink !== null) out.push({ pts: rect(lay.sink - 0.21, z0 + 0.18, lay.sink + 0.21, z0 + 0.5), closed: true }, { pts: ellipse(lay.sink, z0 + 0.1, 0.025, 0.025, 10), closed: true });
+      if (lay.cooktop !== null) for (const bx of [-0.14, 0.14]) for (const bz of [-0.11, 0.11]) out.push({ pts: ellipse(lay.cooktop + bx, bz, 0.07, 0.07, 18), closed: true });
+      // The wall cabinets over it, dashed (above the cut), and the hood.
+      if (lay.upper) {
+        const ud = lay.upper.ud;
+        for (const m of lay.upperMods) out.push({ pts: rect(m.x - m.w / 2, z0, m.x + m.w / 2, z0 + ud), closed: true, above: true });
+        if (lay.hood !== null) out.push({ pts: rect(lay.hood - 0.3, z0, lay.hood + 0.3, z0 + 0.5), closed: true, above: true });
+      }
       return out;
     }
-    case 'wardrobe':
+    case 'wardrobe': {
+      const n = Math.max(1, Math.round(num(p, 'doors')));
+      if (str(p, 'doorKind') === 'sliding') {
+        // The two tracks of panels, each overlapping the next.
+        const out: Local = [...box, line([x0 + 0.05, 0], [x1 - 0.05, 0])];
+        const dw = w / n + 0.03;
+        for (let i = 0; i < n; i++) {
+          const x = x0 + dw / 2 + (i * (w - dw)) / Math.max(1, n - 1);
+          const z = z1 - 0.02 - (i % 2) * 0.035;
+          out.push(line([x - dw / 2, z], [x + dw / 2, z]));
+        }
+        return out;
+      }
       // The hanging rail along the middle, and the doors on the front.
       return [...box, line([x0 + 0.05, 0], [x1 - 0.05, 0]), line([x0, z1 - 0.03], [x1, z1 - 0.03])];
+    }
     case 'bookshelf':
     case 'tv-unit':
     case 'desk':

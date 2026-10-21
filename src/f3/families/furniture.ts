@@ -316,22 +316,38 @@ export const OFFICE_CHAIR: Family = {
   },
 };
 
+/**
+ * Kitchen counter as a joiner makes it (planned kitchen): base cabinets in modules of a chosen width, the
+ * sink and the cooktop where they are asked for along the run, and wall cabinets above if wanted. The
+ * usual sizes: the counter 0.90 m high and 0.60 m deep, the wall cabinets 0.70 m high and 0.35 m deep
+ * with 0.58 m clear over the counter, never less than 0.65 m over a cooktop
+ * (https://planner5d.com/blog/pt/altura-de-armario-de-cozinha/): with less, the wall cabinet over the
+ * cooktop is left out (a hood goes there instead).
+ */
 export const KITCHEN_COUNTER: Family = {
   id: 'kitchen-counter',
   name: 'Kitchen counter',
   category: 'furniture',
   host: 'free',
-  tags: ['kitchen', 'counter', 'cabinet', 'sink', 'interior'],
+  tags: ['kitchen', 'counter', 'cabinet', 'sink', 'cooktop', 'wall cabinet', 'joinery', 'planned', 'interior'],
   params: [
     P.len('width', 'Length', 2.4, 0.6, 6),
     P.len('depth', 'Depth', 0.6, 0.4, 1.2),
     P.len('height', 'Height', 0.9, 0.7, 1.1, 'type', 'size', 0.01),
+    P.len('module', 'Module width', 0.6, 0.3, 1, 'type', 'divisions', 0.05),
     P.flag('sink', 'Sink', true, 'detail'),
+    P.ratio('sinkAt', 'Sink position along', 0.25, 'type'),
+    P.flag('cooktop', 'Cooktop', false, 'detail'),
+    P.ratio('cooktopAt', 'Cooktop position along', 0.75, 'type'),
+    P.flag('upper', 'Wall cabinets', false, 'detail'),
+    P.len('upperH', 'Wall cabinet height', 0.7, 0.3, 1.05, 'type', 'size', 0.05),
+    P.len('upperGap', 'Clear over the counter', 0.58, 0.45, 0.9, 'type', 'size', 0.01),
+    P.len('upperD', 'Wall cabinet depth', 0.35, 0.25, 0.45, 'type', 'size', 0.01),
     P.color('cabinetColor', 'Cabinet color', '#dfd8cb'),
     P.color('topColor', 'Countertop color', '#4a4f52'),
     P.finish('cabinetFinish', 'Cabinet finish', 'paint'),
   ],
-  size: (p) => [num(p, 'width'), num(p, 'height'), num(p, 'depth')],
+  size: (p) => [num(p, 'width'), num(p, 'height') + (bool(p, 'upper') ? num(p, 'upperGap') + num(p, 'upperH') : 0), num(p, 'depth')],
   build(p, out) {
     const w = num(p, 'width'),
       d = num(p, 'depth'),
@@ -342,36 +358,98 @@ export const KITCHEN_COUNTER: Family = {
     out.box(cab, [0, 0.05, -0.02], [w - 0.1, 0.1, d - 0.12]);
     out.box(cab, [0, (0.1 + h - 0.04) / 2, -0.01], [w, h - 0.14, d - 0.02]);
     out.box(top, [0, h - 0.02, 0], [w + 0.02, 0.04, d + 0.02]);
-    const n = Math.max(1, Math.round(w / 0.6));
+    const lay = kitchenLayout(p);
     const dh = h - 0.22;
-    for (let i = 0; i < n; i++) {
-      const cw = w / n;
-      const x = -w / 2 + (i + 0.5) * cw;
-      out.box(cab, [x, 0.14 + dh / 2, d / 2 - 0.02], [cw - 0.02, dh, 0.02]);
-      const hx = x + (i < n - 1 ? cw / 2 - 0.05 : -cw / 2 + 0.05);
-      out.rod(steel, [hx, 0.14 + dh * 0.5, d / 2 + 0.01], [hx, 0.14 + dh * 0.5 + 0.18, d / 2 + 0.01], 0.009, 6);
-    }
-    if (bool(p, 'sink')) {
-      const sx = -w / 4;
+    lay.mods.forEach((m, i) => {
+      out.box(cab, [m.x, 0.14 + dh / 2, d / 2 - 0.02], [m.w - 0.02, dh, 0.02]);
+      // Under the cooktop: drawers (three fronts); elsewhere a door with its handle on the side away from the next.
+      if (lay.cooktop !== null && Math.abs(m.x - lay.cooktop) < m.w / 2) {
+        for (let k = 1; k < 3; k++) out.box(mat('dark', '#2b2f31'), [m.x, 0.14 + (dh * k) / 3, d / 2 - 0.005], [m.w - 0.02, 0.006, 0.006]);
+        for (let k = 0; k < 3; k++) out.rod(steel, [m.x - 0.09, 0.14 + (dh * (k + 0.8)) / 3, d / 2 + 0.01], [m.x + 0.09, 0.14 + (dh * (k + 0.8)) / 3, d / 2 + 0.01], 0.008, 6);
+      } else {
+        const hx = m.x + (i % 2 === 0 ? m.w / 2 - 0.05 : -m.w / 2 + 0.05);
+        out.rod(steel, [hx, 0.14 + dh * 0.5, d / 2 + 0.01], [hx, 0.14 + dh * 0.5 + 0.18, d / 2 + 0.01], 0.009, 6);
+      }
+    });
+    if (lay.sink !== null) {
+      const sx = lay.sink;
       out.box(mat('metal', '#5d6469', 'metal'), [sx, h - 0.005, 0.03], [0.5, 0.03, 0.4]);
       out.box(mat('dark', '#2b2f31'), [sx, h + 0.007, 0.03], [0.42, 0.01, 0.32]);
       out.rod(steel, [sx, h, -0.14], [sx, h + 0.26, -0.14], 0.016, 8);
       out.rod(steel, [sx, h + 0.26, -0.14], [sx, h + 0.24, 0], 0.014, 8);
     }
+    if (lay.cooktop !== null) {
+      const cx = lay.cooktop;
+      const glass = mat('dark', '#1e2123');
+      out.box(glass, [cx, h + 0.004, 0], [0.58, 0.008, 0.5]);
+      for (const bx of [-0.14, 0.14]) for (const bz of [-0.11, 0.11]) out.cylinder(steel, [cx + bx, h + 0.008, bz], 0.06, 0.012, 16);
+    }
+    if (lay.upper) {
+      const { y0, uh, ud } = lay.upper;
+      const z = -d / 2 + ud / 2;
+      for (const m of lay.upperMods) {
+        out.box(cab, [m.x, y0 + uh / 2, z - 0.01], [m.w - 0.01, uh, ud - 0.02]);
+        out.box(cab, [m.x, y0 + uh / 2, z + ud / 2 - 0.01], [m.w - 0.02, uh - 0.01, 0.02]);
+        out.rod(steel, [m.x - 0.08, y0 + 0.04, z + ud / 2 + 0.01], [m.x + 0.08, y0 + 0.04, z + ud / 2 + 0.01], 0.008, 6);
+      }
+      // Over the cooktop when the wall cabinet is left out: a hood.
+      if (lay.hood !== null) {
+        out.box(steel, [lay.hood, y0 + 0.05, -d / 2 + 0.25], [0.6, 0.1, 0.5]);
+        out.box(steel, [lay.hood, y0 + uh / 2 + 0.05, -d / 2 + 0.13], [0.26, uh - 0.1, 0.26]);
+      }
+    }
   },
 };
 
+/** Where the modules, the sink and the cooktop of a kitchen counter fall along its length (x from −w/2). */
+export function kitchenLayout(p: Parameters<Family['size']>[0]): {
+  mods: { x: number; w: number }[];
+  sink: number | null;
+  cooktop: number | null;
+  upper: { y0: number; uh: number; ud: number } | null;
+  upperMods: { x: number; w: number }[];
+  hood: number | null;
+} {
+  const w = num(p, 'width'),
+    h = num(p, 'height');
+  const n = Math.max(1, Math.round(w / Math.max(0.3, num(p, 'module') || 0.6)));
+  const mods = Array.from({ length: n }, (_, i) => ({ x: -w / 2 + (i + 0.5) * (w / n), w: w / n }));
+  // Each sits centred on the module nearest to where it is asked for (a sink or a cooktop takes one module).
+  const at = (r: number, half: number) => {
+    const want = -w / 2 + clamp(r, 0, 1) * w;
+    const m = mods.reduce((b, x) => (Math.abs(x.x - want) < Math.abs(b.x - want) ? x : b));
+    return Math.max(-w / 2 + half, Math.min(w / 2 - half, m.x));
+  };
+  const sink = bool(p, 'sink') ? at(p.sinkAt === undefined ? 0.25 : num(p, 'sinkAt'), 0.25) : null;
+  let cooktop = bool(p, 'cooktop') ? at(p.cooktopAt === undefined ? 0.75 : num(p, 'cooktopAt'), 0.3) : null;
+  // The sink and the cooktop never share the same place on the counter.
+  if (cooktop !== null && sink !== null && Math.abs(cooktop - sink) < 0.6) cooktop = null;
+  if (!bool(p, 'upper')) return { mods, sink, cooktop, upper: null, upperMods: [], hood: null };
+  const gap = num(p, 'upperGap') || 0.58;
+  const upper = { y0: h + gap, uh: num(p, 'upperH') || 0.7, ud: num(p, 'upperD') || 0.35 };
+  const hood = cooktop !== null && gap < 0.65 ? cooktop : null;
+  // Without the 0.65 m over the cooktop, the wall cabinets stop either side of its 0.60 m hood.
+  const upperMods = hood === null ? mods : mods.filter((m) => m.x + m.w / 2 <= hood - 0.3 + 1e-6 || m.x - m.w / 2 >= hood + 0.3 - 1e-6);
+  return { mods, sink, cooktop, upper, upperMods, hood };
+}
+
+/** Wardrobe: hinged doors, or sliding doors running in two tracks (each panel overlapping the next). */
 export const WARDROBE: Family = {
   id: 'wardrobe',
   name: 'Wardrobe',
   category: 'furniture',
   host: 'free',
-  tags: ['wardrobe', 'closet', 'storage', 'bedroom', 'interior'],
+  tags: ['wardrobe', 'closet', 'storage', 'bedroom', 'sliding', 'joinery', 'planned', 'interior'],
   params: [
     P.len('width', 'Width', 1.8, 0.6, 3.6),
     P.len('depth', 'Depth', 0.6, 0.4, 1),
     P.len('height', 'Height', 2.2, 1.4, 3, 'type', 'size', 0.05),
     P.count('doors', 'Doors', 2, 1, 4),
+    P.pick('doorKind', 'Door type', 'hinged', [
+      ['hinged', 'Hinged'],
+      ['sliding', 'Sliding'],
+    ]),
+    P.flag('mirror', 'Mirror on the doors', false, 'detail'),
     P.color('color', 'Color', '#e6e1d6'),
     P.color('handleColor', 'Handle color', '#8e959a'),
     P.finish('finish', 'Finish', 'paint'),
@@ -381,19 +459,29 @@ export const WARDROBE: Family = {
     const w = num(p, 'width'),
       d = num(p, 'depth'),
       h = num(p, 'height');
-    const n = clamp(Math.round(num(p, 'doors')), 1, 4);
+    const sliding = str(p, 'doorKind') === 'sliding';
+    const n = clamp(Math.round(num(p, 'doors')), sliding ? 2 : 1, 4);
     const m = mat('panel', str(p, 'color'), str(p, 'finish'));
     const hnd = mat('metal', str(p, 'handleColor'), 'metal');
+    const mirror: PartMat = { slot: 'glass', color: '#c9d3d6' };
     out.box(m, [0, 0.05, -0.02], [w - 0.06, 0.1, d - 0.06]);
-    out.box(m, [0, (0.1 + h - 0.06) / 2, 0], [w, h - 0.16, d]);
+    out.box(m, [0, (0.1 + h - 0.06) / 2, sliding ? -0.04 : 0], [w, h - 0.16, sliding ? d - 0.08 : d]);
     out.box(m, [0, h - 0.03, 0], [w + 0.02, 0.06, d + 0.02]);
     const dh = h - 0.24;
     for (let i = 0; i < n; i++) {
-      const dw = w / n;
-      const x = -w / 2 + (i + 0.5) * dw;
-      out.box(m, [x, 0.12 + dh / 2, d / 2 + 0.012], [dw - 0.014, dh, 0.024]);
-      const hx = x + (i < n / 2 ? dw / 2 - 0.05 : -dw / 2 + 0.05);
-      out.rod(hnd, [hx, h * 0.5, d / 2 + 0.04], [hx, h * 0.5 + 0.4, d / 2 + 0.04], 0.01, 6);
+      const dw = sliding ? w / n + 0.03 : w / n;
+      const x = sliding ? -w / 2 + dw / 2 + (i * (w - dw)) / Math.max(1, n - 1) : -w / 2 + (i + 0.5) * dw;
+      // Sliding panels alternate between the front and the back track.
+      const z = sliding ? d / 2 - 0.02 - (i % 2) * 0.035 : d / 2 + 0.012;
+      out.box(m, [x, 0.12 + dh / 2, z], [dw - 0.014, dh, 0.024]);
+      if (bool(p, 'mirror') && (!sliding || i % 2 === 0)) out.box(mirror, [x, 0.12 + dh / 2, z + 0.013], [dw - 0.12, dh - 0.2, 0.004]);
+      if (sliding) {
+        const hx = i === 0 ? x - dw / 2 + 0.04 : i === n - 1 ? x + dw / 2 - 0.04 : x + dw / 2 - 0.04;
+        out.box(hnd, [hx, h * 0.5, z + 0.014], [0.02, 0.5, 0.008]);
+      } else {
+        const hx = x + (i < n / 2 ? dw / 2 - 0.05 : -dw / 2 + 0.05);
+        out.rod(hnd, [hx, h * 0.5, d / 2 + 0.04], [hx, h * 0.5 + 0.4, d / 2 + 0.04], 0.01, 6);
+      }
     }
   },
 };
