@@ -433,3 +433,37 @@ export function addRoomRect(b: Building3, levelId: ID, a: Vec2, c: Vec2, thickne
   it.rooms.push({ id, name, wallIds: ids, polygon: poly, area: Math.round(roomArea(poly) * 100) / 100 });
   return id;
 }
+
+/**
+ * Where each door of the interior walls stands, for its leaf and frame (the door family is built there
+ * like a door on a facade): origin on the face of the wall it opens to, at the floor, u along the wall,
+ * v up, n out of that face; `depth` is the wall thickness.
+ */
+export function interiorDoorFrames(b: Building3): { key: string; o: [number, number, number]; u: [number, number, number]; n: [number, number, number]; width: number; height: number; depth: number }[] {
+  const out: ReturnType<typeof interiorDoorFrames> = [];
+  for (const level of b.levels) {
+    const it = b.interiors[level.id];
+    if (!it) continue;
+    const node = new Map(it.nodes.map((n) => [n.id, n.p]));
+    interiorDoors(it).forEach((d, i) => {
+      const w = it.walls.find((x) => x.id === d.wall);
+      const a = w && node.get(w.a),
+        c = w && node.get(w.b);
+      if (!w || !a || !c) return;
+      const L = Math.hypot(c[0] - a[0], c[1] - a[1]);
+      if (L < 1e-6) return;
+      const ux = (c[0] - a[0]) / L,
+        uz = (c[1] - a[1]) / L;
+      const side = d.swing ?? 1;
+      const nx = -uz * side,
+        nz = ux * side;
+      // Seen from the face it opens to, "along" runs left to right: flip it on the other side.
+      const sx = side > 0 ? ux : -ux,
+        sz = side > 0 ? uz : -uz;
+      const cx = a[0] + ux * d.u + nx * (w.thickness / 2),
+        cz = a[1] + uz * d.u + nz * (w.thickness / 2);
+      out.push({ key: `idoor:${level.id}:${i}`, o: [cx, level.elevation, cz], u: [sx, 0, sz], n: [nx, 0, nz], width: d.width, height: d.height, depth: w.thickness });
+    });
+  }
+  return out;
+}

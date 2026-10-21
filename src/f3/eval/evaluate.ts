@@ -16,10 +16,11 @@ import { roomRowMesh, roomRows, type RoomCut } from './rooms';
 import { offsetRing, oriented, ringValid, sampleRing } from '../model/plan';
 import { inside } from '../model/ops';
 import { edgeRegions, itemPlacements, rulePlacements, typeResolver, type Placement } from './facade';
-import { emptyParts3, FrameSink, type Parts3 } from './parts';
+import { emptyParts3, faceMatrix, FrameSink, type Parts3 } from './parts';
 import { openingProfile } from '../families/shapes';
 import { bandParts, clipPartsBelow, cutBox, exteriorWalls, floorBands, floorVoids, mergeShells, roofCuts, WALL } from './interior';
-import { interiorWallMeshes } from './interiorwalls';
+import { interiorDoorFrames, interiorWallMeshes } from './interiorwalls';
+import { resolveParams } from '../families/family';
 import type { Project3 } from '../model/schema';
 
 export interface EvalOptions {
@@ -393,6 +394,16 @@ export function evaluateBuilding(b0: Building3, opts: EvalOptions = {}, project?
       for (const pl of placements) {
         const tag = parts.tags.push(pl.tag) - 1;
         pl.family.build(pl.params, new FrameSink(parts, pl.frame, tag), { length: pl.length, reveal: pl.opening?.depth ?? 0, index: 0, ...(pl.path ? { path: pl.path } : {}) });
+      }
+      // The doors of the interior walls get a leaf and a frame (the standard panelled door at their size),
+      // not a bare hole.
+      if (opts.hollow || b.solids.some((x) => x.op === 'add' && !x.hidden && (x.shell ?? 0) > 0)) {
+        const dt = types('door-panel');
+        if (dt) for (const d of interiorDoorFrames(b)) {
+          const params = resolveParams(dt.family, dt.type.params, { width: d.width, height: d.height });
+          const tag = parts.tags.push({ family: dt.family.id, key: d.key }) - 1;
+          dt.family.build(params, new FrameSink(parts, faceMatrix(d.o, d.u, [0, 1, 0], d.n), tag), { length: d.width, reveal: d.depth, index: 0 });
+        }
       }
     }
     mark('parts');
