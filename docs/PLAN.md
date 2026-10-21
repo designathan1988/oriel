@@ -168,7 +168,7 @@ From its version 4:
 ### Stage 2: interface and navigation
 - [ ] `editor.ts` split by tool and mode (`editor/tools/*`, selection, dimensions, keys).
 - [ ] One command registry (`ui/commands.ts`): tool bar, keys, Ctrl+K, help, menus, contextual bar.
-- [x] Workspaces (Model, Components, Materials, Interior, Present; `ui/workspaces.ts`). [x] Light theme and system theme; preferences (theme, navigation preset), `ui/prefs.ts`.
+- [x] Workspaces (Model, Components, Materials, Interior, Present), later removed: they only hid tools (5b35034). [x] Light theme and system theme; preferences (theme, navigation preset), `ui/prefs.ts`.
 - [x] Parallel (orthographic) view: Numpad 5, the ∥ button on the cube; navigation presets (FORMA/Revit,
       SketchUp, Blender); touch: two fingers pan and pinch.
 - [x] Screen-space selection outline (OutlinePass). [x] Handles without allocation per frame (pooled meshes, scratch vectors; `editor/handles.ts`).
@@ -260,7 +260,12 @@ only), Müller 2006 CGA, CityEngine docs, Houdini Labs, TestFit, Forma):
   presets with live metrics (TestFit, Forma); detail propagation (BricsCAD BIMPROPAGATE).
 
 ### Stage 3: non-destructive core (forma/4)
-- [ ] Evaluation of edits and of opening a project in the workers; per-volume cache.
+- [x] Evaluation of opening a project in the workers: buildings new to the view (more than two at once)
+      that are not being edited go to the workers nearest first, framing counts their boxes, and the
+      warnings catch up when the last one is drawn (`editor/view.ts` awaiting, onDrawn). Decided: the
+      building being edited stays on the main thread (a drag needs its result in the same frame), and
+      no per-volume cache: face IDs come from a table made per evaluation, so a cached volume would carry
+      stale IDs; the cache is per building and view (revision, variants, finishes-only redraw).
 - [ ] forma/4 schema (graph), migration from forma/3, save/open, adapter for the editor.
 - [ ] Nested combine, Combine/Uncombine, groups in the Structure tab, reorder by drag.
 - [ ] Persistent references, statuses, orphans (red row, message, Reattach/Delete).
@@ -393,7 +398,8 @@ Phase 1:
   facade). Tests: `test/unit/f3-labels.test.ts`, `e2e/f3.spec.ts` (176 states).
 - [x] Offset that never breaks the volume: blended corner arcs, a miter limit,
   and Clipper2 (`CrossSection.offset`) when the exact offset loses the shape.
-- [ ] Workspaces.
+- [x] Workspaces: built, then removed (2026-10-21, commit 5b35034): tabs that only hid tools; the
+  whole tool bar is always shown, grouped, with the interior controls in the view panel.
 
 Gizmo and floors (request of 2026-10-11: "do not confuse the green gizmo with
 floors"; sources: Rhino 8 Gumball, TransformControls r170, Blender

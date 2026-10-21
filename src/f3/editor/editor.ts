@@ -269,6 +269,8 @@ export class Editor3 {
       this.shell.status.stats.textContent = total && done < total ? `Drawing the view: ${done}/${total} buildings…` : `${p.buildings.length} building(s) · ${this.view.lastEvalMs.toFixed(0)} ms`;
     };
     this.view.freeRect = () => this.freeRect();
+    // Buildings drawn by the workers after opening: warnings, labels and the selection catch up.
+    this.view.onDrawn = () => this.sync();
     this.store = new Store(opts.project ?? newProject());
     // Floors drawn apart are not where they are: nothing but the view may change meanwhile.
     this.store.guard = () => (explodeGap(this.project) > 0 ? 'Exploded view: set "Floors apart" to 0 (Interior view) to edit.' : null);

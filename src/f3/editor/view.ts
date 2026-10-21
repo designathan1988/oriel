@@ -30,6 +30,7 @@ import { Batcher } from '../render/batch';
 import { EvalPool } from '../eval/pool';
 import { SiteLayer } from '../render/site';
 import { installBvh } from '../render/bvh';
+import { buildingBox } from '../model/align';
 
 // Picking through bounding volume hierarchies (render/bvh.ts).
 installBvh();
@@ -488,6 +489,7 @@ export class View {
       this.pruneVariants(b.id, nb.revision);
       this.root.add(nb.group);
       this.built.set(b.id, nb);
+      this.awaiting.delete(b.id);
     };
     /** Evaluates (unless a worker did) and draws one building for the current view, at once. */
     const build = (b: Building3, rev: number, done: Evaluated | null = null) => install(b, make(b, rev, done ?? evaluate(b)));
@@ -507,6 +509,11 @@ export class View {
     };
     const later: Building3[] = [];
     const partsLater: ID[] = [];
+    // Several buildings new to the view at once (a project opened, a group inserted): those not being
+    // edited are evaluated by the workers like a view change, nearest first, instead of all here
+    // (opening 200 buildings blocked the page for seconds). One new building is drawn at once.
+    const fresh = this.pool.threaded ? p.buildings.filter((b) => !this.built.has(b.id)).length : 0;
+    this.awaiting.clear();
     // Hidden categories switch the parts' meshes (no rebuild); every drawing gets the current set.
     const hiddenCats: ReadonlySet<string> = new Set(p.view?.hiddenCategories ?? []);
     const catOf = (tag: PartTag) => family(tag.family)?.category ?? '';
@@ -588,6 +595,13 @@ export class View {
         }
         continue;
       }
+      if (!cur && fresh > 2 && !this.activeIds.has(b.id)) {
+        const box = buildingBox(b);
+        const top = Math.max(0, ...b.solids.map((s) => s.base + s.height)) + (b.elevation ?? 0);
+        if (box) this.awaiting.set(b.id, new THREE.Box3(new THREE.Vector3(box.x0, b.elevation ?? 0, box.z0), new THREE.Vector3(box.x1, top, box.z1)));
+        later.push(b);
+        continue;
+      }
       // New or edited: drawn now (the user is waiting for exactly this one).
       build(b, rev);
       changed = true;
@@ -656,6 +670,7 @@ export class View {
     for (const id of [...this.variants.keys()]) if (!byId.has(id)) this.pruneVariants(id, -1);
     this.floorsMoving = false;
     this.batchPending = this.batcher.sync(this.built, this.activeIds, this.floorsMoving, BATCH_BUDGET_MS, this.kept());
+    this.awaitingDrawn = this.awaiting.size > 0;
     if (this.queue.length || this.batchPending || this.partsQueue.length) this.pump();
     else this.onProgress?.(0, 0);
     if (changed) this.lastEvalMs = performance.now() - t0;
@@ -724,6 +739,14 @@ export class View {
    * batches are off until the release syncs (at rest, exploded floors are batched with their gap).
    */
   private floorsMoving = false;
+  /**
+   * Buildings new to the view that wait for the workers (opening a project, inserting several): their
+   * plan box with height, so framing the view counts them before they are drawn.
+   */
+  private awaiting = new Map<ID, THREE.Box3>();
+  private awaitingDrawn = false;
+  /** Called once every building that waited for the workers is drawn (warnings and labels catch up). */
+  onDrawn?: () => void;
 
   /**
    * Draws a view change a little per frame. With workers, they evaluate (nearest first, a few
@@ -779,6 +802,10 @@ export class View {
       this.root.updateMatrixWorld(true);
       this.mark();
       this.onProgress?.(Math.min(this.drawn, this.queued), this.queued);
+      if (this.awaitingDrawn && !this.queue.length && !this.ready.length && !this.inflight && !this.revealing) {
+        this.awaitingDrawn = false;
+        this.onDrawn?.();
+      }
       // Waiting only on the workers: their answers call pump again; no idle frames meanwhile.
       if (this.queue.length || this.ready.length || this.batchPending || this.partsQueue.length) this.pumping = requestAnimationFrame(step);
     };
@@ -1067,6 +1094,7 @@ export class View {
   /** Frames every building (the view cube Home). */
   frameAll(): void {
     const all = new THREE.Box3().setFromObject(this.root);
+    for (const b of this.awaiting.values()) all.union(b);
     this.frame(all.isEmpty() ? undefined : all);
   }
 
