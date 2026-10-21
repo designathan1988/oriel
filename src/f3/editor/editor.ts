@@ -3459,7 +3459,17 @@ export class Editor3 {
     return best ? { ...hit, face: { kind: 'side', solid: s.id, edge: best } as FaceInfo } : hit;
   }
 
+  /** Move or rotate by two clicks (SketchUp, Revit): the drag stays on after a still click; the next click ends it. */
+  private stickyDrag = false;
+  private downAt: { x: number; y: number } | null = null;
+
   private onDown(e: PointerEvent): void {
+    this.downAt = { x: e.clientX, y: e.clientY };
+    if (this.stickyDrag && this.drag) {
+      this.stickyDrag = false;
+      return this.finishDrag(e);
+    }
+    this.stickyDrag = false;
     if (this.polyline.active) return this.polyline.down(e);
     if (this.tool === 'select' && this.elemMode !== 'object' && this.context && this.subDown(e)) return;
     if (this.selectLike() || this.pushLike()) {
@@ -3844,6 +3854,12 @@ export class Editor3 {
       this.pendingClick = null;
       return this.clickSelect(hit, { ctrlKey: false, shiftKey: false, metaKey: false, altKey: false });
     }
+    // A still click with Move or Rotate: the object follows the cursor until the next click.
+    if (this.drag && (this.tool === 'move' || this.tool === 'rotate') && !this.stickyDrag && this.downAt && Math.hypot(e.clientX - this.downAt.x, e.clientY - this.downAt.y) < 4) {
+      this.stickyDrag = true;
+      this.toast(this.tool === 'move' ? 'Click the destination.' : 'Click to set the angle.');
+      return;
+    }
     if (this.drag) return this.finishDrag(e);
     if (this.opening.active) return this.opening.up(e);
     if (this.tool === 'lot') return this.site.lotUp(e);
@@ -3852,6 +3868,7 @@ export class Editor3 {
   }
 
   cancel(): void {
+    this.stickyDrag = false;
     this.opening?.cancel();
     this.site?.cancel();
     this.stair?.cancel();
