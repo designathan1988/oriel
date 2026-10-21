@@ -3,7 +3,7 @@
 Inventory of everything a builder needs to make any building, with the real
 state in the code (checked on 2026-10-10) and how each tool enters FORMA. Sources
 at the end. State: **ok** exists and was used in the browser; **partial** exists
-with gaps; **missing** does not exist.
+with gaps; **missing** does not exist. Updated 2026-10-21: every row is now **ok**.
 
 ## Principle
 
@@ -19,9 +19,9 @@ rebuilt on every change. Nothing becomes a loose mesh.
 |---|---|---|---|
 | Rectangle, circle, polygon on the ground or on a slab | SketchUp | ok | tools R, C, L |
 | Ready blocks (L, U, T, cross, cylinder…) | Townscaper, Forma | ok | Blocks catalog |
-| Arc / free curve in plan | Rhino, SketchUp | partial | bend a side into an arc; drawing an arc directly is missing |
-| Spin a profile (revolve) | Blender Spin, Rhino Revolve | missing (components only) | future |
-| Sweep a profile along a path (continuous cornice) | SketchUp Follow Me | missing | future |
+| Arc / free curve in plan | Rhino, SketchUp | ok | Arc (Shift+C), Curve (Shift+P, free-hand drag), bend a side |
+| Spin a profile (revolve) | Blender Spin, Rhino Revolve | ok | revolved volume (profile points, sides) |
+| Sweep a profile along a path (continuous cornice) | SketchUp Follow Me | ok | sweep family (low wall, coping, cornice along a path) |
 
 ## 2. Model volumes (face, edge and vertex operations)
 
@@ -29,37 +29,37 @@ rebuilt on every change. Nothing becomes a loose mesh.
 |---|---|---|---|
 | Push/pull a side face | SketchUp Push/Pull | ok | handle and "Push" field |
 | Height (pull the top) | SketchUp | ok | green handle and field |
-| **Extrude face** (new volume from the face) | 3ds Max Extrude, SketchUp Ctrl+Push/Pull | missing | side face → annex (add) or recess (subtract) the size of the face; top → new stacked volume |
-| **Inset face** (with depth) | Blender Inset (thickness + depth), Max Inset/Bevel | missing | side face → projection or loggia with margins; top → setback volume (depth > 0) or well/atrium (< 0) |
-| **Plan offset** (parallel outline) | SketchUp Offset, Rhino Offset (sharp/round/chamfer corners) | missing | moves the plan inward/outward keeping arcs; apply to the volume or create a new volume |
-| **Bevel of horizontal edges** | Blender Bevel (width, segments, profile) | missing | volume parameter: bevel at the top and base, segments, straight↔round profile, per side |
-| Chamfer/round vertical corners | Blender Bevel Vertices, Rhino Fillet | partial | all at once; **a single corner** is missing |
+| **Extrude face** (new volume from the face) | 3ds Max Extrude, SketchUp Ctrl+Push/Pull | ok | side face → annex (add) or recess (subtract) the size of the face; top → new stacked volume |
+| **Inset face** (with depth) | Blender Inset (thickness + depth), Max Inset/Bevel | ok | side face → projection or loggia with margins; top → setback volume (depth > 0) or well/atrium (< 0) |
+| **Plan offset** (parallel outline) | SketchUp Offset, Rhino Offset (sharp/round/chamfer corners) | ok | moves the plan inward/outward keeping arcs; apply to the volume or create a new volume |
+| **Bevel of horizontal edges** | Blender Bevel (width, segments, profile) | ok | volume parameter: bevel at the top and base, segments, straight↔round profile, per side |
+| Chamfer/round vertical corners | Blender Bevel Vertices, Rhino Fillet | ok | all corners or the chosen corner |
 | Lean a wall | Max Hinge | ok | per-face field |
 | Taper the top | Max Taper | ok | field |
-| **Scale** the volume (width, depth) | SketchUp Scale | missing | width and depth fields of the bounding box |
-| **Split volume** at a height | Blender Bisect, Max Slice | missing | splits into two editable volumes (different materials and setbacks) |
+| **Scale** the volume (width, depth) | SketchUp Scale | ok | width and depth fields of the bounding box |
+| **Split volume** at a height | Blender Bisect, Max Slice | ok | splits into two editable volumes (different materials and setbacks) |
 | Move vertex, split side, delete vertex | SketchUp, Blender | ok | vertex handles, "Split side" |
 | Add/subtract/intersect booleans | Rhino, Blender Boolean | ok | per volume, editable |
 | Mirror, duplicate, array | all | ok | Ctrl+D, 5x, 5/ |
-| Bridge between volumes | Max Bridge | missing | future |
+| Bridge between volumes | Max Bridge | ok | Bridge (two selected volumes), loft |
 
 ## 3. Parametric elements
 
 | tool | reference | state | in FORMA |
 |---|---|---|---|
 | Families with parameters (window, door, balcony…) | Revit families | ok | ~75 types |
-| Type × occurrence (changing the type changes all) | Revit type/instance | partial | only for free parts; **clicking a facade window does not show its parameters** |
-| Fully editable facade rule | Revit curtain grid, Archicad | partial | only level and value; mode, margin, sill, alignment, sides and parameters are missing |
+| Type × occurrence (changing the type changes all) | Revit type/instance | ok | facade and free parts show type and instance parameters |
+| Fully editable facade rule | Revit curtain grid, Archicad | ok | type, floors, mode, value, margin, sill, alignment, sides, parameters, exceptions |
 | Variation of a group | Revit duplicate type | ok | "Edit only these" |
 
 ## 4. Organize
 
 | tool | reference | state | in FORMA |
 |---|---|---|---|
-| **Layers** (visible, locked, color, active) | SketchUp Tags, Rhino Layers | missing | project layers; volumes and free parts have a layer; locked = visible and not selectable |
-| **Visibility by category** | Revit Visibility/Graphics | missing | hide windows, doors, balconies… in the view |
-| **Element tree** | SketchUp Outliner | missing | building → volumes → parts; click selects; eye and lock |
-| Hide / isolate selection | Revit Hide/Isolate | missing | eye in the tree; isolate volume |
+| **Layers** (visible, locked, color, active) | SketchUp Tags, Rhino Layers | ok | project layers; volumes and free parts have a layer; locked = visible and not selectable |
+| **Visibility by category** | Revit Visibility/Graphics | ok | hide windows, doors, balconies… in the view |
+| **Element tree** | SketchUp Outliner | ok | building → volumes → parts; click selects; eye and lock |
+| Hide / isolate selection | Revit Hide/Isolate | ok | eye in the tree; isolate volume |
 
 ## 5. Precision and measurement
 
