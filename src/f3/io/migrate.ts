@@ -564,6 +564,7 @@ function checkSolid(e: Errors, where: string, s: Solid, p: Project3, ruleIds: Se
   if (!fin(s.taper) || s.taper < 0) e.add(w, 'invalid taper.');
   if (s.twist !== undefined && (!fin(s.twist) || Math.abs(s.twist) > 360)) e.add(w, 'invalid twist.');
   if (s.shell !== undefined && (!fin(s.shell) || s.shell <= 0 || s.shell > 5)) e.add(w, 'invalid shell thickness.');
+  if (s.phase !== undefined && s.phase !== 'existing' && s.phase !== 'demolished') e.add(w, 'invalid phase.');
   if (s.wallLayers !== undefined && (!Array.isArray(s.wallLayers) || s.wallLayers.length > 12 || !s.wallLayers.every((l) => isObj(l) && str(l.name, 60) && fin(l.thickness) && l.thickness > 0 && l.thickness < 2))) e.add(w, 'invalid wall layers.');
   if (s.mirror !== undefined && s.mirror !== 'x' && s.mirror !== 'z') e.add(w, 'invalid mirror.');
   if (s.repeat !== undefined) {
@@ -636,6 +637,7 @@ function checkSolid(e: Errors, where: string, s: Solid, p: Project3, ruleIds: Se
 }
 
 function checkItem(e: Errors, where: string, it: Item, p: Project3, solids: Map<string, Solid>): void {
+  if (it.phase !== undefined && it.phase !== 'existing' && it.phase !== 'demolished') e.add(where, 'invalid phase.');
   const w = `${where}, component ${typeof it?.id === 'string' ? it.id : '?'}`;
   if (!knownType(it.type, p)) e.add(w, `unknown type (${String(it.type)}).`);
   checkParams(e, w, it.params);
@@ -821,7 +823,7 @@ export function validateForma3(raw: unknown): string[] {
     else for (const l of p.layers) if (!isObj(l) || !str(l.id) || !str(l.name, 60) || typeof l.visible !== 'boolean' || typeof l.locked !== 'boolean' || !str(l.color)) e.add('Project', 'invalid layer.');
   }
   if (p.view !== undefined && (!isObj(p.view) || !Array.isArray(p.view.hiddenCategories))) e.add('Project', 'invalid view state.');
-  else if (p.view !== undefined && ((p.view.hiddenBody !== undefined && !(Array.isArray(p.view.hiddenBody) && p.view.hiddenBody.every((c: unknown) => typeof c === 'string'))) || (p.view.cutLevel !== undefined && !(Number.isInteger(p.view.cutLevel) && (p.view.cutLevel as number) >= 0)) || (p.view.explode !== undefined && !(fin(p.view.explode) && (p.view.explode as number) >= 0 && (p.view.explode as number) <= 50)) || (p.view.onlyLevel !== undefined && typeof p.view.onlyLevel !== 'boolean') || (p.view.style !== undefined && p.view.style !== 'white' && p.view.style !== 'xray') || (p.view.section !== undefined && !(isObj(p.view.section) && (p.view.section.axis === 'x' || p.view.section.axis === 'z') && fin(p.view.section.at))))) e.add('Project', 'invalid view state.');
+  else if (p.view !== undefined && ((p.view.hiddenBody !== undefined && !(Array.isArray(p.view.hiddenBody) && p.view.hiddenBody.every((c: unknown) => typeof c === 'string'))) || (p.view.cutLevel !== undefined && !(Number.isInteger(p.view.cutLevel) && (p.view.cutLevel as number) >= 0)) || (p.view.explode !== undefined && !(fin(p.view.explode) && (p.view.explode as number) >= 0 && (p.view.explode as number) <= 50)) || (p.view.onlyLevel !== undefined && typeof p.view.onlyLevel !== 'boolean') || (p.view.style !== undefined && p.view.style !== 'white' && p.view.style !== 'xray') || (p.view.phases !== undefined && p.view.phases !== 'existing' && p.view.phases !== 'proposal') || (p.view.section !== undefined && !(isObj(p.view.section) && (p.view.section.axis === 'x' || p.view.section.axis === 'z') && fin(p.view.section.at))))) e.add('Project', 'invalid view state.');
   if (p.info !== undefined && (!isObj(p.info) || Object.entries(p.info).some(([k, v]) => !['client', 'address', 'author', 'registration', 'revision'].includes(k) || typeof v !== 'string' || v.length > 160))) e.add('Project', 'invalid project information.');
   if (p.selectionSets !== undefined) {
     const strs = (x: unknown) => Array.isArray(x) && x.every((v) => typeof v === 'string');

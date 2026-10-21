@@ -482,8 +482,10 @@ function infoSection(b: Building3, project?: Project3, overall?: { min: number[]
 /** Layer of the chosen volume or part (Default = none), like SketchUp's Tag field in Entity Info. */
 function layerRow(ed: Editor3, what: 'solid' | 'item', cur: string | undefined): string {
   const ls = ed.project.layers ?? [];
-  if (!ls.length) return '';
-  return `<div class="f3-sec"><h3>Layer</h3>${prow('Layer', 'layers', [selectCell(`data-layer="${what}"`, 'Layer', [['', 'Default'], ...ls.map((l) => [l.id, l.name] as const)], cur ?? '')], { wide: true })}</div>`;
+  // The renovation phase sits with the layer: both say where the element belongs.
+  const target = what === 'solid' ? ed.activeSolid() : ed.activeItem();
+  const phase = prow('Phase', 'restore', [selectCell(`data-phase="${what}"`, 'Renovation phase', [['', 'New'], ['existing', 'Existing'], ['demolished', 'To demolish']], target?.phase ?? '')], { wide: true });
+  return `<div class="f3-sec"><h3>Layer</h3>${ls.length ? prow('Layer', 'layers', [selectCell(`data-layer="${what}"`, 'Layer', [['', 'Default'], ...ls.map((l) => [l.id, l.name] as const)], cur ?? '')], { wide: true }) : ''}${phase}</div>`;
 }
 
 function paramInputs(defs: ParamDef[], values: Record<string, unknown>, overrides: Record<string, unknown>): string {
@@ -625,6 +627,17 @@ function bind(ed: Editor3, b: Building3, s: Solid | undefined): void {
   const val = (el: HTMLInputElement | HTMLSelectElement) => el.value;
   // Building.
   $$<HTMLInputElement>('[data-b="name"]').forEach((el) => el.addEventListener('change', () => ed.change(b.id, (x) => void (x.name = el.value || 'Building'), '', false)));
+  $$<HTMLSelectElement>('select[data-phase]').forEach((el) =>
+    el.addEventListener('change', () => {
+      const v = (el.value || undefined) as 'existing' | 'demolished' | undefined;
+      ed.change(b.id, (x) => {
+        const target = el.dataset.phase === 'solid' ? x.solids.find((q) => q.id === ed.sel.solids[0]) : x.items.find((q) => q.id === ed.sel.item);
+        if (!target) return;
+        if (v) target.phase = v;
+        else delete target.phase;
+      }, v === 'existing' ? 'Existing.' : v === 'demolished' ? 'To demolish.' : 'New work.');
+    }),
+  );
   $$<HTMLSelectElement>('select[data-layer]').forEach((el) =>
     el.addEventListener('change', () => {
       const v = el.value || undefined;

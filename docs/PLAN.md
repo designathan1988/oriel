@@ -222,7 +222,9 @@ Backlog (P1 first):
       sides facing the same way, materials, plinth, bands, bevel, walls.
 - [x] P2 View styles: realistic, white model, x-ray (Interior view → Style; view.style).
 - [x] P2 Parking along a path (families/parking.ts: 90°, 60°, 45°, one or both sides, lines, wheel stops).
-- [ ] P2 Renovation phases; design options.
+- [x] P2 Renovation phases: new, existing, to demolish per volume or part (panel → Phase); phase filter
+      (Interior view → Phases: all, existing state, proposal), kept by the scenes.
+- [ ] P2 Design options.
 
 ### Procedural objects and methods (research 2026-10-13: three agent reports in the session)
 

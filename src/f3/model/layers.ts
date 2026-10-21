@@ -61,9 +61,11 @@ export function activeLayer(p: Project3): ID | undefined {
 
 export const buildingHidden = (p: Project3, b: Building3) => !!b.hidden || !layerById(p, b.layer).visible;
 export const buildingLocked = (p: Project3, b: Building3) => !!b.locked || layerById(p, b.layer).locked;
-export const solidHidden = (p: Project3, s: Solid) => !!s.hidden || !layerById(p, s.layer).visible;
+/** Hidden by the phase filter: the existing state leaves out the new work, the proposal what is demolished. */
+export const phaseHidden = (p: Project3, phase: 'existing' | 'demolished' | undefined): boolean => (p.view?.phases === 'existing' ? !phase : p.view?.phases === 'proposal' ? phase === 'demolished' : false);
+export const solidHidden = (p: Project3, s: Solid) => !!s.hidden || !layerById(p, s.layer).visible || phaseHidden(p, s.phase);
 export const solidLocked = (p: Project3, s: Solid) => !!s.locked || layerById(p, s.layer).locked;
-export const itemHidden = (p: Project3, it: Item) => !!it.hidden || !layerById(p, it.layer).visible;
+export const itemHidden = (p: Project3, it: Item) => !!it.hidden || !layerById(p, it.layer).visible || phaseHidden(p, it.phase);
 export const itemLocked = (p: Project3, it: Item) => !!it.locked || layerById(p, it.layer).locked;
 
 /** Parts of the building body the view can hide (the interior view hollows the building). */
@@ -93,9 +95,10 @@ export function categoryHidden(p: Project3, category: string): boolean {
 
 /** Key of what changes the evaluation (visible layers) and of what changes only the parts (categories). */
 export function visibilityKeys(p: Project3): { solids: string; parts: string; body: string } {
-  const layers = layersOf(p)
-    .map((l) => `${l.id}:${l.visible ? 1 : 0}`)
-    .join(',');
+  const layers =
+    layersOf(p)
+      .map((l) => `${l.id}:${l.visible ? 1 : 0}`)
+      .join(',') + `|${p.view?.phases ?? ''}`;
   return {
     solids: `${layers}|${interiorView(p) ? 'hollow' : 'solid'}|${p.view?.cutLevel ?? ''}|${bandedView(p) ? 'bands' : ''}|${p.view?.onlyLevel ? 'only' : ''}|${bodyHidden(p, 'walls') ? 'nowalls' : ''}`,
     // Hidden categories are not here: they switch meshes on and off (PartsMesh.setHidden), nothing is built.

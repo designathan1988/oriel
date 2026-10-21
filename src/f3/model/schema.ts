@@ -114,10 +114,13 @@ export interface Scene {
   /** Orbit camera: what it looks at, how far, its angles (radians) and the projection. */
   camera: { target: Vec3; distance: number; phi: number; theta: number; parallel: boolean };
   /** The view state kept with it (time of day, interior view, floor cut, exploded floors). */
-  view: Pick<ViewState, 'time' | 'hiddenBody' | 'cutLevel' | 'onlyLevel' | 'explode' | 'style' | 'section'>;
+  view: Pick<ViewState, 'time' | 'hiddenBody' | 'cutLevel' | 'onlyLevel' | 'explode' | 'style' | 'section' | 'phases'>;
   /** Visibility of each layer when it was saved. */
   layers?: Record<ID, boolean>;
 }
+
+/** Renovation phase of a volume or a part: absent = new work. */
+export type Phase = 'existing' | 'demolished';
 
 export interface GridAxis {
   id: ID;
@@ -197,6 +200,8 @@ export interface ViewState {
   onlyLevel?: boolean;
   /** Exploded floors: gap (m) between the floors, each cut 1.2 m above its floor (Revit Displace Elements). 0/absent = off. */
   explode?: number;
+  /** Phase filter (Revit's phase filters): the site as it is (existing and demolished) or the proposal (existing and new); absent = everything. */
+  phases?: 'existing' | 'proposal';
   /** View style (SketchUp's face styles, Revit's visual styles): a white model or x-ray; absent = realistic. */
   style?: 'white' | 'xray';
   /**
@@ -439,6 +444,8 @@ export interface Solid {
   shell?: number;
   /** The layers of the walls of a hollow volume, outside in (model/walltypes.ts); `shell` is their sum. */
   wallLayers?: WallLayer[];
+  /** Renovation phase (Revit's phases): what stands today or is to be demolished; absent = new work. */
+  phase?: Phase;
   /** Live copies (a modifier, eval/modifiers.ts): in a row by (dx, dz), or around (cx, cz) of the building. */
   repeat?:
     | { kind: 'line'; count: number; dx: number; dz: number }
@@ -506,6 +513,8 @@ export interface Item {
   host: ItemHost;
   array?: ArraySpec;
   layer?: ID;
+  /** Renovation phase (absent = new work). */
+  phase?: Phase;
   hidden?: boolean;
   locked?: boolean;
   /** Element detached from a facade rule (position "side:level:index"; `prev`, the type exception the position had): "Back to rule" returns it. */

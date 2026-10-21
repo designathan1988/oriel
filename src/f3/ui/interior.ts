@@ -65,7 +65,7 @@ export function mountInteriorView(ed: Editor3): void {
     const p = ed.project;
     btn.setAttribute('aria-pressed', String(interiorView(p)));
     if (pop.hidden) return;
-    const key = JSON.stringify([p.view?.hiddenBody, p.view?.cutLevel, p.view?.onlyLevel, p.view?.explode, p.view?.style, p.view?.section?.axis, p.view?.section?.flip, levelsMax()]);
+    const key = JSON.stringify([p.view?.hiddenBody, p.view?.cutLevel, p.view?.onlyLevel, p.view?.explode, p.view?.style, p.view?.phases, p.view?.section?.axis, p.view?.section?.flip, levelsMax()]);
     if (key === last) return;
     last = key;
     const rows = BODY_CATEGORIES.map(([c, name]) => {
@@ -81,6 +81,7 @@ export function mountInteriorView(ed: Editor3): void {
       <div class="f3-interior-list">${rows}</div>
       <div class="f3-interior-ctl">
       ${prow('Style', 'palette', [`<div class="f3-seg" role="group" aria-label="View style">${([['', 'Realistic'], ['white', 'White'], ['xray', 'X-ray']] as const).map(([v, l]) => `<button data-style="${v}" aria-pressed="${(p.view?.style ?? '') === v}">${l}</button>`).join('')}</div>`], { wide: true })}
+      ${prow('Phases', 'restore', [`<div class="f3-seg" role="group" aria-label="Phase filter">${([['', 'All'], ['existing', 'Existing'], ['proposal', 'Proposal']] as const).map(([v, l]) => `<button data-phases="${v}" aria-pressed="${(p.view?.phases ?? '') === v}">${l}</button>`).join('')}</div>`], { wide: true })}
       ${prow('Section', 'section', [`<div class="f3-seg" role="group" aria-label="Live section">${([['', 'Off'], ['z', 'Front'], ['x', 'Side']] as const).map(([v, l]) => `<button data-sec="${v}" aria-pressed="${(sec?.axis ?? '') === v}">${l}</button>`).join('')}<button data-secflip aria-pressed="${!!sec?.flip}" title="Keep the other side"${sec ? '' : ' disabled'}>⇄</button></div>`], { wide: true })}
       ${sec ? prow('Position', 'distance', [`<label class="f3-cell rng" title="Where the section cuts"><input type="range" data-secat min="${ext.lo[sec.axis === 'x' ? 0 : 1]}" max="${ext.hi[sec.axis === 'x' ? 0 : 1]}" step="0.1" value="${sec.at}" aria-label="Section position"><output>${Math.round(sec.at * 10) / 10} m</output></label>`], { wide: true }) : ''}
       ${prow('Apart', 'floorUp', [`<label class="f3-cell rng" title="${p.view?.onlyLevel ? 'One floor shown: nothing to move apart' : 'Gap between floors (0 = together)'}"><input type="range" data-explode min="0" max="10" step="0.5" value="${gap}" aria-label="Gap between floors"${p.view?.onlyLevel ? ' disabled' : ''}><output>${gap} m</output></label>`], { wide: true, title: 'Floors apart' })}
@@ -135,6 +136,14 @@ export function mountInteriorView(ed: Editor3): void {
       ed.store.touch([], '');
     });
     at?.addEventListener('change', () => commit(''));
+    pop.querySelectorAll<HTMLButtonElement>('[data-phases]').forEach((b) =>
+      b.addEventListener('click', () => {
+        const v = viewOf(ed.store.project);
+        if (b.dataset.phases) v.phases = b.dataset.phases as 'existing' | 'proposal';
+        else delete v.phases;
+        commit(b.dataset.phases === 'existing' ? 'Existing state: the new work hidden.' : b.dataset.phases === 'proposal' ? 'Proposal: what is demolished hidden.' : 'Every phase.');
+      }),
+    );
     // Presets replace each other: one look at a time.
     pop.querySelector('[data-preset="cutaway"]')!.addEventListener('click', () => {
       delete viewOf(ed.store.project).explode;
