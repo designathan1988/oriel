@@ -186,7 +186,9 @@ Backlog (P1 first):
 - [x] P1 Walls: reference line (axis/inner/outer; tool options, 2026-10-21). [ ] Arcs, top tied to a level.
 - [ ] P1 Wall types with thickness and layers (poché by layer in section and plan).
 - [ ] P1 Curtain wall per face (U/V grid, mullions, glass/opaque/door panels).
-- [ ] P1 Slab as an element per level (outline, thickness, holes, cantilever); shafts/atria through slabs.
+- [x] P1 Shafts and atria: a cutter drawn inside a building opens every slab it crosses, and the floor
+      areas leave it out (model/lots.ts levelAreas). Slabs per level: Slab tool (outline, thickness).
+      [ ] Holes and cantilevers edited on a slab of its own.
 - [x] P1 Pitch per side on hip, gable, mansard and gambrel roofs (weighted straight skeleton; selected side
       → Roof pitch; EdgeSpec.pitch).
 - [x] P1 Railings: on stairs (the stair family's rails), around a selected top (terrace, slab edge: panel and

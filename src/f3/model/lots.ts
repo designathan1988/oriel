@@ -152,9 +152,20 @@ function topOf(b: Building3): number {
 /** Area (m²) of the volumes covering each level of a building. */
 function levelAreas(b: Building3): { level: string; area: number }[] {
   const add = b.solids.filter(isAdd);
+  // A cutter through a floor (a shaft, an atrium, a courtyard) takes its outline out of that floor's area.
+  const cut = b.solids.filter((s) => s.op === 'subtract' && !s.hidden);
   return b.levels.map((lv) => {
     const polys: ClipPoly[] = add.filter((s) => covers(s, lv.elevation)).map((s) => [worldRing(b, s.plan.outer)]);
-    return { level: lv.name, area: multiArea(unionAll(polys)) };
+    const holes: ClipPoly[] = cut.filter((s) => covers(s, lv.elevation)).map((s) => [worldRing(b, s.plan.outer)]);
+    let area = unionAll(polys);
+    if (holes.length && area.length) {
+      try {
+        area = clip.difference(area, ...holes);
+      } catch {
+        /* a degenerate ring: the floor keeps its whole area */
+      }
+    }
+    return { level: lv.name, area: multiArea(area) };
   });
 }
 
