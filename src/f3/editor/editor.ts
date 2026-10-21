@@ -2435,6 +2435,18 @@ export class Editor3 {
   // ── Vertex / edge / face modes (Blender edit mode: 1, 2, 3) ──────────
   /** What a click picks inside a building: whole volumes, corners, sides or faces. */
   elemMode: ElemMode = 'object';
+  /** Component mode (4): clicks pick only parts (windows, doors, furniture), through the volumes in front. */
+  partsMode = false;
+
+  /** Component mode on or off (4; again goes back to volumes). */
+  setPartsMode(on = !this.partsMode): void {
+    if (on && this.elemMode !== 'object') this.setElemMode('object');
+    this.partsMode = on;
+    const box = this.shell.modes;
+    delete box.dataset.mode;
+    this.renderModes();
+    if (on) this.toast('Components: a click picks a window, a door or a piece of furniture, even behind a wall.');
+  }
   private subCache = new Map<string, { verts: SubVertex[]; edges: SubEdge[] }>();
   private subHover = new THREE.Group();
   private subHoverKey = '';
@@ -2442,6 +2454,7 @@ export class Editor3 {
   /** Switches the mode (the same key again goes back to volumes); the selection converts like Blender's. */
   setElemMode(m: ElemMode): void {
     if (m === this.elemMode && m !== 'object') m = 'object';
+    this.partsMode = false;
     if (m !== 'object' && !this.context) {
       const b = this.activeBuilding();
       if (!b) return this.toast('Select a building first: the modes edit its volumes.');
@@ -2474,7 +2487,7 @@ export class Editor3 {
     const box = this.shell.modes;
     box.hidden = !this.context;
     if (box.hidden) return;
-    const key = this.elemMode;
+    const key = this.partsMode ? 'parts' : this.elemMode;
     if (box.dataset.mode === key && box.childElementCount) return;
     box.dataset.mode = key;
     const modes: [ElemMode, string, string, string][] = [
@@ -2483,8 +2496,10 @@ export class Editor3 {
       ['edge', 'modeEdge', 'Edge', 'Edges · 2'],
       ['face', 'modeFace', 'Face', 'Faces · 3'],
     ];
-    box.innerHTML = modes.map(([m, ic, label, title]) => `<button data-mode="${m}" aria-pressed="${m === key}" title="${title}" aria-label="${label}">${icon(ic)}</button>`).join('');
-    box.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((bt) => bt.addEventListener('click', () => this.setElemMode(bt.dataset.mode as ElemMode)));
+    box.innerHTML =
+      modes.map(([m, ic, label, title]) => `<button data-mode="${m}" aria-pressed="${m === key}" title="${title}" aria-label="${label}">${icon(ic)}</button>`).join('') +
+      `<button data-mode="parts" aria-pressed="${key === 'parts'}" title="Components · 4" aria-label="Components">${icon('catalog')}</button>`;
+    box.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((bt) => bt.addEventListener('click', () => (bt.dataset.mode === 'parts' ? this.setPartsMode() : this.setElemMode(bt.dataset.mode as ElemMode))));
   }
 
   private subOf(b: Building3, s: Solid): { verts: SubVertex[]; edges: SubEdge[] } {
@@ -3661,6 +3676,17 @@ export class Editor3 {
 
   private clickSelect(hit: Hit | null, e: Mods): void {
     const mode = selMode(e);
+    // Component mode: the first part along the ray, whatever stands in front of it (nothing else is picked).
+    if (this.partsMode && this.pointerAt) {
+      let part: Hit | null = hit?.part ? hit : null;
+      for (let n = 1; !part && n < 8; n++) {
+        const h = this.view.pick(this.store.project, this.pointerAt, null, false, undefined, n);
+        if (!h) break;
+        if (h.part) part = h;
+      }
+      if (!part) return;
+      hit = part;
+    }
     // Clicking again on the same spot (slower than a double click) goes one thing deeper: the window under
     // the eaves, the wall behind a tree, the part inside another one.
     const at = this.pointerAt;
@@ -7716,6 +7742,11 @@ export class Editor3 {
       // Numbers and separators go to the measure box.
       // 1 / 2 / 3: vertex, edge, face (Blender); the same key again goes back to volumes.
       const typing = this.draftInput();
+      if (e.key === '4' && !this.measure && !typing && !e.altKey && this.context) {
+        this.setPartsMode();
+        e.preventDefault();
+        return;
+      }
       if ((e.key === '1' || e.key === '2' || e.key === '3') && !this.measure && !typing && !e.altKey) {
         this.setElemMode(e.key === '1' ? 'vertex' : e.key === '2' ? 'edge' : 'face');
         e.preventDefault();

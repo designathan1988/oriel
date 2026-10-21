@@ -589,7 +589,7 @@ function elementsPanel(ed: Editor3): string {
       .join('');
     params = '<div class="f3-sec"><h3>Types in the selection</h3><div class="f3-chips">' + chips + '</div></div>';
   }
-  return '<div class="f3-title"><span style="flex:1;font-weight:600">' + (t ? esc(t.name) : picked.length + ' element(s)') + '</span><span class="f3-kind">' + (f ? esc(f.name) : 'Facade') + ' · ' + picked.length + '</span></div>' +
+  return '<div class="f3-title"><span style="flex:1;font-weight:600">' + (t ? esc(t.name) : picked.length + ' element(s)') + '</span><span class="f3-kind">' + (f ? esc(tr(f.name)) : 'Facade') + ' · ' + picked.length + '</span></div>' +
   groupsSection(ed) +
   '<div class="f3-sec"><h3>Select</h3><div class="f3-btns n3">' +
   btn('row', 'Row', 'The same floor on every face (double click a window)', 'row') +

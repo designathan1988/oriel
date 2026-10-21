@@ -271,7 +271,7 @@ only), Müller 2006 CGA, CityEngine docs, Houdini Labs, TestFit, Forma):
 
 ### Stage 4: selection and tools
 - [x] Alt picks the building behind the selected one; select row / column / grow / same type (loop and ring
-      on facades). [ ] Component mode (4).
+      on facades). [x] Component mode (4): clicks pick only windows, doors and furniture, through the volumes in front.
 - [x] Editable dimension labels; value typed next to the cursor; expressions in fields and in the measure
       box; formulas between component parameters.
 - [x] Arc drawing (Shift+C: chord ends, then a point of the arc). [x] Spline outlines (Shift+P, smooth points); copies along a drawn line. [x] Free-hand curve (drag with the Curve tool; simplified on release). [x] Mirror with copy and axis; radial arrays (ring,
