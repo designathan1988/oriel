@@ -50,6 +50,10 @@ export const STAIR: Family = {
       ['U', 'U-shaped'],
       ['spiral', 'Spiral'],
     ]),
+    P.pick('turn', 'Turn (L)', 'landing', [
+      ['landing', 'Landing'],
+      ['winders', 'Winders'],
+    ]),
     P.pick('structure', 'Structure', 'solid', STRUCT),
     P.pick('rails', 'Railing', 'both', [
       ['both', 'Both sides'],
@@ -106,15 +110,35 @@ export const STAIR: Family = {
       for (const sd of sides) railOf(out, n * g, 0, (sd * w) / 2, rise);
       return;
     }
-    // L and U: two flights with a landing.
-    const n1 = Math.ceil(n / 2),
-      n2 = n - n1;
+    // L and U: two flights with a landing (an L may turn on three winders instead).
+    const winders = shape === 'L' && str(p, 'turn') === 'winders' && n >= 5;
+    const n1 = winders ? Math.ceil((n - 3) / 2) : Math.ceil(n / 2),
+      n2 = n - n1 - (winders ? 3 : 0);
     const y1 = n1 * r;
     flight(out, n1, r, g, w, 0, m, kind);
     const landZ = n1 * g;
+    for (const sd of sides) railOf(out, n1 * g, 0, (sd * w) / 2, y1);
+    if (winders) {
+      // Three treads fanning from the inner corner of the turn, 30° each, one riser apart.
+      const t = w * Math.tan(Math.PI / 6);
+      const c: [number, number] = [w / 2, landZ];
+      const fans: [number, number][][] = [
+        [c, [-w / 2, landZ], [-w / 2, landZ + t]],
+        [c, [-w / 2, landZ + t], [-w / 2, landZ + w], [w / 2 - t, landZ + w]],
+        [c, [w / 2 - t, landZ + w], [w / 2, landZ + w]],
+      ];
+      fans.forEach((poly, k) => {
+        const yk = y1 + (k + 1) * r;
+        out.slab(m.struct, poly, 0, yk - 0.05);
+        out.slab(m.tread, poly, yk - 0.05, yk);
+      });
+      const s2 = out.placed(w / 2, 0, landZ + w / 2, 90);
+      flight(s2.translated(0, 0, 0), n2, r, g, w, y1 + 3 * r, m, kind);
+      for (const sd of sides) railOf(s2, n2 * g, y1 + 3 * r, (sd * w) / 2, n2 * r);
+      return;
+    }
     out.box(m.struct, [0, y1 / 2 - 0.01, landZ + w / 2], [w, y1 + 0.02, w]);
     out.box(m.tread, [0, y1 - 0.025, landZ + w / 2], [w + 0.02, 0.05, w + 0.02]);
-    for (const sd of sides) railOf(out, n1 * g, 0, (sd * w) / 2, y1);
     if (shape === 'L') {
       // Second flight toward +x, from the landing.
       const s2 = out.placed(w / 2, 0, landZ + w / 2, 90);

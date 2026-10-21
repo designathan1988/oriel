@@ -190,12 +190,24 @@ function stair(p: Placement['params'], cutY: number, baseY: number): { local: Lo
     flight(out, n, g, w, 0, 0, r, 0, cut);
     return { local: out, walk: [[0, 0], [0, n * g]] };
   }
-  const n1 = Math.ceil(n / 2),
-    n2 = n - n1;
+  const winders = shape === 'L' && str(p, 'turn') === 'winders' && n >= 5;
+  const n1 = winders ? Math.ceil((n - 3) / 2) : Math.ceil(n / 2),
+    n2 = n - n1 - (winders ? 3 : 0);
   const y1 = n1 * r;
   flight(out, n1, g, w, 0, 0, r, 0, cut);
   const landZ = n1 * g;
   const landAbove = y1 > cut;
+  if (winders) {
+    // The turn square and the two lines that fan from its inner corner (three winder treads).
+    const t = w * Math.tan(Math.PI / 6);
+    out.push({ pts: rect(-w / 2, landZ, w / 2, landZ + w), closed: true, above: landAbove });
+    out.push({ pts: [[w / 2, landZ], [-w / 2, landZ + t]], closed: false, above: y1 + r > cut });
+    out.push({ pts: [[w / 2, landZ], [w / 2 - t, landZ + w]], closed: false, above: y1 + 2 * r > cut });
+    const second: Local = [];
+    flight(second, n2, g, w, 0, 0, r, y1 + 3 * r, cut);
+    for (const s2 of second) out.push({ ...s2, pts: s2.pts.map(([x, z]) => [w / 2 + z, landZ + w / 2 - x] as Vec2) });
+    return { local: out, walk: [[0, 0], [0, landZ + w / 2], [w / 2 + n2 * g, landZ + w / 2]] };
+  }
   if (shape === 'L') {
     out.push({ pts: rect(-w / 2, landZ, w / 2, landZ + w), closed: true, above: landAbove });
     // Second flight toward +x from the landing: the same flight turned a quarter.

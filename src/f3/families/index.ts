@@ -116,6 +116,7 @@ export const BUILTIN_TYPES: ComponentType[] = [
   t('stair-straight', 'stair', 'Straight stair'),
   t('stair-L', 'stair', 'L stair', { shape: 'L' }),
   t('stair-U', 'stair', 'U stair', { shape: 'U' }),
+  t('stair-L-winders', 'stair', 'L stair with winders', { shape: 'L', turn: 'winders' }),
   t('stair-spiral', 'stair', 'Spiral stair', { shape: 'spiral', structure: 'center', treadColor: '#4a4f52', treadFinish: 'metal' }),
   t('stair-steel', 'stair', 'Steel stair', { structure: 'stringers', treadColor: '#5b6064', treadFinish: 'metal', structColor: '#3a3e41' }),
   t('ramp', 'ramp', 'Accessible ramp'),
