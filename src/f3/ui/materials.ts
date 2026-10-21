@@ -122,7 +122,7 @@ export function paintPanel(ed: Editor3): string {
   return `<div class="f3-title"><span>Bucket material</span><span class="f3-kind">Paint</span></div>
   <div class="f3-sec" style="padding-top:10px">
     <div style="display:flex;gap:10px;align-items:center">
-      <div style="width:64px;height:64px;border-radius:8px;flex:none;background:${thumb ? `url('${thumb}') center/cover` : m.color};box-shadow:inset 0 0 0 1px #ffffff14"></div>
+      <i class="f3-sph" style="width:64px;height:64px;flex:none;margin:0;background-image:${thumb ? `url('${thumb}')` : 'none'};background-color:${m.color}"></i>
       <div style="display:grid;gap:4px;flex:1;min-width:0">
         ${prow('Finish', 'material', [`<label class="f3-cell sel" title="Finish"><select data-mk="finish" aria-label="Finish">${opts}</select></label>`], { wide: true })}
         ${prow('Color', 'palette', [`<label class="f3-cell col" title="Main color"><input type="color" data-mk="color" value="${m.color}" aria-label="Main color"></label>`, ...(proc && proc.color2 !== '#ffffff' ? [`<label class="f3-cell col" title="Joint, mortar, grout"><input type="color" data-mk="color2" value="${m.color2 ?? proc.color2}" aria-label="Joint color"></label>`] : [])], { title: proc && proc.color2 !== '#ffffff' ? 'Main color and joint color' : 'Main color' })}

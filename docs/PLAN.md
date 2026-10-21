@@ -172,7 +172,7 @@ From its version 4:
 - [x] Parallel (orthographic) view: Numpad 5, the ∥ button on the cube; navigation presets (FORMA/Revit,
       SketchUp, Blender); touch: two fingers pan and pinch.
 - [x] Screen-space selection outline (OutlinePass). [ ] Handles without allocation per frame.
-- [x] Layout checked at 1280×720, 1440×860 and 1920×1080 (photos). [ ] 2560×1440.
+- [x] Layout checked at 1280×720, 1440×860 and 1920×1080 (photos). [x] 2560×1440 (2026-10-21).
 
 ### Libraries adopted (2026-10-13, research report in the session)
 - [x] three-mesh-bvh (picking), Manifold slice (filled sections), @tarikjabiri/dxf + dxf (DXF with arcs),

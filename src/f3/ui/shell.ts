@@ -168,6 +168,7 @@ export const CSS = `
 .f3-card{border:1px solid transparent;border-radius:8px;background:var(--raise);padding:4px 4px 5px;position:relative;cursor:grab;text-align:center;min-width:0}
 .f3-card:hover{border-color:var(--line-2);background:#2d3036}
 .f3-card[aria-pressed=true]{border-color:var(--accent);background:var(--accent-2)}
+.f3-sph{position:relative;display:block;width:60px;height:60px;margin:0 auto;border-radius:50%;overflow:hidden;background-size:cover;background-position:center;box-shadow:0 3px 6px #0005}.f3-sph::after{content:'';position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff9 0,#fff3 18%,#0000 40%,#0003 70%,#000a 100%)}
 .f3-card img{width:100%;height:60px;object-fit:contain;display:block;border-radius:5px;background:radial-gradient(circle at 50% 35%,#f2f0ea,#cfccc3)}
 .f3-blockico{height:60px;display:grid;place-items:center;border-radius:5px;background:radial-gradient(circle at 50% 35%,#3a3e45,#2b2e34);color:var(--accent-ink)}
 .f3-blockico svg{width:26px;height:26px;stroke-width:1.4}

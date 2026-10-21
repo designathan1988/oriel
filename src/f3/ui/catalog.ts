@@ -182,7 +182,8 @@ export function mountCatalog(ed: Editor3): { open(): void } {
           html += `<div style="grid-column:1/-1;font-size:11px;color:var(--faint);padding:4px 2px 0">${group}</div>`;
         }
         const th = materialThumb(m.ref);
-        html += `<div class="f3-card" data-mat="${m.id}" title="${m.name}: click and paint faces (Shift: whole volume)"><img alt="" ${th ? `src="${th}"` : ''} style="object-fit:cover"><span>${m.name}</span></div>`;
+        // A shaded sphere of the material (the swatch with light and shade over it).
+        html += `<div class="f3-card" data-mat="${m.id}" title="${m.name}: click and paint faces (Shift: whole volume)"><i class="f3-sph" style="background-image:${th ? `url('${th}')` : 'none'};background-color:${m.ref.color}"></i><span>${m.name}</span></div>`;
       }
       cards.innerHTML = html;
       cards.querySelectorAll<HTMLElement>('[data-mat]').forEach((c) =>
