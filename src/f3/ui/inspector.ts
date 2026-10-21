@@ -29,6 +29,7 @@ import { openCreator } from './creator';
 import { withModifiers } from '../eval/modifiers';
 import { openPhoto } from './photo';
 import { decimal, tr } from './i18n';
+import { PROFILES } from '../eval/roofs';
 import { WALL_TYPES, layersThickness } from '../model/walltypes';
 
 const ROOFS: [RoofKind, string, string][] = [
@@ -43,6 +44,7 @@ const ROOFS: [RoofKind, string, string][] = [
   ['dome', 'Dome', 'dome'],
   ['vault', 'Vault', 'vault'],
   ['sawtooth', 'Sawtooth', 'sawtooth'],
+  ['profile', 'By profile', 'arc'],
 ];
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -301,10 +303,13 @@ function solidPanel(ed: Editor3, b: Building3, s: Solid): string {
   const r = s.roof;
   const c = centerOf(s);
   const pitched = r.kind !== 'flat' && r.kind !== 'terrace' && r.kind !== 'dome' && r.kind !== 'vault';
-  const directed = r.kind === 'shed' || r.kind === 'sawtooth' || r.kind === 'gable' || r.kind === 'gambrel' || r.kind === 'vault';
+  const directed = r.kind === 'shed' || r.kind === 'sawtooth' || r.kind === 'gable' || r.kind === 'gambrel' || r.kind === 'vault' || r.kind === 'profile';
   const roofRows =
     (r.kind === 'flat' || r.kind === 'terrace' ? prow('Parapet', 'parapet', [nk('parapet', 'Parapet height', r.parapet, gicon('parapet'))]) : '') +
     (r.kind === 'dome' || r.kind === 'vault' ? prow('Rise', 'rise', [nk('rise', 'Rise (0 = half circle)', r.rise, gicon('rise'))]) : '') +
+    (r.kind === 'profile'
+      ? prow('Profile', 'arc', [selectCell('data-rprofile', 'Section of the roof across the building', [['butterfly', 'Butterfly'], ['asymmetric', 'Asymmetric gable'], ['curved', 'Curved'], ['m', 'M (double gable)'], ['wave', 'Wave']], Object.entries(PROFILES).find(([, v]) => JSON.stringify(v) === JSON.stringify(r.profile))?.[0] ?? 'butterfly')], { wide: true }) + prow('Rise', 'rise', [nk('rise', 'Height of the profile above the eave', r.rise || 2, gicon('rise'))])
+      : '') +
     (pitched ? prow('Slope', 'slope', [nk('pitch', 'Roof slope', r.pitch, gicon('slope'), '°', 1), nk('overhang', 'Overhang past the walls', r.overhang, gicon('overhang'), '', 0.05)], { title: 'Slope and overhang' }) : '') +
     (directed ? prow('Direction', 'compass', [nk('direction', 'Ridge direction (0 = width, 90 = depth)', r.direction, gicon('compass'), '°', 15)]) : '');
   let facePart = '';
@@ -678,6 +683,9 @@ function bind(ed: Editor3, b: Building3, s: Solid | undefined): void {
   // Volume.
   $$<HTMLInputElement>('[data-s="name"]').forEach((el) => el.addEventListener('change', () => ed.changeSolid((x) => void (x.name = el.value || 'Volume'))));
   $$<HTMLButtonElement>('[data-op]').forEach((el) => el.addEventListener('click', () => ed.command('op-' + el.dataset.op)));
+  $$<HTMLSelectElement>('[data-rprofile]').forEach((el) =>
+    el.addEventListener('change', () => ed.changeSolid((x) => void (x.roof.profile = structuredClone(PROFILES[el.value]!)), 'Roof profile changed.')),
+  );
   $$<HTMLButtonElement>('[data-roof]').forEach((el) =>
     el.addEventListener('click', () =>
       ed.changeSolid((x) => {
@@ -685,6 +693,10 @@ function bind(ed: Editor3, b: Building3, s: Solid | undefined): void {
         x.roof.kind = k;
         if (k === 'flat') x.roof.parapet = x.roof.parapet || 0.6;
         if (k === 'terrace') x.roof.parapet = Math.max(1.05, x.roof.parapet);
+        if (k === 'profile') {
+          x.roof.profile ??= structuredClone(PROFILES.butterfly!);
+          if (!(x.roof.rise > 0.3)) x.roof.rise = 2;
+        }
         if (k !== 'flat' && k !== 'terrace' && x.roof.overhang === 0 && k !== 'dome' && k !== 'vault' && x.op !== 'subtract') x.roof.overhang = 0.5;
         // The top of a cut: no parapet, no eaves past its sides; an arch or a point turned to show on
         // the wall it cuts (audit D1).

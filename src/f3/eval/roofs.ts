@@ -64,6 +64,33 @@ function gableSet(s: Solid, rings: SolidRings, auto: boolean): Set<number> {
   }
 }
 
+/** Preset roof profiles (t across from 0 to 1, h from 0 to 1 of the rise). */
+export const PROFILES: Record<string, [number, number][]> = {
+  butterfly: [[0, 1], [0.5, 0], [1, 1]],
+  asymmetric: [[0, 0], [0.7, 1], [1, 0]],
+  curved: Array.from({ length: 9 }, (_, i) => [i / 8, Math.sin((Math.PI * i) / 8)] as [number, number]),
+  m: [[0, 0], [0.25, 1], [0.5, 0.15], [0.75, 1], [1, 0]],
+  wave: Array.from({ length: 13 }, (_, i) => [i / 12, 0.5 + 0.5 * Math.sin((2 * Math.PI * i) / 12)] as [number, number]),
+};
+
+/** Keeps the part of a polygon where p·dir·sgn ≥ c·sgn (Sutherland–Hodgman against one half-plane). */
+function clipBand(poly: Vec2[], dir: Vec2, c: number, sgn: 1 | -1): Vec2[] {
+  const f = (p: Vec2) => sgn * (p[0] * dir[0] + p[1] * dir[1]) - c;
+  const out: Vec2[] = [];
+  for (let i = 0; i < poly.length; i++) {
+    const p = poly[i]!,
+      q = poly[(i + 1) % poly.length]!;
+    const fp = f(p),
+      fq = f(q);
+    if (fp >= 0) out.push(p);
+    if (fp >= 0 !== fq >= 0) {
+      const t = fp / (fp - fq);
+      out.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]);
+    }
+  }
+  return out;
+}
+
 /** Eave faces: gable (sloped side) or fascia (horizontal side). */
 function prismFaces(s: Solid, table: FaceTable, refs: EdgeRef[][], topId: (t: number) => number, kinds: { rakeOf?: (ring: number, i: number) => boolean } = {}) {
   const soffit = table.add({ kind: 'soffit', solid: s.id });
@@ -143,6 +170,44 @@ const ov = spec.kind === 'dome' || spec.kind === 'vault' ? 0 : Math.max(0, Math.
     const rise = Math.max(...outer.map((p) => hOf(p) - yTop));
     heightPrism(mb, ring, holes.map((h) => offsetRing(h, h.map(() => -ov))), [], (p) => hOf(p) + thick * 0.5, yTop - ov * tanP - thick, faces);
     return { parts: [mb], rise };
+  }
+
+  if (spec.kind === 'profile') {
+    // The profile across `direction`, as planar strips between its points (each strip a shed of its own),
+    // filled down to under the eave like the shed roof.
+    const d = rad(spec.direction || 0);
+    const dir: Vec2 = [Math.cos(d), Math.sin(d)];
+    const ring = offsetRing(outer, outer.map(() => -ov));
+    const proj = (p: Vec2) => p[0] * dir[0] + p[1] * dir[1];
+    const lo = Math.min(...ring.map(proj)),
+      hi = Math.max(...ring.map(proj));
+    const H = Math.max(0.3, spec.rise || 2);
+    const prof = (spec.profile && spec.profile.length >= 2 ? spec.profile : PROFILES.butterfly!).map(([t, h]) => [Math.max(0, Math.min(1, t)), Math.max(0, Math.min(1, h))] as Vec2).sort((a, b) => a[0] - b[0]);
+    const hAt = (p: Vec2) => {
+      const t = (proj(p) - lo) / (hi - lo || 1);
+      for (let i = 0; i + 1 < prof.length; i++) {
+        const [t0, h0] = prof[i]!,
+          [t1, h1] = prof[i + 1]!;
+        if (t <= t1 + 1e-9 || i + 2 === prof.length) return yTop + H * (t1 > t0 ? h0 + ((h1 - h0) * Math.max(0, Math.min(1, (t - t0) / (t1 - t0)))) : h1);
+      }
+      return yTop + H * prof[0]![1];
+    };
+    const roofId = table.add({ kind: 'roof', solid: s.id });
+    const fascia = table.add({ kind: 'fascia', solid: s.id }),
+      soffit = table.add({ kind: 'soffit', solid: s.id });
+    const faces = { top: () => roofId, bottom: soffit, side: () => fascia };
+    const parts: MeshBuilder[] = [];
+    for (let i = 0; i + 1 < prof.length; i++) {
+      const a = lo + (hi - lo) * prof[i]![0],
+        b = lo + (hi - lo) * prof[i + 1]![0];
+      if (b - a < 0.01) continue;
+      const strip = clipBand(clipBand(ring, dir, a, 1), dir, -b, -1);
+      if (strip.length < 3 || Math.abs(signedArea2(strip)) < 0.01) continue;
+      const pm = new MeshBuilder();
+      heightPrism(pm, signedArea2(strip) > 0 ? strip : [...strip].reverse(), [], [], (p) => hAt(p) + thick * 0.5, yTop - thick, faces);
+      parts.push(pm);
+    }
+    return parts.length ? { parts, rise: H * Math.max(...prof.map((q) => q[1])) } : null;
   }
 
   if (spec.kind === 'pyramid') {

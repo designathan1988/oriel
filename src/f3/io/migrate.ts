@@ -499,7 +499,7 @@ export function fromForma2(p: Project): Migration {
 const COLOR = /^#[0-9a-f]{6}$/i;
 const USES: BuildingUse[] = ['residential', 'commercial', 'industrial', 'public', 'mixed'];
 const OPS = ['add', 'subtract', 'intersect'];
-const ROOFS: RoofKind[] = ['flat', 'terrace', 'shed', 'gable', 'hip', 'mansard', 'gambrel', 'pyramid', 'dome', 'vault', 'sawtooth'];
+const ROOFS: RoofKind[] = ['flat', 'terrace', 'shed', 'gable', 'hip', 'mansard', 'gambrel', 'pyramid', 'dome', 'vault', 'sawtooth', 'profile'];
 const PICKS = ['all', 'ground', 'upper', 'top', 'middle'];
 const MODES = ['spacing', 'max', 'count', 'fit'];
 const JUSTIFY = ['start', 'center', 'end'];

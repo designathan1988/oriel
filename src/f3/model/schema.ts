@@ -338,10 +338,16 @@ export type RoofKind =
   | 'pyramid'
   | 'dome'
   | 'vault'
-  | 'sawtooth';
+  | 'sawtooth'
+  | 'profile';
 
 export interface RoofSpec {
   kind: RoofKind;
+  /**
+   * Roof by profile: its section across the building, points (t, h) with t from 0 to 1 across (the
+   * `direction`) and h from 0 to 1 of `rise` above the eave (a butterfly, a curve, an M…).
+   */
+  profile?: [number, number][];
   /** Roof slope in degrees (shed, gable, hip, gambrel, sawtooth, pyramid). */
   pitch: number;
   /** Dome or vault rise (m); 0 = half circle. */
