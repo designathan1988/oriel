@@ -5,6 +5,7 @@
 // a 10 m scale bar and the cut position. Needs the loaded kernel (the shells are evaluated). No three.
 import type { Project3 } from '../model/schema';
 import { evaluateBuilding } from '../eval/evaluate';
+import { terrainField } from '../model/terrain';
 import { kernel } from '../kernel/kernel';
 
 /**
@@ -143,13 +144,17 @@ export function sectionSvg(p: Project3, at?: number, dec = '.', t: (s: string) =
     ys = segs.flatMap((q) => [q[1], q[3]]);
   const M = 5;
   const X0 = Math.min(...xs) - M,
-    X1 = Math.max(...xs) + M,
-    Ytop = Math.max(...ys) + M + 3,
-    Ybot = Math.min(0, ...ys) - M - 4;
+    X1 = Math.max(...xs) + M;
+  // The ground cut by the plane: the terrain's profile where there is one (a point every 25 cm), else flat.
+  const field = terrainField(p);
+  const profile: [number, number][] = field ? Array.from({ length: Math.ceil((X1 - X0) / 0.25) + 1 }, (_, i) => Math.min(X1, X0 + i * 0.25)).map((x) => [x, field.at(x, zc)]) : [[X0, 0], [X1, 0]];
+  const gy = profile.map((q) => q[1]);
+  const Ytop = Math.max(...ys, ...gy) + M + 3,
+    Ybot = Math.min(0, ...ys, ...gy) - M - 4;
   // Sheet coordinates: x as is, height up → y down (−y).
   const line = (q: Seg, w: number, col = '#111', dash = '') => `<line x1="${r2(q[0])}" y1="${r2(-q[1])}" x2="${r2(q[2])}" y2="${r2(-q[3])}" stroke="${col}" stroke-width="${w}" stroke-linecap="round"${dash ? ` stroke-dasharray="${dash}"` : ''}/>`;
   const body = [
-    line([X0, 0, X1, 0], 0.12, '#555'),
+    `<polyline points="${profile.map((q) => `${r2(q[0])},${r2(-q[1])}`).join(' ')}" fill="none" stroke="#555" stroke-width="0.12" stroke-linejoin="round"/>`,
     ...levels.map((l) => line([l.x0 - 1, l.y, l.x1 + 1, l.y], 0.04, '#8a8a8a', '0.6 0.4')),
     // Level marks (ABNT: the elevation of each floor, the ground at +0,00).
     ...[{ x0: Math.min(...levels.map((l) => l.x0), X0 + M), y: 0 }, ...levels].map((l) => `<text x="${r2(l.x0 - 1.4)}" y="${r2(-l.y - 0.25)}" font-size="0.7" text-anchor="end" font-family="sans-serif" fill="#333">${l.y >= 0 ? '+' : ''}${l.y.toFixed(2).replace('.', dec)}</text>`),
