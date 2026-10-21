@@ -112,7 +112,7 @@ export interface Scene {
   /** Orbit camera: what it looks at, how far, its angles (radians) and the projection. */
   camera: { target: Vec3; distance: number; phi: number; theta: number; parallel: boolean };
   /** The view state kept with it (time of day, interior view, floor cut, exploded floors). */
-  view: Pick<ViewState, 'time' | 'hiddenBody' | 'cutLevel' | 'onlyLevel' | 'explode'>;
+  view: Pick<ViewState, 'time' | 'hiddenBody' | 'cutLevel' | 'onlyLevel' | 'explode' | 'style'>;
   /** Visibility of each layer when it was saved. */
   layers?: Record<ID, boolean>;
 }
