@@ -61,9 +61,46 @@ function cutTriangles(pos: Float32Array | number[], idx: Uint32Array | number[],
 }
 
 /** The section drawing (SVG text); `at` is the world z of the cut (default: the middle of the buildings). */
-export function sectionSvg(p: Project3, at?: number): string {
+export function sectionSvg(p: Project3, at?: number, dec = '.', t: (s: string) => string = (x) => x): string {
   const zs = p.buildings.map((b) => b.position[1]);
-  const zc = at ?? (zs.length ? (Math.min(...zs) + Math.max(...zs)) / 2 : 0);
+  const z0 = at ?? (zs.length ? (Math.min(...zs) + Math.max(...zs)) / 2 : 0);
+  // Each building evaluated once (hollow: walls and slabs with the rooms between them).
+  const evs = new Map<string, ReturnType<typeof evaluateBuilding>>();
+  for (const b of p.buildings) {
+    if (b.hidden) continue;
+    try {
+      evs.set(b.id, evaluateBuilding(b, { hidden: () => false, hollow: true }, p));
+    } catch {
+      /* left out of the section */
+    }
+  }
+  const toW = (b: Project3['buildings'][number]) => {
+    const a = (b.rotation * Math.PI) / 180,
+      c = Math.cos(a),
+      s = Math.sin(a);
+    const e = b.elevation ?? 0;
+    return (x: number, y: number, z: number): [number, number, number] => [b.position[0] + x * c + z * s, y + e, b.position[1] - x * s + z * c];
+  };
+  // Where to cut, near the place asked: the line that crosses the most wall height (an architect cuts
+  // through the walls, not along a row of windows and doors that would leave the floors floating).
+  const wallHeight = (z: number) => {
+    let h = 0;
+    for (const b of p.buildings) {
+      const ev = evs.get(b.id);
+      if (!ev) continue;
+      for (const q of cutTriangles(ev.shell.positions, ev.shell.indices, toW(b), z)) if (Math.abs(q[3] - q[1]) > Math.abs(q[2] - q[0])) h += Math.abs(q[3] - q[1]);
+    }
+    return h;
+  };
+  let zc = z0,
+    best = wallHeight(z0);
+  for (const d of [0.35, -0.35, 0.7, -0.7, 1.05, -1.05, 1.4, -1.4]) {
+    const h = wallHeight(z0 + d);
+    if (h > best * 1.15) {
+      best = h;
+      zc = z0 + d;
+    }
+  }
   const segs: Seg[] = [];
   const fills: [number, number][][][] = [];
   const labels: { x: number; y: number; name: string }[] = [];
@@ -75,19 +112,23 @@ export function sectionSvg(p: Project3, at?: number): string {
       s = Math.sin(a);
     const e = b.elevation ?? 0;
     const W = (x: number, y: number, z: number): [number, number, number] => [b.position[0] + x * c + z * s, y + e, b.position[1] - x * s + z * c];
-    let ev;
-    try {
-      // Hollow: walls and slabs with the rooms between them, as a section shows a building.
-      ev = evaluateBuilding(b, { hidden: () => false, hollow: true }, p);
-    } catch {
-      continue;
-    }
+    const ev = evs.get(b.id);
+    if (!ev) continue;
     const mine = cutTriangles(ev.shell.positions, ev.shell.indices, W, zc);
     if (!mine.length) continue;
     segs.push(...mine);
     // The cut walls, slabs and roofs filled (poché) when the shell closes into a solid.
     const polys = slicePolys(ev.shell.positions, ev.shell.indices, [c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, b.position[0], e, b.position[1], 1], zc);
-    if (polys?.length) fills.push(polys);
+    // Poché only when the slice reads as walls and slabs: when its filled area is most of the building's
+    // outline, the rooms came out solid (an opening cut by the plane joins a room to the outside) and the
+    // drawing keeps the cut lines alone rather than a black block.
+    if (polys?.length) {
+      const area = (r: [number, number][]) => Math.abs(r.reduce((a, q, i) => a + q[0] * r[(i + 1) % r.length]![1] - r[(i + 1) % r.length]![0] * q[1], 0)) / 2;
+      const sorted = polys.map(area).sort((x, y) => y - x);
+      const outer = sorted[0] ?? 0;
+      const filled = outer - sorted.slice(1).reduce((a, v) => a + v, 0);
+      if (outer > 0 && filled / outer < 0.55) fills.push(polys);
+    }
     const xs = mine.flatMap((q) => [q[0], q[2]]),
       ys = mine.flatMap((q) => [q[1], q[3]]);
     const x0 = Math.min(...xs),
@@ -110,13 +151,15 @@ export function sectionSvg(p: Project3, at?: number): string {
   const body = [
     line([X0, 0, X1, 0], 0.12, '#555'),
     ...levels.map((l) => line([l.x0 - 1, l.y, l.x1 + 1, l.y], 0.04, '#8a8a8a', '0.6 0.4')),
+    // Level marks (ABNT: the elevation of each floor, the ground at +0,00).
+    ...[{ x0: Math.min(...levels.map((l) => l.x0), X0 + M), y: 0 }, ...levels].map((l) => `<text x="${r2(l.x0 - 1.4)}" y="${r2(-l.y - 0.25)}" font-size="0.7" text-anchor="end" font-family="sans-serif" fill="#333">${l.y >= 0 ? '+' : ''}${l.y.toFixed(2).replace('.', dec)}</text>`),
     // Filled cut (one path per building, even-odd for the holes), then the cut lines over it.
     ...fills.map((polys) => `<path d="${polys.map((r) => `M${r.map((q) => `${r2(q[0])} ${r2(-q[1])}`).join('L')}Z`).join('')}" fill="#3a3d42" fill-rule="evenodd" stroke="none"/>`),
     ...segs.map((q) => line(q, 0.08)),
     ...labels.map((l) => `<text x="${r2(l.x)}" y="${r2(-l.y - 1.2)}" font-size="1.4" text-anchor="middle" font-family="sans-serif" fill="#333">${esc(l.name)}</text>`),
     // 10 m scale bar and the cut position.
     `<g transform="translate(${r2(X0 + 1)} ${r2(-Ybot - 2)})"><rect width="10" height="0.4" fill="#111"/><rect x="5" width="5" height="0.4" fill="#fff" stroke="#111" stroke-width="0.05"/><text y="1.6" font-size="1" font-family="sans-serif">0</text><text x="9.4" y="1.6" font-size="1" font-family="sans-serif">10 m</text></g>`,
-    `<text x="${r2(X1 - 1)}" y="${r2(-Ybot - 1.6)}" font-size="1.1" text-anchor="end" font-family="sans-serif" fill="#555">${esc(p.name)} · section at z = ${r2(zc)} m, seen from the south</text>`,
+    `<text x="${r2(X1 - 1)}" y="${r2(-Ybot - 3)}" font-size="1.1" text-anchor="end" font-family="sans-serif" fill="#555">${esc(p.name)} · ${esc(t('Section'))}</text>`,
   ];
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${r2(X0)} ${r2(-Ytop)} ${r2(X1 - X0)} ${r2(Ytop - Ybot)}" width="${Math.round((X1 - X0) * 20)}" height="${Math.round((Ytop - Ybot) * 20)}"><rect x="${r2(X0)}" y="${r2(-Ytop)}" width="${r2(X1 - X0)}" height="${r2(Ytop - Ybot)}" fill="#fff"/>${body.join('')}</svg>`;
 }

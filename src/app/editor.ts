@@ -265,7 +265,7 @@ function exportMenu(anchor: HTMLElement): void {
     ['Section drawing (SVG)', '.svg', () => {
       // Through the selected building, else through the middle of them all.
       const b = editor.store.building(editor.sel.building ?? editor.context);
-      download(sectionSvg(editor.project, b ? b.position[1] : undefined), fileName(editor.project.name + '-section', 'svg'), 'image/svg+xml');
+      download(sectionSvg(editor.project, b ? b.position[1] : undefined, loadLang() === 'pt-BR' ? ',' : '.', tr), fileName(editor.project.name + '-section', 'svg'), 'image/svg+xml');
     }],
     ['Quantities and cost estimate…', '.csv', () => openQuantities(editor)],
     ['Areas (CSV)', '.csv', () => download(['building;footprint m2;gross floor area m2;volume m3', ...areasTable(editor.project).map((r) => [r.building, r.footprint, r.gfa, r.volume].join(';'))].join('\n'), fileName(editor.project.name + '-areas', 'csv'), 'text/csv')],

@@ -210,7 +210,8 @@ describe('section drawing', () => {
     const svg = sectionSvg(project({ name: 'P', buildings: [b] }), 0);
     expect(svg).toContain('<line');
     expect(svg).toContain('>Box<');
-    expect(svg).toContain('section at z = 0 m');
+    expect(svg).toContain('P · Section<');
+    expect(svg).toContain('+3.00');
     // Far away: no building.
     expect(sectionSvg(project({ name: 'P', buildings: [b] }), 50)).toContain('crosses no building');
   });
