@@ -198,6 +198,11 @@ export interface Interior {
   nodes: { id: ID; p: Vec2 }[];
   walls: { id: ID; a: ID; b: ID; thickness: number; splitFrom?: ID }[];
   rooms: { id: ID; name: string; wallIds: ID[]; polygon?: Vec2[]; area?: number; /** Floor finish of the room (a plate on the slab). */ finish?: MaterialRef }[];
+  /**
+   * Finishes inside this floor (the room side of every wall, the ceilings, the bare floor where a room has
+   * no finish of its own); absent: the light matte defaults of the interior view.
+   */
+  finishes?: { walls?: MaterialRef; ceiling?: MaterialRef; floor?: MaterialRef };
 }
 
 // ── Solid ──────────────────────────────────────────────────────────────
@@ -273,6 +278,21 @@ export interface MaterialRef {
   color2?: string;
   /** Procedural finish parameters (brick size, joint, bond…). */
   params?: Record<string, number>;
+  // Adjustments over the finish (ui/mateditor.ts); absent: the finish's own.
+  /** Roughness, 0 polished … 1 matte. */
+  rough?: number;
+  /** Metallic, 0 … 1. */
+  metal?: number;
+  /** Texture size: × the finish's own; with a picture (finish 'image'), its width in metres. */
+  scale?: number;
+  /** Texture turn (degrees). */
+  rot?: number;
+  /** Light given off (0 none, 1 a lit sign, 3 a lamp). */
+  glow?: number;
+  /** Opacity, 1 solid … 0.02. */
+  opacity?: number;
+  /** Project image used as the texture (finish 'image'). */
+  image?: ID;
 }
 
 export interface SolidMaterials {

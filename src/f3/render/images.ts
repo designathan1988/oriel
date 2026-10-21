@@ -19,6 +19,11 @@ export function setProjectImages(list: ProjectImage[] | undefined): void {
     data.set(im.id, im.data);
     textures.get(im.id)?.dispose();
     textures.delete(im.id);
+    for (const [k, t] of tiled)
+      if (k.startsWith(`${im.id}|`)) {
+        t.dispose();
+        tiled.delete(k);
+      }
   }
 }
 
@@ -35,6 +40,36 @@ export function imageTexture(id: string, anisotropy = 8): THREE.Texture {
     const img = new Image();
     img.onload = () => {
       t!.image = img;
+      t!.needsUpdate = true;
+      for (const fn of listeners) fn();
+    };
+    img.src = src;
+  }
+  return t;
+}
+
+const tiled = new Map<string, THREE.Texture>();
+
+/**
+ * A project image tiled over a surface (UVs in metres): one repeat `width` metres wide, as tall as the
+ * picture's proportions make it. Its own texture (repeat and wrap), loaded from the same data.
+ */
+export function tiledImage(id: string, width: number, anisotropy = 8): THREE.Texture {
+  const key = `${id}|${width}`;
+  let t = tiled.get(key);
+  if (t) return t;
+  t = new THREE.Texture();
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = anisotropy;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(1 / width, 1 / width);
+  tiled.set(key, t);
+  const src = data.get(id);
+  if (src && typeof Image !== 'undefined') {
+    const img = new Image();
+    img.onload = () => {
+      t!.image = img;
+      t!.repeat.set(1 / width, img.naturalWidth / (width * Math.max(1, img.naturalHeight)));
       t!.needsUpdate = true;
       for (const fn of listeners) fn();
     };

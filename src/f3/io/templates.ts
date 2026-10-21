@@ -1,7 +1,7 @@
 // Starting projects (the start screen): a blank site and ready buildings of the kinds people make most
 // (a single-storey house with its rooms, a two-storey house, a warehouse, an apartment block), so a new
 // project opens on something to edit instead of an empty grid. No three.
-import type { Building3, Item, Project3, Vec2 } from '../model/schema';
+import type { Building3, Item, MaterialRef, Project3, Vec2 } from '../model/schema';
 import { building, facadeRule, levelsFor, mat, project, rectPlan, roofSpec, solid, uid } from '../model/defaults';
 import { sampleBuildings } from '../model/samples';
 import { stairBetween } from '../model/stairs';
@@ -24,8 +24,18 @@ function roomsAt(b: Building3, levelId: string, w: number, d: number, t: number,
   for (const r of rooms) {
     const loop = loopAround(it, r.at, [inner]);
     if (!loop) continue;
-    it.rooms.push({ id: uid(), name: r.name, wallIds: loop.wallIds, polygon: loop.polygon, area: Math.round(roomArea(loop.polygon) * 100) / 100 });
+    it.rooms.push({ id: uid(), name: r.name, wallIds: loop.wallIds, polygon: loop.polygon, area: Math.round(roomArea(loop.polygon) * 100) / 100, finish: floorFor(r.name) });
   }
+  // Painted walls and ceilings, warm white, as delivered.
+  it.finishes = { walls: { finish: 'paint', color: '#ece6db' }, ceiling: { finish: 'paint', color: '#f5f3ee' } };
+}
+
+/** The floor a room of this name gets in a Brazilian house: wood in the bedrooms, porcelain or ceramic tile elsewhere. */
+function floorFor(name: string): MaterialRef {
+  if (/quarto|su[ií]te|escrit/i.test(name)) return { finish: 'wood', color: '#9c6b43', color2: '#2c241d', params: { w: 0.16 } };
+  if (/banh|lavabo|servi|lavand/i.test(name)) return { finish: 'floor', color: '#e3e0da', color2: '#bdb7ad', params: { w: 0.6, gloss: 0.7 } };
+  if (/cozinha|copa/i.test(name)) return { finish: 'floor', color: '#d8d1c4', color2: '#a39b8e', params: { w: 0.45 } };
+  return { finish: 'floor', color: '#e5e2dc', color2: '#c9c4bb', params: { w: 0.9, gloss: 0.8 } };
 }
 
 /** A door in the interior wall that passes through `at` (within a few centimetres), opening toward `into`. */

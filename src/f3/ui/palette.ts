@@ -1,6 +1,7 @@
 // Command search (Ctrl+K), like Shapr3D's and the VS Code/Figma palette:
 // any tool, action, block, component or inspector section by name.
 import { openCreator } from './creator';
+import { openObjectMaker } from './objectmaker';
 import type { Editor3, Tool } from '../editor/editor';
 import { BLOCKS } from '../model/blocks';
 import { BUILTIN_TYPES, family } from '../families/index';
@@ -9,6 +10,7 @@ import { icon } from './icons';
 import { tr } from './i18n';
 import { WORKSPACES } from './workspaces';
 import { actionsFor, transformActions } from './actions';
+import { openPhoto } from './photo';
 
 interface Cmd {
   label: string;
@@ -73,10 +75,12 @@ export function mountPalette(ed: Editor3): void {
       { label: 'Structural grid (columns every 6 m)', group: 'Interior', ic: 'grid', run: () => ed.columnGrid(6) },
       { label: 'Copy the interior walls of this floor to the floors above', group: 'Interior', ic: 'floors', run: () => ed.replicateFloor() },
       { label: 'New component (window, door, balcony, stair, tree, furniture…)', group: 'Library', ic: 'add', run: () => openCreator(ed) },
+      { label: 'New object from shapes (box, cylinder, sphere, cone, ring…)', group: 'Library', ic: 'catalog', run: () => openObjectMaker(ed) },
       { label: 'Preferences (theme, navigation)', group: 'View', ic: 'props', run: () => ed.prefsRequested?.() },
       ...(Object.entries(WORKSPACES) as [string, { label: string }][]).map(([w, d]) => ({ label: `Stage: ${d.label}`, group: 'View', ic: 'layers', key: 'Alt PgUp/PgDn', run: () => ed.workspaceRequested?.(w) })),
       { label: 'Quantities and cost estimate', group: 'Project', ic: 'count', run: () => ed.quantitiesRequested?.() },
       { label: 'Virtual tour and site', group: 'Project', ic: 'enter', run: () => ed.tourRequested?.() },
+      { label: 'Photorealistic render (path tracing)', group: 'View', ic: 'camera', run: () => openPhoto(ed) },
       { label: 'Show the stage guide', group: 'Help', ic: 'help', run: () => ed.guideRequested?.() },
       { label: 'Parallel / perspective view', group: 'View', ic: 'grid', key: 'Numpad 5', run: () => ed.view.setParallel(!ed.view.parallel) },
       { label: 'Undo', group: 'Edit', ic: 'undo', key: 'Ctrl Z', run: () => ed.command('undo') },

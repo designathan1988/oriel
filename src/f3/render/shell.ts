@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import type { Building3, ID } from '../model/schema';
 import type { Evaluated } from '../eval/evaluate';
 import type { FaceInfo } from '../eval/faces';
-import type { MaterialKey } from '../../geometry/parts';
+import { extraKey, type MaterialKey } from '../../geometry/parts';
 import type { RenderContext } from '../../render/context';
 import { metricUVs } from '../../render/build-building';
 import { materialKey } from './finishes';
@@ -89,7 +89,28 @@ export interface ShellMesh {
   dispose(): void;
 }
 
-const keyOf = (k: MaterialKey) => `${k.role}|${k.color}|${k.roughness}|${k.texture ?? ''}|${k.textureScale ?? 1}|${k.metalness ?? 0}|${k.finish ?? ''}|${k.color2 ?? ''}|${k.params ?? ''}`;
+const keyOf = (k: MaterialKey) => `${k.role}|${k.color}|${k.roughness}|${k.texture ?? ''}|${k.textureScale ?? 1}|${k.metalness ?? 0}|${k.finish ?? ''}|${k.color2 ?? ''}|${k.params ?? ''}|${k.image ?? ''}${extraKey(k)}`;
+
+/**
+ * The finish chosen for the inside of a floor (Interior.finishes) on a face of the hollow building: the
+ * room side of the walls, the ceilings, the bare floor. The floor is the one the face is in (its
+ * height; a ceiling belongs to the floor under it), or the interior walls' own level.
+ */
+function insideFinish(b: Building3, f: FaceInfo, y: number, ny: number, levels: Building3['levels']): MaterialKey | null {
+  // The inside of a hollow volume (eval/modifiers.ts shellCutters): its faces tell walls, ceiling and
+  // floor apart by where they face.
+  const hollow = f.kind === 'cutter' && f.solid.includes('~shell');
+  const slot = hollow ? (ny < -0.7 ? 'ceiling' : ny > 0.7 ? 'floor' : 'walls') : f.kind === 'innerWall' ? 'walls' : f.kind === 'ceiling' ? 'ceiling' : f.kind === 'floor' && !f.solid.startsWith('room:') ? 'floor' : null;
+  if (!slot) return null;
+  let lv: string | undefined;
+  if (f.solid.startsWith('interior:')) lv = f.solid.slice(9);
+  else {
+    const at = slot === 'ceiling' ? y - 0.1 : y + 0.05;
+    for (const l of levels) if (at >= l.elevation) lv = l.id;
+  }
+  const ref = lv ? b.interiors[lv]?.finishes?.[slot] : undefined;
+  return ref ? materialKey(ref, 'stone') : null;
+}
 
 export function buildShellMesh(b: Building3, ev: Evaluated, ctx: RenderContext, solidOf?: (id: ID) => boolean, faceOk?: (f: FaceInfo) => boolean, gap = 0): ShellMesh {
   // Floor band of each triangle (exploded floors, a single floor shown).
@@ -110,12 +131,23 @@ export function buildShellMesh(b: Building3, ev: Evaluated, ctx: RenderContext, 
       if (q.cross(r).lengthSq() < 1e-14) flat[t] = 1;
     }
   }
+  const levels = [...b.levels].sort((p, q) => p.elevation - q.elevation);
+  const hasInside = Object.values(b.interiors ?? {}).some((it) => it.finishes);
+  const e1 = new THREE.Vector3(),
+    e2 = new THREE.Vector3(),
+    e0 = new THREE.Vector3();
+  const normalY = (t: number) => {
+    e0.fromArray(P, I[t * 3]! * 3);
+    e1.fromArray(P, I[t * 3 + 1]! * 3).sub(e0);
+    e2.fromArray(P, I[t * 3 + 2]! * 3).sub(e0);
+    return e1.cross(e2).normalize().y;
+  };
   // Triangles grouped by material.
   const groups = new Map<string, { key: MaterialKey; tris: number[] }>();
   for (let t = 0; t < nTri; t++) {
     const f = ev.faces[faceOf[t]!];
     if (flat[t] || !f || (solidOf && !solidOf(f.solid)) || (faceOk && !faceOk(f))) continue;
-    const key = faceMaterial(b, f);
+    const key = (hasInside && insideFinish(b, f, (P[I[t * 3]! * 3 + 1]! + P[I[t * 3 + 1]! * 3 + 1]! + P[I[t * 3 + 2]! * 3 + 1]!) / 3, normalY(t), levels)) || faceMaterial(b, f);
     const id = keyOf(key);
     let g = groups.get(id);
     if (!g) groups.set(id, (g = { key, tris: [] }));

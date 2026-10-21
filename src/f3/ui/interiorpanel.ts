@@ -6,8 +6,29 @@ import type { Editor3 } from '../editor/editor';
 import type { Building3, ID, MaterialRef } from '../model/schema';
 import { interiorDoors, roomArea, type InteriorWithDoors } from '../eval/interiorwalls';
 import { icon } from './icons';
-import { gicon, gtext, numCell, prow, selectCell } from './kit';
+import { colorCell, gicon, gtext, numCell, prow, selectCell } from './kit';
 import { evalExpr } from '../model/expr';
+import { FINISHES } from '../render/finishes';
+import { switchFinish } from './materials';
+import { bindSurface, surfaceRows, surfaceToggles } from './mateditor';
+
+/** The inside finishes of a floor (Interior.finishes) and what the interior view shows without them. */
+const INSIDE: { k: 'walls' | 'ceiling' | 'floor'; label: string; ic: string; base: MaterialRef }[] = [
+  { k: 'walls', label: 'Walls', ic: 'wall', base: { finish: 'paint', color: '#ebe6dc' } },
+  { k: 'ceiling', label: 'Ceiling', ic: 'top', base: { finish: 'paint', color: '#f1eee8' } },
+  { k: 'floor', label: 'Flooring', ic: 'flat', base: { finish: 'concrete', color: '#c9b79a' } },
+];
+/** Which inside finish (or 'room' for the selected room's floor) has its surface editor open. */
+let openInside: string | null = null;
+
+function insideRows(ed: Editor3, fin: Partial<Record<'walls' | 'ceiling' | 'floor', MaterialRef>> | undefined): string {
+  return INSIDE.map((d) => {
+    const ref = fin?.[d.k];
+    const cur = ref ?? d.base;
+    const open = openInside === d.k && ref;
+    return `<div class="f3-prow"><span class="lab" title="${d.label} of the rooms on this floor">${icon(d.ic)}<span>${d.label}</span><button class="f3-medit" data-iopen="${d.k}" aria-pressed="${!!open}" title="${d.label}: roughness, texture size and turn, your own picture"${ref ? '' : ' disabled'}>${icon('more')}</button></span><div class="f3-cells fin">${colorCell(`data-ifin="${d.k}.color"`, `${d.label} color`, cur.color)}${selectCell(`data-ifin="${d.k}.finish"`, `${d.label} finish`, [['', 'As the view (light, matte)'] as const, ...FINISHES.filter((f) => f.id !== 'glass').map((f) => [f.id, f.name] as const)], ref?.finish ?? '')}</div></div>${open ? `<div class="f3-surface" data-isurf="${d.k}">${surfaceRows(ed, ref)}</div>` : ''}`;
+  }).join('');
+}
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const num = (v: number) => String(Math.round(v * 100) / 100);
@@ -63,6 +84,7 @@ export function interiorPanel(ed: Editor3, b: Building3): string {
     <div class="f3-sec"><h3>Floor</h3>
       ${prow('Finish', 'material', [selectCell('data-room="finish"', 'Floor finish', [...FLOORS.map(([id, name]) => [id, name] as const), ...(cur === 'custom' ? [['custom', 'Custom'] as const] : [])], cur)], { wide: true })}
       ${room.finish ? prow('Color', 'palette', [`<label class="f3-cell col" title="Floor color"><input type="color" data-room="color" value="${room.finish.color}" aria-label="Floor color"></label>`]) : ''}
+      ${room.finish ? `<div class="f3-surface" data-isurf="room">${surfaceRows(ed, room.finish)}</div>` : ''}
     </div>
     <div class="f3-sec"><h3>Information</h3><dl class="f3-info"><dt>Area</dt><dd>${num(area)} m²</dd><dt>Perimeter</dt><dd>${num(per)} m</dd><dt>Walls</dt><dd>${room.wallIds.length}</dd></dl>
       <div class="f3-btns n2"><button class="f3-btn danger" data-roomdel>${icon('trash')}Delete room</button></div></div>`;
@@ -75,6 +97,7 @@ export function interiorPanel(ed: Editor3, b: Building3): string {
   return `<div class="f3-title"><span style="flex:1;font-weight:600">Interior</span><span class="f3-kind">${esc(b.name)}</span></div>
   <div class="f3-sec"><h3>New walls</h3>${prow('Thickness', 'thickness', [cell('data-idef="thickness"', 'Thickness of the walls you draw next', ed.iwallThickness, gicon('thickness'))])}
     <p class="f3-empty" style="padding:4px 0 0">Interior walls: click points on the floor (Enter ends) · Room: click inside walls or drag a rectangle · drag a corner dot to move it, click a wall dot to edit it.</p></div>
+  <div class="f3-sec"><h3>Finishes of this floor</h3>${insideRows(ed, it?.finishes)}</div>
   <div class="f3-sec"><h3>Rooms on this floor</h3>${rooms.length ? `<dl class="f3-info">${rooms.map((r) => `<dt><button class="f3-link" data-roompick="${r.id}">${esc(r.name)}</button></dt><dd>${num(r.polygon ? roomArea(r.polygon) : r.area ?? 0)} m²</dd>`).join('')}<dt><b>Total</b></dt><dd><b>${num(total)} m²</b></dd></dl>` : '<p class="f3-empty" style="padding:0">No room yet.</p>'}
     <div class="f3-btns n2"><button class="f3-btn" data-iwact="copyup">${icon('floors')}Copy walls up</button><button class="f3-btn" data-iwact="stair">${icon('floorUp')}Stair up</button></div></div>`;
 }
@@ -93,6 +116,44 @@ export function bindInteriorPanel(ed: Editor3, b: Building3, side: HTMLElement):
       }
     }),
   );
+  // Inside finishes of the floor shown, and the surface of the selected room's floor (ui/mateditor.ts).
+  const shownLevel = () => [...b.levels].sort((p, q) => p.elevation - q.elevation)[Math.min(b.levels.length - 1, Math.max(0, ed.project.view?.cutLevel ?? 0))]!.id;
+  const insideOf = (x: Building3, lv: ID) => ((x.interiors[lv] ??= { nodes: [], walls: [], rooms: [] }).finishes ??= {});
+  $$<HTMLInputElement | HTMLSelectElement>('[data-ifin]').forEach((el) =>
+    el.addEventListener('change', () => {
+      const [k, prop] = el.dataset.ifin!.split('.') as ['walls' | 'ceiling' | 'floor', 'color' | 'finish'];
+      const d = INSIDE.find((x) => x.k === k)!;
+      const lv = shownLevel();
+      ed.change(b.id, (x) => {
+        const fin = insideOf(x, lv);
+        if (prop === 'finish' && !el.value) return void delete fin[k];
+        const ref = (fin[k] ??= structuredClone(d.base));
+        if (prop === 'finish') switchFinish(ref, el.value);
+        else ref.color = el.value;
+      }, `${d.label} of this floor changed.`);
+    }),
+  );
+  $$<HTMLButtonElement>('[data-iopen]').forEach((el) =>
+    el.addEventListener('click', () => {
+      openInside = openInside === el.dataset.iopen ? null : el.dataset.iopen!;
+      surfaceToggles.n++;
+      ed.select({ ...ed.sel });
+    }),
+  );
+  $$<HTMLElement>('[data-isurf]').forEach((box) => {
+    const k = box.dataset.isurf!;
+    bindSurface(ed, box, (fn, msg) =>
+      ed.change(b.id, (x) => {
+        if (k === 'room') {
+          const r = rs && x.interiors[rs.level]?.rooms.find((q) => q.id === rs.room);
+          if (r?.finish) fn(r.finish);
+        } else {
+          const ref = insideOf(x, shownLevel())[k as 'walls'];
+          if (ref) fn(ref);
+        }
+      }, msg),
+    );
+  });
   $$<HTMLButtonElement>('[data-roompick]').forEach((el) =>
     el.addEventListener('click', () => {
       const lvId = [...b.levels].sort((p, q) => p.elevation - q.elevation)[Math.min(b.levels.length - 1, Math.max(0, ed.project.view?.cutLevel ?? 0))]!.id;

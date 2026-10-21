@@ -2,6 +2,7 @@
 import { ICON_PATHS } from '../../ui/icons';
 
 const EXTRA: Record<string, string> = {
+  camera: 'M4 8h3l2-3h6l2 3h3v11H4z M12 10a3.5 3.5 0 100 7 3.5 3.5 0 000-7',
   push: 'M4 14h16v6H4z M12 12V3 M8 7l4-4 4 4',
   home: 'M3 11l9-8 9 8 M5 9v12h14V9 M10 21v-6h4v6',
   pencil: 'M4 20l4-1 11-11-3-3L5 16z M14 6l3 3',

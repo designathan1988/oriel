@@ -60,6 +60,7 @@ export function roomMaterial(m: THREE.MeshStandardMaterial): void {
       );
   };
   m.customProgramCacheKey = () => 'forma-room';
+  m.userData.room = true;
 }
 
 const lamps = new Set<THREE.MeshStandardMaterial>();
@@ -68,6 +69,7 @@ const lamps = new Set<THREE.MeshStandardMaterial>();
 export function lampMaterial(m: THREE.MeshStandardMaterial, color: string): void {
   m.emissive.set(color);
   m.emissiveIntensity = nightUniforms.uDark.value * NIGHT.lamp;
+  m.userData.lamp = true;
   lamps.add(m);
 }
 

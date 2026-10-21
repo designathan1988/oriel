@@ -336,11 +336,11 @@ export const CSS = `
 .f3-btn.w{width:100%;justify-content:center}
 /* Action buttons: equal columns (never a ragged wrap); short label, full name in the tooltip. */
 .f3-btns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;margin-top:6px}
-.f3-btns.n2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.f3-btns.n2{grid-template-columns:repeat(2,minmax(0,1fr))}.f3-btns.n1{grid-template-columns:minmax(0,1fr)}
 .f3-btns>.f3-btn{justify-content:center;padding:0 5px;min-width:0}
 .f3-prow .f3-btns{margin-top:0}
 .f3-btn[aria-pressed=true]{background:var(--accent-2);color:var(--accent-ink)}
-.f3-cells.fin{grid-template-columns:30px minmax(0,1fr)}.f3-cells.fin>*{grid-column:auto}
+.f3-cells.fin{grid-template-columns:30px minmax(0,1fr)}.f3-prow>.lab>.f3-medit{margin-left:auto;flex:none;width:22px;height:22px;border-radius:6px;border:1px solid var(--line);background:var(--field);color:var(--muted);display:grid;place-items:center;cursor:pointer;padding:0}.f3-prow>.lab>.f3-medit[aria-pressed=true]{color:var(--accent,#e86a1e);border-color:var(--accent,#e86a1e)}.f3-prow>.lab>.f3-medit svg{width:13px;height:13px}.f3-surface{margin:2px 0 8px 10px;padding:4px 0 4px 10px;border-left:2px solid var(--line)}.f3-cells.fin>*{grid-column:auto}
 /* A narrow panel puts the label above its cells (nothing cut). */
 @container (max-width:268px){.f3-prow{grid-template-columns:minmax(0,1fr);gap:3px}.f3-btns{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .f3 select option{background:#24272c;color:var(--ink)}

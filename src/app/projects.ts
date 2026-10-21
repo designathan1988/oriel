@@ -46,9 +46,13 @@ export function openStart(ed: Editor3, host: ProjectHost, first = false): void {
       : '<li class="empty">No project yet: choose a starting point.</li>';
   };
   void draw();
-  const close = () => {
+  // Closed, the keys go back where they were; a project just opened gets them in its view (R, numbers…).
+  const before = document.activeElement as HTMLElement | null;
+  const close = (opened = false) => {
     m.remove();
     window.removeEventListener('keydown', onKey, true);
+    const to = opened || !before?.isConnected ? ed.view.renderer.domElement : before;
+    to.focus({ preventScroll: true });
   };
   m.addEventListener('click', async (e) => {
     const t = e.target as HTMLElement;
@@ -57,7 +61,7 @@ export function openStart(ed: Editor3, host: ProjectHost, first = false): void {
     if (tpl) {
       const def = TEMPLATES.find((x) => x.id === tpl.dataset.tpl)!;
       host.open(def.make(), null, `${def.name}: new project.`);
-      return close();
+      return close(true);
     }
     const li = t.closest<HTMLElement>('li[data-id]');
     if (!li) return;
@@ -80,7 +84,7 @@ export function openStart(ed: Editor3, host: ProjectHost, first = false): void {
       try {
         const mig = migrateForma3(JSON.parse(sp.json) as Project3);
         host.open(mig.project, id, `“${sp.name}” opened.`);
-        close();
+        close(true);
       } catch (err) {
         ed.toast(`This project could not be read: ${(err as Error).message}`);
       }

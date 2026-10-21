@@ -4,7 +4,7 @@
 // bases and floors of the volumes and each side painted on its own. Pure, no three.
 import type { MaterialRef, Project3 } from './schema';
 
-const key = (m: MaterialRef) => JSON.stringify([m.finish, m.color.toLowerCase(), m.color2?.toLowerCase() ?? null, m.params ?? null]);
+const key = (m: MaterialRef) => JSON.stringify([m.finish, m.color.toLowerCase(), m.color2?.toLowerCase() ?? null, m.params ?? null, m.rough ?? null, m.metal ?? null, m.scale ?? null, m.rot ?? null, m.glow ?? null, m.opacity ?? null, m.image ?? null]);
 
 /** Same material (finish, colors and pattern). */
 export const sameMaterial = (a: MaterialRef, b: MaterialRef) => key(a) === key(b);

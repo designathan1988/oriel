@@ -5680,7 +5680,10 @@ export class Editor3 {
     // Levels follow the height of the first volume.
     if (!this.store.commit([b.id], created ? 'Volume created.' : 'Volume added.')) return;
     if (joined) this.composedNote = `Joined to ${joined.name}: drawn through it, so it is one building now (Separate in the bar keeps it apart).`;
-    if (created || this.context !== b.id) this.context = b.id;
+    // Back to selecting before the measure box is armed: changing tools clears a pending measure, and the
+    // typed 10x8 or 6 was lost (the "1", "2", "3" in it then switched the selection mode).
+    this.setTool('select');
+    this.context = b.id;
     this.select({ building: b.id, solids: [s.id], face: { kind: 'top' } });
     this.toast(this.composedNote ?? (sub ? 'Cutter created. Drag the top square for the height.' : isRectTool ? 'Volume created. Type 10x8 (width × depth) or 6 (height) and Enter; or drag the top square.' : 'Volume created. Drag the top square or type the height and Enter.'));
     this.composedNote = null;
@@ -5721,9 +5724,6 @@ export class Editor3 {
         if (created && !sub && x.solids.length === 1 && so.base < 0.05) fillLevels(x, v);
       }, `Height ${fmt(v)} m.`);
     });
-    this.setTool('select');
-    this.context = bid;
-    this.select({ building: bid, solids: [sid], face: { kind: 'top' } });
   }
 
   // ── Components ───────────────────────────────────────────────────────

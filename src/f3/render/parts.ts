@@ -2,7 +2,7 @@
 // and one merged mesh per material for the profiles. Primitive geometries
 // are shared (from the context); each building frees only what it created.
 import * as THREE from 'three';
-import type { MaterialKey } from '../../geometry/parts';
+import { extraKey, type MaterialKey } from '../../geometry/parts';
 import type { RenderContext } from '../../render/context';
 import type { PartMat } from '../families/family';
 import type { InstPart, Parts3, PartTag } from '../eval/parts';
@@ -33,7 +33,7 @@ export function partMaterial(m: PartMat, textured = true): MaterialKey {
   if (m.foliage) return { role: 'green', color: m.color, roughness: 0.8, doubleSide: true, foliage: m.foliage };
   const finish = m.finish ?? SLOT_FINISH[m.slot] ?? 'paint';
   if (m.image !== undefined) return { role: 'frame', color: '#ffffff', roughness: 0.65, image: m.image };
-  const full = materialKey({ finish, color: m.color, ...(m.color2 ? { color2: m.color2 } : {}) }, SLOT_ROLE[m.slot]);
+  const full = materialKey({ finish, color: m.color, ...(m.color2 ? { color2: m.color2 } : {}), ...(m.surface ?? {}) }, SLOT_ROLE[m.slot]);
   // Instanced primitives have unit UVs: no texture (it would stretch the pattern).
   const { texture, textureScale, ...plain } = full;
   void textureScale;
@@ -78,7 +78,7 @@ export interface PartsMesh {
   dispose(): void;
 }
 
-const keyOf = (k: MaterialKey) => `${k.role}|${k.color}|${k.roughness}|${k.metalness ?? 0}|${k.texture ?? ''}|${k.textureScale ?? 1}|${k.finish ?? ''}|${k.color2 ?? ''}|${k.params ?? ''}|${k.image ?? ''}|${k.lamp ? 1 : 0}|${k.curtain ? 1 : 0}|${k.foliage ?? ''}`;
+const keyOf = (k: MaterialKey) => `${k.role}|${k.color}|${k.roughness}|${k.metalness ?? 0}|${k.texture ?? ''}|${k.textureScale ?? 1}|${k.finish ?? ''}|${k.color2 ?? ''}|${k.params ?? ''}|${k.image ?? ''}|${k.lamp ? 1 : 0}|${k.curtain ? 1 : 0}|${k.foliage ?? ''}${extraKey(k)}`;
 
 /** `category`: meshes split by the category of their parts too, so that `setHidden` can switch them. */
 export function buildPartsMesh(parts: Parts3, ctx: RenderContext, shadows = true, visible?: (tag: PartTag) => boolean, gap = 0, category?: (tag: PartTag) => string): PartsMesh {

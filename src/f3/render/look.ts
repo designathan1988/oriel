@@ -10,12 +10,13 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
-import type { MaterialKey } from '../../geometry/parts';
+import { extraKey, type MaterialKey } from '../../geometry/parts';
 import { foliageMeshes } from './foliage';
 import { createRenderContext, type RenderContext } from '../../render/context';
 import { DETAIL_MEAN, disposePbr, pbrFor } from './pbr';
 import { disposeProc, procFor, type ProcTextures } from './procedural';
-import { imageTexture } from './images';
+import { imageTexture, tiledImage } from './images';
+import { finishOf } from './finishes';
 import { awakeShare, curtainMaterial, lampMaterial, NIGHT, nightUniforms, roomMaterial, setLampLevel } from './night';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 
@@ -74,7 +75,23 @@ export interface Look {
    * variant still compiled on first draw and blocked the frame.
    */
   compileAsync(obj: THREE.Object3D): Promise<unknown>;
+  /** The sky and the sun as they are now (the photographic render rebuilds its light from them). */
+  skyState(): SkyState;
   dispose(): void;
+}
+
+export interface SkyState {
+  zenith: THREE.Color;
+  horizon: THREE.Color;
+  ground: THREE.Color;
+  /** Toward the sun (or the moon at night), and its color and strength (DirectionalLight intensity). */
+  sunDir: THREE.Vector3;
+  sunColor: THREE.Color;
+  sunIntensity: number;
+  /** 0 by day, 1 at night. */
+  dark: number;
+  /** Share of the rooms lit at this hour (render/night.ts). */
+  awake: number;
 }
 
 export function createLook(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera | THREE.OrthographicCamera): Look {
@@ -135,6 +152,7 @@ export function createLook(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
     scene.environment = env.texture;
   };
 
+  let lastDark = 0;
   const hemi = new THREE.HemisphereLight('#e9e6dc', '#6d6b58', 0.75);
   const sun = new THREE.DirectionalLight('#fff0d8', 3.4);
   sun.castShadow = true;
@@ -299,6 +317,18 @@ export function createLook(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
     setAOBox(box) {
       gtao.setSceneClipBox(box as THREE.Box3); // null turns the clip off (GTAOPass.setSceneClipBox)
     },
+    skyState() {
+      return {
+        zenith: (skyMat.uniforms.uZenith!.value as THREE.Color).clone(),
+        horizon: (skyMat.uniforms.uHorizon!.value as THREE.Color).clone(),
+        ground: (skyMat.uniforms.uGround!.value as THREE.Color).clone(),
+        sunDir: sunDir.clone(),
+        sunColor: sun.color.clone(),
+        sunIntensity: sun.intensity,
+        dark: lastDark,
+        awake: nightUniforms.uAwake.value,
+      };
+    },
     setTime(hour, real) {
       const h = ((hour % 24) + 24) % 24;
       // Sun height: > 0 by day; the azimuth moves from east to west. With a real sun (model/sun.ts: date,
@@ -331,6 +361,7 @@ export function createLook(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
       nightUniforms.uDark.value = dark;
       nightUniforms.uAwake.value = awakeShare(h);
       setLampLevel(dark);
+      lastDark = dark;
       bloom.enabled = dark > 0.15;
       rebuildEnv();
       this.follow(lastT, lastSpan);
@@ -379,12 +410,40 @@ function windowGlass(m: THREE.MeshStandardMaterial, color: string): void {
     );
   };
   m.customProgramCacheKey = () => 'forma-window-glass';
+  m.userData.windowGlass = true;
 }
 
 /**
  * Procedural material: the detail carries luminance (R), the 2nd color mask (G)
  * and roughness (B); the main and 2nd colors belong to the material.
  */
+/**
+ * The user's texture size and turn: every map's coordinates scaled and turned in the vertex shader after
+ * the finish's own repeat (one material, the shared textures untouched). The photographic render reads
+ * the same transform from userData.uvXf.
+ */
+function uvTransform(m: THREE.MeshStandardMaterial, scale: number, deg: number): void {
+  const a = (deg * Math.PI) / 180;
+  const c = Math.cos(a) / scale,
+    s = Math.sin(a) / scale;
+  const xf = new THREE.Matrix3().set(c, s, 0, -s, c, 0, 0, 0, 1);
+  m.userData.uvXf = xf;
+  const prev = m.onBeforeCompile.bind(m);
+  const prevKey = m.customProgramCacheKey.call(m);
+  const maps = ['Map', 'NormalMap', 'RoughnessMap', 'BumpMap', 'EmissiveMap', 'MetalnessMap', 'AoMap'];
+  m.onBeforeCompile = (sh, r) => {
+    prev(sh, r);
+    sh.uniforms.uUvXf = { value: xf };
+    sh.vertexShader =
+      'uniform mat3 uUvXf;\n' +
+      sh.vertexShader.replace(
+        '#include <uv_vertex>',
+        `#include <uv_vertex>\n${maps.map((n) => `#ifdef USE_${n.toUpperCase()}\n  v${n}Uv = (uUvXf * vec3(v${n}Uv, 1.0)).xy;\n#endif`).join('\n')}`,
+      );
+  };
+  m.customProgramCacheKey = () => `${prevKey}|uvxf`;
+}
+
 function procMaterial(m: THREE.MeshStandardMaterial, key: MaterialKey, t: ProcTextures): void {
   m.map = t.detail;
   m.normalMap = t.normal;
@@ -394,6 +453,8 @@ function procMaterial(m: THREE.MeshStandardMaterial, key: MaterialKey, t: ProcTe
   m.roughness = 1;
   m.color.set(key.color).multiplyScalar(1 / 0.8);
   const c2 = { value: new THREE.Color(key.color2 ?? t.def.color2).multiplyScalar(1 / 0.8) };
+  // How the detail decodes, for the photographic render (render/pathtrace.ts bakes it into plain maps).
+  m.userData.proc = { color2: c2.value };
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uColor2 = c2;
     sh.fragmentShader =
@@ -426,18 +487,27 @@ function procMaterial(m: THREE.MeshStandardMaterial, key: MaterialKey, t: ProcTe
 export function createLookContext(): RenderContext {
   const base = createRenderContext();
   const extra = new Map<string, THREE.MeshStandardMaterial>();
+  const adjustedMats: THREE.MeshStandardMaterial[] = [];
   return {
     ...base,
     boxGeometry: base.boxGeometry,
     modules: base.modules,
     material(key: MaterialKey) {
-      const id = `${key.role}|${key.color}|${key.roughness}|${key.metalness ?? 0}|${key.doubleSide ? 2 : 1}|${key.texture ?? ''}|${key.textureScale ?? 1}|${key.finish ?? ''}|${key.color2 ?? ''}|${key.params ?? ''}|${key.image ?? ''}|${key.lamp ? 1 : 0}|${key.curtain ? 1 : 0}|${key.foliage ?? ''}`;
+      const id = `${key.role}|${key.color}|${key.roughness}|${key.metalness ?? 0}|${key.doubleSide ? 2 : 1}|${key.texture ?? ''}|${key.textureScale ?? 1}|${key.finish ?? ''}|${key.color2 ?? ''}|${key.params ?? ''}|${key.image ?? ''}|${key.lamp ? 1 : 0}|${key.curtain ? 1 : 0}|${key.foliage ?? ''}${extraKey(key)}`;
       let m = extra.get(id);
       if (m) return m;
       m = base.material(key);
+      // Adjusted by the user: a material of its own (the base one is shared by the same colour and gloss).
+      if (extraKey(key)) {
+        m = m.clone();
+        adjustedMats.push(m);
+      }
       const pbr = key.texture && key.finish ? pbrFor(key.finish) : null;
       const proc = key.texture && key.finish && !pbr ? procFor(key.finish, key.params ? (Object.fromEntries(JSON.parse(key.params) as [string, number][]) as Record<string, number>) : undefined) : null;
-      if (key.image !== undefined) {
+      if (key.image !== undefined && key.imageTile) {
+        m.map = tiledImage(key.image, key.imageTile);
+        m.name = 'image';
+      } else if (key.image !== undefined) {
         m = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.65, map: imageTexture(key.image) });
         m.name = 'image';
       } else if (key.role === 'glass' && key.roughness < 0.1) windowGlass(m, key.color);
@@ -468,6 +538,19 @@ export function createLookContext(): RenderContext {
         m.color.set(key.color).multiplyScalar(1 / DETAIL_MEAN);
       }
       if ((key.metalness ?? 0) > 0.3 && key.role !== 'glass') m.envMapIntensity = 1.2;
+      if (key.uvScale || key.uvRot) uvTransform(m, key.uvScale ?? 1, key.uvRot ?? 0);
+      // A procedural finish keeps its gloss in its texture: the user's roughness scales it.
+      if (proc && key.finish && Math.abs(key.roughness - finishOf(key.finish).roughness) > 1e-6) m.roughness = key.roughness / finishOf(key.finish).roughness;
+      if (key.glow) {
+        m.emissive.set(key.color);
+        m.emissiveIntensity = key.glow;
+        if (m.map && !proc) m.emissiveMap = m.map;
+      }
+      if (key.opacity !== undefined && key.opacity < 1) {
+        m.transparent = true;
+        m.opacity = key.opacity;
+        m.depthWrite = key.opacity > 0.6;
+      }
       if (key.lamp) lampMaterial(m, key.color);
       if (key.curtain) curtainMaterial(m);
       m.needsUpdate = true;
@@ -477,6 +560,8 @@ export function createLookContext(): RenderContext {
     owns: base.owns,
     dispose() {
       extra.clear();
+      for (const a of adjustedMats) a.dispose();
+      adjustedMats.length = 0;
       base.dispose();
       disposePbr();
       disposeProc();

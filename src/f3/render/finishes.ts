@@ -33,6 +33,8 @@ export const FINISHES: Finish[] = [
   { id: 'steel', name: 'Painted steel', scale: 1, roughness: 0.38, metalness: 0.6 },
   { id: 'glass', name: 'Glass', scale: 1, roughness: 0.15, metalness: 0.35 },
   { id: 'ceramic', name: 'Glazed ceramic', scale: 1, roughness: 0.12 },
+  // The user's own picture tiled over the surface (MaterialRef.image, its width in metres = scale).
+  { id: 'image', name: 'Your picture', scale: 1, roughness: 0.6 },
   // Photographed (PBR).
   { id: 'plaster-photo', name: 'Plaster (photo)', texture: 'plaster', scale: 2, roughness: 0.9 },
   { id: 'brick-photo', name: 'Brick (photo)', texture: 'brick', scale: 2.4, roughness: 0.88 },
@@ -54,11 +56,17 @@ export type Role = MaterialKey['role'];
 
 export function materialKey(ref: MaterialRef, role: Role, doubleSide = false): MaterialKey {
   const f = finishOf(ref.finish);
+  const metal = ref.metal ?? f.metalness ?? 0;
+  const pic = f.id === 'image' && ref.image;
   return {
     role,
     color: ref.color,
-    roughness: f.roughness,
-    ...(f.metalness ? { metalness: f.metalness } : {}),
+    roughness: ref.rough ?? f.roughness,
+    ...(metal ? { metalness: metal } : {}),
+    ...(pic ? { image: ref.image!, imageTile: ref.scale ?? 1 } : ref.scale && ref.scale !== 1 ? { uvScale: ref.scale } : {}),
+    ...(ref.rot ? { uvRot: ref.rot } : {}),
+    ...(ref.glow ? { glow: ref.glow } : {}),
+    ...(ref.opacity !== undefined && ref.opacity < 1 ? { opacity: ref.opacity } : {}),
     ...(f.texture ? { texture: f.texture, textureScale: f.scale } : {}),
     finish: f.id,
     ...(ref.color2 ? { color2: ref.color2 } : {}),

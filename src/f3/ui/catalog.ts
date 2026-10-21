@@ -8,6 +8,7 @@ import { BUILTIN_TYPES, family } from '../families/index';
 import { CATEGORY_NAMES, resolveParams, type Category } from '../families/family';
 import { createThumbnailer, type Thumbnailer } from '../render/thumbs';
 import { openCreator } from './creator';
+import { openObjectMaker } from './objectmaker';
 import { icon } from './icons';
 import { BLOCKS } from '../model/blocks';
 import { MATERIAL_PRESETS, materialThumb } from './materials';
@@ -192,7 +193,7 @@ export function mountCatalog(ed: Editor3): { open(): void } {
     const items = list();
     // Cladding and facade: besides the areas, the own-image card.
     // My types: share them as a file, bring types from another project, or make a new one.
-    const mine = tab === 'mine' && !query ? `<div class="f3-card" data-mine="new" title="New component: any family, every parameter"><div class="f3-blockico">${icon('add')}</div><span>New…</span></div><div class="f3-card" data-mine="import" title="Bring the types of a file exported from ${BRAND}"><div class="f3-blockico">${icon('open')}</div><span>Import…</span></div>${items.length ? `<div class="f3-card" data-mine="export" title="Save these types as a file (for another project or a colleague)"><div class="f3-blockico">${icon('export')}</div><span>Export</span></div>` : ''}` : '';
+    const mine = tab === 'mine' && !query ? `<div class="f3-card" data-mine="new" title="New component: any family, every parameter"><div class="f3-blockico">${icon('add')}</div><span>New…</span></div><div class="f3-card" data-mine="shapes" title="Your own object, made of boxes, cylinders, spheres, cones, rings…: anything, no library needed"><div class="f3-blockico">${icon('catalog')}</div><span>Object from shapes…</span></div><div class="f3-card" data-mine="import" title="Bring the types of a file exported from ${BRAND}"><div class="f3-blockico">${icon('open')}</div><span>Import…</span></div>${items.length ? `<div class="f3-card" data-mine="export" title="Save these types as a file (for another project or a colleague)"><div class="f3-blockico">${icon('export')}</div><span>Export</span></div>` : ''}` : '';
     const upload = tab === 'facade' && !query ? `<div class="f3-card" data-upload title="Choose an image from the computer and place it on a wall (poster, graffiti, logo, mural)"><div class="f3-blockico">${icon('open')}</div><span>Image…</span></div>` : '';
     if (!items.length && !upload && !mine) {
       cards.innerHTML = `<p class="f3-empty" style="padding:6px 4px">${tab === 'fav' && !query ? 'Mark ★ on the components you use most.' : tab === 'recent' && !query ? 'The components you place appear here.' : 'Nothing found.'}</p>`;
@@ -267,6 +268,7 @@ export function mountCatalog(ed: Editor3): { open(): void } {
       c.addEventListener('click', () => {
         const what = c.dataset.mine;
         if (what === 'new') return openCreator(ed);
+        if (what === 'shapes') return openObjectMaker(ed);
         if (what === 'export') {
           const data = JSON.stringify({ format: 'forma-types', version: 1, types: ed.project.types.filter((t) => t.user) }, null, 2);
           const a = document.createElement('a');

@@ -376,7 +376,8 @@ export function evaluateBuilding(b0: Building3, opts: EvalOptions = {}, project?
       // Interior walls of the hollow building: joined AFTER the voids, so the floor voids never cut
       // them open (they stand on a slab and stop under the one above). A door is a notch in the
       // wall's own plan (eval/interiorwalls.ts), so nothing has to be subtracted from them either.
-      if (opts.hollow && acc) {
+      // A hollow volume (shell) is open inside in every view: its rooms are walled and floored too.
+      if ((opts.hollow || b.solids.some((x) => x.op === 'add' && !x.hidden && (x.shell ?? 0) > 0)) && acc) {
         const iw = interiorWallMeshes(b, table);
         if (iw) {
           try {

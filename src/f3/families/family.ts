@@ -84,6 +84,8 @@ export interface PartMat {
   curtain?: boolean;
   /** Leaf cards: the cell of the foliage atlas drawn on them (cut out by its alpha, both sides lit). */
   foliage?: Foliage;
+  /** Surface adjustments over the finish (MaterialRef: roughness, metallic, light given off, opacity). */
+  surface?: { rough?: number; metal?: number; glow?: number; opacity?: number };
 }
 
 /** Cells of the foliage atlas (render/foliage.ts). */

@@ -41,8 +41,11 @@ function tower20() {
  * pictures: the samples use only some of them, and the photographed ones none (a change there passed
  * unseen). A new finish gets its block by itself.
  */
+/** The finishes that draw by themselves ("Your picture" needs an image of the project). */
+const SHOWN = FINISHES.filter((f) => f.id !== 'image');
+
 function finishBlocks() {
-  return FINISHES.map((f, i) =>
+  return SHOWN.map((f, i) =>
     building({
       name: f.name,
       levels: levelsFor(1, 4, 4),
@@ -72,7 +75,7 @@ export const SCENES: Scene[] = counted(() => [
   { name: 'night', what: 'the 11 samples at night (lit windows, bloom)', project: project({ name: 'Samples', buildings: sampleBuildings(), view: view({ time: 21 }) }), camera: { theta: 0.75, phi: 0.95, zoom: 1 } },
   { name: 'tower', what: 'a 20-floor tower close (800 windows, rooms behind the glass)', project: project({ name: 'Tower', buildings: [tower20()], view: view() }), camera: { theta: 0.55, phi: 1.2, zoom: 0.5 } },
   { name: 'close', what: 'house with tower up close (brick, tile, plaster textures)', project: project({ name: 'House', buildings: only('House with tower'), view: view() }), camera: { theta: 0.9, phi: 1.15, zoom: 0.6 } },
-  { name: 'finishes', what: `every finish on its own block (${FINISHES.length}: procedural and photographed)`, project: project({ name: 'Finishes', buildings: finishBlocks(), view: view() }), camera: { theta: 0.75, phi: 1.0, zoom: 0.95 } },
+  { name: 'finishes', what: `every finish on its own block (${SHOWN.length}: procedural and photographed)`, project: project({ name: 'Finishes', buildings: finishBlocks(), view: view() }), camera: { theta: 0.75, phi: 1.0, zoom: 0.95 } },
   { name: 'cutaway', what: 'courtyard block in cutaway (walls cut away, roofs hidden)', project: project({ name: 'Cutaway', buildings: only('Courtyard block'), view: view({ hiddenBody: ['walls', 'roofs'] }) }), camera: { theta: 0.75, phi: 0.85, zoom: 1 } },
   { name: 'exploded', what: 'curved building with its floors apart', project: project({ name: 'Exploded', buildings: only('Curved building'), view: view({ explode: 4 }) }), camera: { theta: 0.75, phi: 1.0, zoom: 1 } },
   { name: 'garden', what: `every planting type (${PLANTS.length}: grown trees, shrubs, grasses, beds)`, project: project({ name: 'Garden', buildings: [garden()], view: view() }), camera: { theta: 0.6, phi: 1.1, zoom: 0.62 } },

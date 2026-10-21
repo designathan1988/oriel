@@ -36,6 +36,8 @@ export default defineConfig({
     { name: 'flows', testMatch: 'f3.spec.ts', timeout: 60_000 },
     // The published tour, made and walked through: one long test (two exports of the model).
     { name: 'tour', testMatch: 'tour.spec.ts', timeout: 600_000 },
+    // Pictures and materials: the render forms its first samples on SwiftShader (tens of seconds).
+    { name: 'look', testMatch: 'look.spec.ts', timeout: 600_000 },
   ],
   webServer: {
     command: 'npx vite --port 5795 --strictPort --host 127.0.0.1',

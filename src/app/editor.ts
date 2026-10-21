@@ -23,6 +23,7 @@ import { mountPalette } from '../f3/ui/palette';
 import { mountPlanView } from '../f3/ui/planview';
 import { openQuantities } from '../f3/ui/quantities';
 import { openTour, type TourPublish } from '../f3/ui/tour';
+import { mountPhoto, openPhoto } from '../f3/ui/photo';
 import { mountTime } from '../f3/ui/time';
 import { mountActions } from '../f3/ui/actions';
 import { mountLastOp } from '../f3/ui/lastop';
@@ -57,7 +58,10 @@ try {
 } catch {
   initial = undefined;
 }
-initial ??= project({ name: 'Samples', buildings: sampleBuildings() });
+// The first visit opens on the start screen: nothing is built behind it (the eleven samples took the main
+// thread for seconds while the visitor chose a template, and the click on it waited for them).
+const welcome = firstVisit && !(globalThis as { __orielNoStart?: boolean }).__orielNoStart;
+initial ??= welcome ? project({ name: 'Projeto sem título' }) : project({ name: 'Samples', buildings: sampleBuildings() });
 currentId ??= newProjectId();
 const editor = new Editor3(document.getElementById('app')!, { project: initial });
 mountInspector(editor);
@@ -70,6 +74,7 @@ mountActions(editor);
 mountLastOp(editor);
 mountViewCube(editor);
 mountInteriorView(editor);
+mountPhoto(editor);
 mountWorkspaces(editor);
 mountPlanView(editor);
 editor.quantitiesRequested = () => openQuantities(editor);
@@ -168,7 +173,7 @@ const projects: ProjectHost = {
     void editor.persist(editor.store.json());
   },
 };
-if (firstVisit && !(globalThis as { __orielNoStart?: boolean }).__orielNoStart) openStart(editor, projects, true);
+if (welcome) openStart(editor, projects, true);
 
 const root = editor.shell.root;
 const fileInput = root.querySelector<HTMLInputElement>('[data-file="project"]')!;
@@ -209,6 +214,7 @@ function exportMenu(anchor: HTMLElement): void {
   const items: [string, string, (() => Promise<void> | void) | null][] = [
     ['Client', '', null],
     ['Virtual tour and site (walk through, share a link, app)…', '.html', () => openTour(editor, tourPublish())],
+    ['Photorealistic render of the view (PNG)…', '.png', () => openPhoto(editor)],
     ['Presentation for the client: 3D, plans and areas (HTML)', '.html', async () => {
       editor.toast('Preparing the presentation…');
       const { optimizeGlb } = await import('../f3/io/glbopt');
@@ -275,7 +281,14 @@ function exportMenu(anchor: HTMLElement): void {
       }
     }),
   );
-  setTimeout(() => document.addEventListener('pointerdown', (e) => !m.contains(e.target as Node) && m.remove(), { once: true }), 0);
+  // At once, not on a timer: the menu opens on a click, after its own pointerdown, and a busy frame could
+  // delay a timer past the next click. A press inside the menu keeps it (and keeps this listener).
+  const onDown = (e: PointerEvent) => {
+    if (m.isConnected && m.contains(e.target as Node)) return;
+    m.remove();
+    document.removeEventListener('pointerdown', onDown, true);
+  };
+  document.addEventListener('pointerdown', onDown, true);
   // Esc closes it and gives the focus back to the button (menu button pattern), before the editor sees the key.
   const onKey = (e: KeyboardEvent) => {
     if (!m.isConnected) return document.removeEventListener('keydown', onKey, true);

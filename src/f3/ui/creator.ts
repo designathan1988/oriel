@@ -10,6 +10,7 @@ import { FINISHES } from '../render/finishes';
 import { createThumbnailer, type Thumbnailer } from '../render/thumbs';
 import { uid } from '../model/defaults';
 import { evalExpr } from '../model/expr';
+import { openObjectMaker } from './objectmaker';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const GROUPS: Record<ParamDef['group'], string> = { size: 'Size', divisions: 'Divisions', profile: 'Profile', material: 'Materials', detail: 'Details' };
@@ -28,6 +29,8 @@ function field(d: ParamDef, v: unknown): string {
 
 /** Opens the creator: a new type (optionally of one family), or `edit` an existing project type. */
 export function openCreator(ed: Editor3, opts: { family?: string; edit?: ComponentType; start?: { name: string; params: Params } } = {}): void {
+  // An object made of shapes has its own maker (ui/objectmaker.ts).
+  if ((opts.edit?.family ?? opts.family) === 'assembly') return openObjectMaker(ed, opts.edit ? { edit: opts.edit } : opts.start ? { edit: { id: '', family: 'assembly', name: opts.start.name, params: opts.start.params } } : {});
   const fams = allFamilies().sort((a, b) => (CATEGORY_NAMES[a.category] ?? a.category).localeCompare(CATEGORY_NAMES[b.category] ?? b.category) || a.name.localeCompare(b.name));
   let fam: Family = (opts.edit && familyOf(opts.edit.family)) || (opts.family && familyOf(opts.family)) || fams[0]!;
   let params: Params = resolveParams(fam, opts.edit?.params ?? opts.start?.params ?? {});

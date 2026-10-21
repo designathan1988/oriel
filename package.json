@@ -16,6 +16,7 @@
     "visual:accept": "node scripts/pw.mjs --project=visual --update-snapshots",
     "flows": "node scripts/pw.mjs --project=flows",
     "tour": "node scripts/pw.mjs --project=tour",
+    "look": "node scripts/pw.mjs --project=look",
     "perf:app": "node scripts/perf-app.mjs",
     "shot": "node scripts/shot.mjs"
   },
@@ -33,6 +34,7 @@
     "polygon-clipping": "0.15.7",
     "svg2pdf.js": "2.8.1",
     "three": "0.170.0",
+    "three-gpu-pathtracer": "0.0.23",
     "three-mesh-bvh": "0.9.15"
   },
   "devDependencies": {

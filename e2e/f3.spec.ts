@@ -905,6 +905,8 @@ test('navigation: orbiting from empty space keeps the model on screen; the wheel
 });
 
 test('navigation: the camera comes back from both pitch limits, never goes under the ground, keeps the grabbed point and stops when the button is released anywhere', async ({ page }) => {
+  // About a hundred drag steps, each one a frame of the eleven samples on SwiftShader (~0.5 s).
+  test.setTimeout(240_000);
   const errors: string[] = [];
   await open(page, errors);
   const r = await page.evaluate(() => {
@@ -954,7 +956,7 @@ test('navigation: the camera comes back from both pitch limits, never goes under
 });
 
 test('navigation: a middle pan never takes the eye under the ground, keeps the grabbed point near the edges, and zooming out after zooming into a facade goes back out', async ({ page }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(300_000);
   const errors: string[] = [];
   await open(page, errors);
   const r = await page.evaluate(() => {
@@ -1193,7 +1195,8 @@ test('panels: related values share a row (X·Y·Z, W·D·H) and nothing is cut (
   const r = await page.evaluate(async () => {
     const ed = (globalThis as any).forma3;
     const side: HTMLElement = ed.shell.side;
-    const wait = () => new Promise((res) => setTimeout(res, 40));
+    // The panel redraws on the next frame (ui/inspector.ts): two frames, however long a frame takes here.
+    const wait = () => new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
     const c = document.createElement('canvas').getContext('2d')!;
     const textW = (el: Element, t: string) => {
       const cs = getComputedStyle(el);
@@ -1696,16 +1699,19 @@ async function screenOf(page: Page, p: [number, number, number]) {
 }
 
 /** R, two clicks on the ground (or a slab at y), "WxD" Enter and the height Enter. */
-async function drawRect(page: Page, x: number, z: number, w: number, d: number, h: number, y = 0) {
+/** A rectangle from (x, z) to the second corner (x + 3, z + 2 unless given); then w×d typed (0: kept) and h. */
+async function drawRect(page: Page, x: number, z: number, w: number, d: number, h: number, y = 0, to: [number, number] = [x + 3, z + 2]) {
   await page.keyboard.press('r');
   const a = await screenOf(page, [x, y, z]);
   await page.mouse.click(a.x, a.y);
-  const b = await screenOf(page, [x + 3, y, z + 2]);
+  const b = await screenOf(page, [to[0], y, to[1]]);
   await page.mouse.move(b.x, b.y, { steps: 4 });
   await page.mouse.click(b.x, b.y);
   await settle(page);
-  await page.keyboard.type(`${w}x${d}`);
-  await page.keyboard.press('Enter');
+  if (w && d) {
+    await page.keyboard.type(`${w}x${d}`);
+    await page.keyboard.press('Enter');
+  }
   await page.keyboard.type(String(h));
   await page.keyboard.press('Enter');
   await settle(page);
@@ -1719,6 +1725,8 @@ test('audit 2026-10-11: floors typed on a building with a setback grow it; a rid
   await page.keyboard.press('Control+k');
   await page.keyboard.type('New project');
   await page.keyboard.press('Enter');
+  // New project opens the start screen: its templates, the blank one first.
+  await page.locator('[data-tpl="blank"]').click();
   await settle(page);
   expect(await page.evaluate(() => (globalThis as any).forma3.project.buildings.length)).toBe(0);
   await page.evaluate(() => { const v = (globalThis as any).forma3.view; v.theta = 0.75; v.phi = 0.9; v.distance = 90; v.target.set(10, 0, 8); v.updateCamera(); });
@@ -1763,19 +1771,20 @@ test('audit 2026-10-11: floors typed on a building with a setback grow it; a rid
   expect(s.solids[0].h).toBeCloseTo(20, 6);
   expect(s.solids[1].base).toBeCloseTo(20, 6);
   expect(s.solids[1].h).toBeCloseTo(setH, 6);
-  // A rectangle drawn on the ground through the building becomes a volume of it (no second building).
+  // A rectangle drawn on the ground through the building becomes a volume of it (no second building):
+  // from a corner seen beside it (x 27) to one behind its wall (x 17, on the ground plane of the first).
   await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
   await page.evaluate(() => { const ed = (globalThis as any).forma3; ed.enter(null); ed.select({}); });
   await settle(page);
-  await drawRect(page, 15, 10, 12, 12, 6);
+  await drawRect(page, 27, 10, 0, 0, 6, 0, [17, 13]);
   s = await st();
   expect(s.n).toBe(1);
   expect(s.solids).toHaveLength(3);
   expect(errors).toEqual([]);
 });
 
-test('batches: buildings gone from the project leave nothing drawn (new project, Ctrl+Z, delete)', async ({ page }) => {
+test('batches: buildings gone from the project leave nothing drawn (new project, samples again, delete)', async ({ page }) => {
   const errors: string[] = [];
   await open(page, errors);
   await page.waitForFunction(() => !(globalThis as any).forma3.view.busy);
@@ -1792,10 +1801,16 @@ test('batches: buildings gone from the project leave nothing drawn (new project,
   await page.keyboard.press('Control+k');
   await page.keyboard.type('New project');
   await page.keyboard.press('Enter');
+  // New project opens the start screen: its templates, the blank one first.
+  await page.locator('[data-tpl="blank"]').click();
   await settle(page);
   // Before: the eleven samples stayed drawn by the batches until the next change.
   expect(await drawn()).toEqual({ instances: 0, buildings: 0 });
-  await page.keyboard.press('Control+z');
+  // And back: the samples opened again from the start screen are drawn by the batches again.
+  await page.keyboard.press('Control+k');
+  await page.keyboard.type('New project');
+  await page.keyboard.press('Enter');
+  await page.locator('[data-tpl="samples"]').click();
   await page.waitForFunction(() => !(globalThis as any).forma3.view.busy);
   await settle(page);
   const back = await drawn();

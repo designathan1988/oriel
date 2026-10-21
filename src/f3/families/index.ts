@@ -18,6 +18,7 @@ import { ARMCHAIR, BATHTUB, BED, BOOKSHELF, CHAIR, DESK, DINING_TABLE, FRIDGE, K
 import { BUSH, FERN, FLOWER_BED, GRASS_PATCH, ORNAMENTAL_GRASS, PALM, PLANTER, TREE_CONIFER, TREE_DECIDUOUS } from './vegetation';
 import { BENCH, BIKE_RACK, BOLLARD, BUS_SHELTER, FOUNTAIN, SWIMMING_POOL, TRASH_BIN } from './street';
 import { GRILLE } from './grille';
+import { ASSEMBLY } from './assembly';
 
 const families = new Map<string, Family>();
 
@@ -39,6 +40,7 @@ for (const f of [SOFA, ARMCHAIR, BED, DINING_TABLE, CHAIR, DESK, OFFICE_CHAIR, K
 for (const f of [TREE_DECIDUOUS, TREE_CONIFER, PALM, BUSH, PLANTER, FLOWER_BED, GRASS_PATCH, ORNAMENTAL_GRASS, FERN]) registerFamily(f);
 for (const f of [BENCH, TRASH_BIN, BIKE_RACK, BUS_SHELTER, BOLLARD, FOUNTAIN, SWIMMING_POOL]) registerFamily(f);
 registerFamily(GRILLE);
+registerFamily(ASSEMBLY);
 
 const t = (id: string, fam: string, name: string, params: ComponentType['params'] = {}): ComponentType => ({ id, family: fam, name, params });
 

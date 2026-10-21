@@ -18,6 +18,7 @@ import { buildShellMesh, type ShellMesh } from '../render/shell';
 import { buildPartsMesh, type PartsMesh } from '../render/parts';
 import type { RenderContext } from '../../render/context';
 import { createLook, createLookContext, type Look } from '../render/look';
+import type { PhotoOptions, PhotoSession } from '../render/pathtrace';
 import { sourceId } from '../eval/modifiers';
 import { onPbrLoad, pbrPending, setPbrAnisotropy } from '../render/pbr';
 import { onProcBaked, setProcRenderer } from '../render/procedural';
@@ -198,13 +199,48 @@ export class View {
     this.updateCamera();
     const loop = () => {
       this.raf = requestAnimationFrame(loop);
-      if (!this.dirty) return;
+      // The photographic render draws on the canvas meanwhile.
+      if (!this.dirty || this.photo) return;
       this.dirty = false;
       this.batcher.cull(this.camera, this.look.sun);
       this.look.render();
       this.onRender?.();
     };
     loop();
+  }
+
+  /** The photographic render running on the canvas (render/pathtrace.ts), or null. */
+  photo: PhotoSession | null = null;
+
+  /**
+   * Path traces the view as it is: the ground, the site and the buildings (each drawn by its own meshes,
+   * not its batch copy), from the current camera at the current time of day. Stop it to draw the view again.
+   */
+  async startPhoto(opts: PhotoOptions, onSample?: (n: number, done: boolean) => void): Promise<PhotoSession> {
+    this.stopPhoto();
+    const { startPhoto } = await import('../render/pathtrace');
+    const flipped: THREE.Object3D[] = [];
+    for (const d of this.built.values()) {
+      if (!d.group.visible) continue;
+      for (const o of [d.shell.mesh, d.parts.group]) {
+        if (o.visible) continue;
+        o.visible = true;
+        flipped.push(o);
+      }
+    }
+    try {
+      this.photo = startPhoto(this.renderer, [this.ground, this.site.group, this.root], this.camera, this.look.skyState(), opts, onSample);
+    } finally {
+      for (const o of flipped) o.visible = false;
+    }
+    return this.photo;
+  }
+
+  stopPhoto(): void {
+    if (!this.photo) return;
+    this.photo.stop();
+    this.photo = null;
+    this.mark();
   }
 
   private makeGrid(step: number): THREE.GridHelper {

@@ -1,7 +1,7 @@
 // Contextual inspector: shows only what applies to the selection (building, volume,
 // face, component or rule component). Each field records on change.
 import type { Editor3 } from '../editor/editor';
-import type { Building3, FacadeRule, Project3, RoofKind, Solid } from '../model/schema';
+import type { Building3, FacadeRule, MaterialRef, Project3, RoofKind, Solid } from '../model/schema';
 import { planCenter, rotateSolid, translateSolid } from '../model/ops';
 
 /** Volume center (vertex average), rounded for display. */
@@ -20,6 +20,7 @@ import { addBands, planBox, type BandPreset } from '../model/modeling';
 import { cornerLimit } from '../model/plan';
 import { axis, closeOnOutside, colorCell, gicon, gtext, numCell, polish, prow, selectCell } from './kit';
 import { bindPaintPanel, paintPanel, switchFinish } from './materials';
+import { adjusted, bindSurface, surfaceRows, surfaceToggles } from './mateditor';
 import { buildingAreas, lotIndices } from '../model/lots';
 import { bindSitePanel, sitePanel } from './site';
 import { bindInteriorPanel, interiorPanel } from './interiorpanel';
@@ -48,15 +49,20 @@ const parse = (s: string) => evalExpr(s) ?? parseFloat(s.replace(',', '.'));
 
 /** A material slot: color and finish on one row (panel standard). */
 const SLOT_ICON: Record<string, string> = { wall: 'wall', edgemat: 'wall', roof: 'gable', trim: 'cornice', base: 'flat', floor: 'top' };
-function finishSelect(key: string, label: string, ref: { finish: string; color: string }): string {
-  return `<div class="f3-prow"><span class="lab" title="${label} material">${icon(SLOT_ICON[key] ?? 'material')}<span>${label}</span></span><div class="f3-cells fin">${colorCell(`data-k="${key}.color"`, `${label} color`, ref.color)}${selectCell(`data-k="${key}.finish"`, `${label} finish`, FINISHES.map((f) => [f.id, f.name] as const), ref.finish)}</div></div>`;
+/** The material slot whose surface editor is open under its row (ui/mateditor.ts), and the editor. */
+let openSurface: string | null = null;
+let surfaceEd: Editor3 | null = null;
+
+function finishSelect(key: string, label: string, ref: MaterialRef): string {
+  const open = openSurface === key && surfaceEd;
+  return `<div class="f3-prow"><span class="lab" title="${label} material">${icon(SLOT_ICON[key] ?? 'material')}<span>${label}</span><button class="f3-medit" data-medit="${key}" aria-pressed="${!!open}" title="${label}: roughness, metallic, texture size and turn, light given off, opacity, your own picture${adjusted(ref) ? ' (adjusted)' : ''}">${icon(adjusted(ref) ? 'star' : 'more')}</button></span><div class="f3-cells fin">${colorCell(`data-k="${key}.color"`, `${label} color`, ref.color)}${selectCell(`data-k="${key}.finish"`, `${label} finish`, FINISHES.map((f) => [f.id, f.name] as const), ref.finish)}</div></div>${open ? `<div class="f3-surface" data-surface="${key}">${surfaceRows(surfaceEd!, ref)}</div>` : ''}`;
 }
 
 /** Number cell bound to an inspector key (`data-k`). */
 const nk = (key: string, name: string, value: number, glyph: string, unit = '', step = 0.1, placeholder?: string) => numCell({ attr: `data-k="${key}"`, name, value, glyph, unit, step, ...(placeholder !== undefined ? { placeholder } : {}) });
 
 /** Attributes that identify a panel field from one redraw to the next. */
-const FIELD_KEYS = ['data-k', 'data-p', 'data-t', 'data-rk', 'data-b', 'data-s', 'data-mp', 'data-mk', 'data-bk', 'data-bvprofile', 'data-quick-facade'];
+const FIELD_KEYS = ['data-k', 'data-p', 'data-t', 'data-rk', 'data-b', 'data-s', 'data-mp', 'data-mk', 'data-bk', 'data-bvprofile', 'data-quick-facade', 'data-sf'];
 
 /** Selector of the equivalent field after the panel is redrawn (same key, same rule/band). */
 function fieldSelector(el: Element): string | null {
@@ -141,7 +147,7 @@ export function mountInspector(ed: Editor3): void {
     const b = ed.activeBuilding();
     const site = !b && (ed.sitePick.lot || ed.sitePick.street);
     const ib = ed.store.building(ed.context) ?? b;
-    const key = JSON.stringify([ed.sel, ed.context, b && ed.store.revision.get(b.id), ed.project.types.length, ed.tool, ed.tool === 'paint' ? ed.paintMat : 0, ed.sitePick, site ? [ed.project.lots, ed.project.streets, ed.project.buildings.length] : 0, ed.iwallSel, ed.roomSel, ib && (ed.iwallSel || ed.roomSel || ed.tool === 'iwall' || ed.tool === 'room') ? [ed.store.revision.get(ib.id), ed.project.view?.cutLevel, ed.iwallThickness] : 0]);
+    const key = JSON.stringify([ed.sel, ed.context, b && ed.store.revision.get(b.id), ed.project.types.length, ed.tool, ed.tool === 'paint' ? ed.paintMat : 0, ed.sitePick, site ? [ed.project.lots, ed.project.streets, ed.project.buildings.length] : 0, ed.iwallSel, ed.roomSel, surfaceToggles.n, ib && (ed.iwallSel || ed.roomSel || ed.tool === 'iwall' || ed.tool === 'room') ? [ed.store.revision.get(ib.id), ed.project.view?.cutLevel, ed.iwallThickness] : 0]);
     // Does not redraw while the user types in a field.
     if (key === lastKey && side.contains(document.activeElement)) return;
     lastKey = key;
@@ -302,7 +308,7 @@ function solidPanel(ed: Editor3, b: Building3, s: Solid): string {
   </div>
   <div class="f3-sec"><h3>Size</h3>
     ${prow('Size', 'scale', [nk('sizew', 'Width (X)', box.x1 - box.x0, gtext('W')), nk('sized', 'Depth (Z)', box.z1 - box.z0, gtext('D')), nk('height', 'Height', s.height, gtext('H'))], { title: 'Width, depth and height' })}
-    <div class="f3-btns n2"><button class="f3-btn" data-act="sizelock" aria-pressed="${ed.sizeLock}" title="Keep the proportions: width, depth and height change together">${icon(ed.sizeLock ? 'lock' : 'unlock')}${ed.sizeLock ? 'Proportions kept' : 'Keep proportions'}</button></div>
+    <div class="f3-btns n1"><button class="f3-btn" data-act="sizelock" aria-pressed="${ed.sizeLock}" title="Keep the proportions: width, depth and height change together">${icon(ed.sizeLock ? 'lock' : 'unlock')}${ed.sizeLock ? 'Proportions kept' : 'Keep proportions'}</button></div>
     ${layerRow(ed, 'solid', s.layer)}
     <div class="f3-btns n2"><button class="f3-btn" data-act="levelsfit" title="The volume height goes to the nearest floor slab">${icon('floors')}Height to floors</button></div>
   </div>
@@ -621,6 +627,24 @@ function bind(ed: Editor3, b: Building3, s: Solid | undefined): void {
       }, 'Roof changed.'),
     ),
   );
+  // Surface editor of a material slot: the ⋯ beside the row opens it under the row (one at a time).
+  surfaceEd = ed;
+  $$<HTMLButtonElement>('[data-medit]').forEach((el) =>
+    el.addEventListener('click', () => {
+      openSurface = openSurface === el.dataset.medit ? null : el.dataset.medit!;
+      surfaceToggles.n++;
+      ed.select({ ...ed.sel });
+    }),
+  );
+  $$<HTMLElement>('[data-surface]').forEach((box) => {
+    const slot = box.dataset.surface!;
+    bindSurface(ed, box, (fn, msg) =>
+      ed.changeSolid((x) => {
+        if (slot === 'edgemat') fn(((x.edges[ed.sel.face!.edge!] ??= {}).material ??= structuredClone(x.materials.wall)));
+        else fn((x.materials[slot as 'wall'] ??= structuredClone(x.materials.base)));
+      }, msg),
+    );
+  });
   for (const el of $$<HTMLInputElement>('input[data-k]')) {
     el.addEventListener('change', () => {
       const k = el.dataset.k!;

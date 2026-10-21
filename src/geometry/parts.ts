@@ -34,7 +34,19 @@ export interface MaterialKey {
   curtain?: boolean;
   /** Leaf cards (FORMA 3 foliage atlas). */
   foliage?: string;
+  /** Texture size (× the finish's) and turn (degrees) chosen by the user. */
+  uvScale?: number;
+  uvRot?: number;
+  /** Width (m) of one repeat of the project image `image` tiled over the surface (not a plate). */
+  imageTile?: number;
+  /** Light given off (emissive strength, in the material colour). */
+  glow?: number;
+  /** Opacity below 1: see-through. */
+  opacity?: number;
 }
+
+/** The user's adjustments as text, for the material caches. */
+export const extraKey = (k: MaterialKey): string => (k.uvScale || k.uvRot || k.imageTile || k.glow || k.opacity !== undefined ? `|${k.uvScale ?? 1}|${k.uvRot ?? 0}|${k.imageTile ?? 0}|${k.glow ?? 0}|${k.opacity ?? 1}` : '');
 
 /** Selection data attached to each part. */
 export interface PartData {
