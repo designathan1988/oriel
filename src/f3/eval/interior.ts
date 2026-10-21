@@ -340,12 +340,52 @@ export function mergeShells(shells: { positions: Float32Array; indices: Uint32Ar
   return { positions, indices, faceOf, floorOf };
 }
 
-/** Parts cut into the floor bands, each piece marked with its band. */
+/** Height range of an instanced part (its unit cube corners; it also bounds the unit cylinder). */
+function instRange(m: number[]): [number, number] {
+  let lo = Infinity,
+    hi = -Infinity;
+  for (const cx of [-0.5, 0.5]) for (const cy of [-0.5, 0.5]) for (const cz of [-0.5, 0.5]) {
+    const wy = m[1]! * cx + m[5]! * cy + m[9]! * cz + m[13]!;
+    lo = Math.min(lo, wy);
+    hi = Math.max(hi, wy);
+  }
+  return [lo, hi];
+}
+
+/**
+ * Parts cut into the floor bands, each piece marked with its band. The height range of every part is
+ * found once: a part inside one band goes to it as it is, one outside a band is skipped, and only the
+ * parts that cross a band's edge are clipped (before, every band clipped every part of the building).
+ */
 export function bandParts(parts: Parts3, bands: FloorBand[]): Parts3 {
   const out: Parts3 = { inst: [], meshes: [], tags: parts.tags };
+  const instR = parts.inst.map((it) => instRange(it.m));
+  const meshR = parts.meshes.map((mp): [number, number] => {
+    let lo = Infinity,
+      hi = -Infinity;
+    for (let i = 1; i < mp.positions.length; i += 3) {
+      const y = mp.positions[i]!;
+      if (y < lo) lo = y;
+      if (y > hi) hi = y;
+    }
+    return [lo, hi];
+  });
   for (const bd of bands) {
-    const below = clipPartsBelow(parts, bd.hi);
-    const band = clipPartsAbove(below, bd.lo);
+    const cross: Parts3 = { inst: [], meshes: [], tags: parts.tags };
+    parts.inst.forEach((it, i) => {
+      const [lo, hi] = instR[i]!;
+      if (hi < bd.lo || lo > bd.hi) return;
+      if (lo >= bd.lo && hi <= bd.hi) out.inst.push({ ...it, floor: bd.index });
+      else cross.inst.push(it);
+    });
+    parts.meshes.forEach((mp, i) => {
+      const [lo, hi] = meshR[i]!;
+      if (hi < bd.lo || lo > bd.hi) return;
+      if (lo >= bd.lo && hi <= bd.hi) out.meshes.push({ ...mp, floor: bd.index });
+      else cross.meshes.push(mp);
+    });
+    if (!cross.inst.length && !cross.meshes.length) continue;
+    const band = clipPartsAbove(clipPartsBelow(cross, bd.hi), bd.lo);
     for (const it of band.inst) out.inst.push({ ...it, floor: bd.index });
     for (const m of band.meshes) out.meshes.push({ ...m, floor: bd.index });
   }

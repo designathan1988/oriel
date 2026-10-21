@@ -464,8 +464,10 @@ the 1.2 m plan cut plane):
   Editing is blocked while exploded (the floors are drawn apart).
 - [x] Room-side walls cast shadows only toward the sun (three.js shadowSide);
   curtain shader chained (a procedural fabric showed its raw channels, magenta).
-- [ ] Exploded evaluation costs ~1.2 s for the 11 samples (one intersection per
-  floor): measure on big projects and move it to the worker if needed.
+- [x] Exploded evaluation costs ~1.2 s for the 11 samples (one intersection per
+  floor): it runs in the workers (a view change, nearest building first), and the parts
+  are measured once and clipped only where they cross a band's edge (`eval/interior.ts`
+  bandParts).
 
 ## Audit follow-up (2026-10-12): relations, composition, roofs, openings
 
@@ -571,7 +573,7 @@ Measured on the player's machine (visible Chrome, RTX 3060, D3D11) and in Node.
      through (`pointer-events: none`; Chrome sends them no pointer event): a click on
      the disabled Redo closed no menu.
    - [x] Keep the normal evaluation for the interior view (agent proposal 3: each building keeps
-     the drawing of every view by revision, `editor/view.ts` stash); [ ] cut the parts per band once
+     the drawing of every view by revision, `editor/view.ts` stash); [x] cut the parts per band once
      (proposal 4).
    - [x] User reports (2026-10-11 night) and third audit F1–F10: a niche's depth goes
      through its wall (out = projection, in = niche; volumes remember their wall,
