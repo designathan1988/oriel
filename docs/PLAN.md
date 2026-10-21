@@ -167,7 +167,7 @@ From its version 4:
 
 ### Stage 2: interface and navigation
 - [ ] `editor.ts` split by tool and mode (`editor/tools/*`, selection, dimensions, keys).
-- [ ] One command registry (`ui/commands.ts`): tool bar, keys, Ctrl+K, help, menus, contextual bar.
+- [x] One command registry: the tools (id, icon, name, key, tip, search name) live in `editor/commands.ts` and the tool bar, the single-key shortcuts, Ctrl+K and the shortcuts help read them; the contextual bar, its More menu, the right-click menu and Ctrl+K share the actions of `ui/actions.ts`.
 - [x] Workspaces (Model, Components, Materials, Interior, Present), later removed: they only hid tools (5b35034). [x] Light theme and system theme; preferences (theme, navigation preset), `ui/prefs.ts`.
 - [x] Parallel (orthographic) view: Numpad 5, the ∥ button on the cube; navigation presets (FORMA/Revit,
       SketchUp, Blender); touch: two fingers pan and pinch.
@@ -179,8 +179,12 @@ From its version 4:
       jsPDF + svg2pdf.js (drawings at scale), fflate (zip), glTF-Transform + meshoptimizer (compact GLB),
       Overpass + Nominatim (OSM neighbourhood, place search), three USDZExporter (AR), web-ifc (IFC4
       export validated in tests), OutlinePass (selection outline).
-- [ ] Next candidates: meshopt simplifier LOD for heavy parts; clipper2-ts for the model-layer booleans
-      (drop polygon-clipping); three upgrade to 0.186 (all reference pictures change).
+- [x] Next candidates, decided (2026-10-21): meshopt LOD per geometry needs LOD ranges in BatchedMesh,
+      which core three.js does not have (only `@three.ez/batched-mesh-extensions` adds them); the LOD by
+      screen size in `render/batch.ts` leaves out the heavy detail (furniture, ornaments) instead.
+      clipper2-ts: the plan offsets already run on Clipper2 inside Manifold (`CrossSection.offset`) and
+      polygon-clipping has no open defect, so the model layer keeps it. three 0.186: no needed feature
+      waits on it and every reference picture would change; it stays pinned at 0.170 until one does.
 
 ### Reference software map (ArchiCAD, Revit, SketchUp, Blender, 3ds Max, Rhino; 2026-10-13)
 Done this session: Walls tool (building from walls with real thickness, free walls), Room tool (by

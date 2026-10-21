@@ -2,7 +2,8 @@
 // any tool, action, block, component or inspector section by name.
 import { openCreator } from './creator';
 import { openObjectMaker } from './objectmaker';
-import type { Editor3, Tool } from '../editor/editor';
+import type { Editor3 } from '../editor/editor';
+import { TOOLS } from '../editor/commands';
 import { BLOCKS } from '../model/blocks';
 import { BUILTIN_TYPES, family } from '../families/index';
 import { CATEGORY_NAMES } from '../families/family';
@@ -41,41 +42,13 @@ export function mountPalette(ed: Editor3): void {
     else ed.toast(`Enter a building and select a volume to use "${label}".`);
   };
   const commands = (): Cmd[] => {
-    const tool = (t: Tool, label: string, ic: string, key: string): Cmd => ({ label, group: 'Tool', ic, key, run: () => ed.setTool(t) });
     // What the contextual bar offers for the current selection comes from the same registry (one function,
     // one name): Courtyard, Podium, Round, Floor ±, Move… are found here exactly as on the bar and in "More".
     const fromBar: Cmd[] = [...transformActions(ed), ...actionsFor(ed)].map((a) => ({ label: a.label, group: a.group, ic: a.icon, run: () => a.run() }));
     const mode = (m: 'vertex' | 'edge' | 'face', label: string, ic: string, key: string): Cmd => ({ label, group: 'Select', ic, key, run: () => ed.setElemMode(m) });
     const list: Cmd[] = [
-      tool('select', 'Select and move', 'cursor', 'V'),
-      tool('move', 'Move', 'move', 'M'),
-      tool('rotate', 'Rotate', 'rotate', 'Q'),
-      tool('scale', 'Scale and size', 'scale', 'S'),
-      tool('push', 'Push / pull face', 'push', 'P'),
-      tool('extrude', 'Extrude face (tool)', 'extrude', 'E'),
-      tool('rect', 'Draw rectangle', 'rect', 'R'),
-      tool('circle', 'Draw circle', 'circle', 'C'),
-      tool('polygon', 'Draw polygon', 'polygon', 'L'),
-      tool('spline', 'Draw spline (smooth outline through the points)', 'path', 'Shift+P'),
-      tool('arc', 'Draw arc (chord ends, then a point of the arc)', 'arc', 'Shift+C'),
-      tool('paint', 'Paint', 'paint', 'B'),
-      tool('tape', 'Tape and dimensions', 'tape', 'T'),
-      tool('cut', 'Cut a face or a volume', 'knife', 'U'),
-      { label: 'Library', group: 'Tool', ic: 'catalog', key: 'K', run: () => ed.toggleLibrary(true) },
-      tool('opening', 'Opening on a wall (window, door, balcony, annex, niche)', 'opening', 'O'),
-      tool('walls', 'Walls (outside: a building; inside: divides the floor)', 'wall', 'W'),
-      { label: 'Door', group: 'Tool', ic: 'door', key: 'D', run: () => ed.startPlacing('door-panel') },
-      { label: 'Window', group: 'Tool', ic: 'window', key: 'J', run: () => ed.startPlacing('win-casement') },
-      tool('room', 'Room (click inside walls: name and area)', 'room', 'Shift+R'),
-      tool('slab', 'Slab', 'flat', 'Shift+F'),
-      tool('column', 'Column', 'pillar', 'Shift+K'),
-      tool('beam', 'Beam', 'row', 'Shift+B'),
-      tool('stair', 'Stair (foot, end, then the height)', 'floorUp', 'Shift+I'),
-      tool('lot', 'Lot (drag a rectangle on the ground)', 'lot', 'Shift+L'),
-      tool('street', 'Street (click its points, Enter ends)', 'street', 'Shift+S'),
-      tool('terrain', 'Terrain (click the ground to set its height)', 'terrain', 'Shift+T'),
-      tool('axis', 'Grid axis (click its two ends)', 'axis', 'Shift+A'),
-      tool('mirror', 'Mirror about a drawn line (Ctrl keeps the original)', 'mirror', 'Shift+M'),
+      // Every tool of the bar, by the name the registry gives it for the search.
+      ...TOOLS.map((t): Cmd => ({ label: t.find ?? t.label, group: 'Tool', ic: t.ic, key: t.key, run: () => ed.runTool(t.id) })),
       { label: 'Floor plan (2D)', group: 'View', ic: 'grid', key: 'F2', run: () => ed.planRequested?.(true) },
       { label: 'Walk inside (first person)', group: 'View', ic: 'enter', run: () => ed.startWalk() },
       { label: 'Stair to the floor above', group: 'Interior', ic: 'floorUp', run: () => ed.stairUp() },
@@ -211,7 +184,7 @@ export function mountPalette(ed: Editor3): void {
     m.className = 'f3-modal';
     const k = (keys: string, what: string) => `<span>${tr(keys).split(' ').map((x) => `<kbd>${x}</kbd>`).join(' ')}</span><span>${what}</span>`;
     m.innerHTML = `<div class="f3-help" role="dialog" aria-label="Shortcuts"><h2>Shortcuts</h2><div class="cols">
-      <div class="f3-keys" style="margin:0"><h3>Tools</h3>${k('V', 'Select')}${k('M', 'Move')}${k('Q', 'Rotate')}${k('S', 'Scale')}${k('W', 'Wall')}${k('D', 'Door')}${k('J', 'Window')}${k('O', 'Opening')}${k('Shift R', 'Room')}${k('Shift F', 'Slab')}${k('Shift K', 'Column')}${k('Shift B', 'Beam')}${k('Shift I', 'Stair')}${k('R', 'Rectangle')}${k('C', 'Circle')}${k('L', 'Polygon')}${k('Shift C', 'Arc')}${k('Shift P', 'Curve')}${k('P', 'Push')}${k('E', 'Extrude')}${k('U', 'Cut')}${k('X', 'Add / subtract')}${k('Shift L', 'Lot')}${k('Shift S', 'Street')}${k('Shift T', 'Terrain')}${k('Shift A', 'Grid axis')}${k('Shift M', 'Mirror')}${k('K', 'Library')}${k('B', 'Paint')}${k('T', 'Measure')}</div>
+      <div class="f3-keys" style="margin:0"><h3>Tools</h3>${TOOLS.map((t) => k(t.key.replace('+', ' '), t.label)).join('')}${k('X', 'Add / subtract')}</div>
       <div class="f3-keys" style="margin:0"><h3>Commands</h3>${k('Ctrl K', 'Search commands')}${k('Ctrl Z', 'Undo')}${k('Ctrl Y', 'Redo')}${k('Ctrl D', 'Duplicate')}${k('Ctrl Shift C', 'Copy properties')}${k('Ctrl Shift V', 'Paste properties')}${k('Del', 'Delete')}${k('F', 'Frame selection')}${k('F2', 'Floor plan (2D)')}${k('F3', '3D view')}${k('PgUp PgDn', 'Floor shown')}${k('G', 'Snap')}${k('Esc', 'Leave / cancel')}${k('10x8', 'Measure (type and Enter)')}${k('5x 5/', 'Repeat / divide copies')}</div>
       <div class="f3-keys" style="margin:0"><h3>Selection</h3>${k('Click again', 'What is behind (under the eaves, inside)')}${k('Ctrl click', 'Add to the selection')}${k('Shift click', 'Toggle (add or remove)')}${k('Ctrl Shift click', 'Remove from the selection')}${k('Alt click', 'Row span up to here')}${k('Drag →', 'Box: only what is fully inside')}${k('Drag ←', 'Box: everything it touches')}${k('Ctrl A', 'Select all (in the context)')}${k('Ctrl I', 'Invert the selection')}${k('Shift G', 'Select similar')}${k('H', 'Hide the selection')}${k('Shift H', 'Isolate (hide the rest)')}${k('Alt H', 'Show all')}${k('Ctrl drag', 'Copy what is selected')}${k('← → ↑ ↓', 'Walk the selection on the facade')}${k('Right button', 'Menu with the object actions')}</div>
     </div></div>`;

@@ -10,6 +10,7 @@ import { bendEdge, cloneBuilding, inside, mirrorSolidAbout, reflect, locateVerte
 import { solidRings } from '../eval/body';
 import { stairClashes } from '../eval/clashes';
 import { modifierCopies } from '../eval/modifiers';
+import { TOOL_GROUPS, toolForKey, type ToolDef } from './commands';
 import { terrainField, type TerrainField } from '../model/terrain';
 import { adoptOffsetSides, sideCurve, stackOnTop, edgeLength, extrudeSide, hostedFrame, insetSide, insetTop, offsetCopy, offsetSolid, setSideDepth, setSolidSize, splitAtHeight, splitByLine, splitSideAt } from '../model/modeling';
 import { activeLayer, buildingHidden, buildingLocked, ensureLayers, explodeGap, itemHidden, itemLocked, solidHidden, solidLocked, viewOf, optionHidden } from '../model/layers';
@@ -3075,31 +3076,20 @@ export class Editor3 {
     this.emit();
   }
 
+  /** Starts a tool of the registry (`editor/commands.ts`): the bar, the keys and the command search. */
+  runTool(id: string): void {
+    if (id === 'catalog') this.toggleLibrary();
+    else if (id === 'door') this.startPlacing('door-panel');
+    else if (id === 'window') this.startPlacing('win-casement');
+    else this.setTool(id as Tool);
+  }
+
   /** The tool shown on each toolbar group (the last one used in it, as in Photoshop and Revit). */
   private toolPick = new Map<string, string>();
 
   private renderTools(): void {
-    type T = { id: string; ic: string; label: string; key: string; tip: string };
-    const T = (id: string, ic: string, label: string, key: string, tip: string): T => ({ id, ic, label, key, tip });
-    // Groups of the toolbar, in the order a building is made: icons only, the name and key on hover.
-    // Tools of the same kind share one button whose other tools open from it (press and hold, or a
-    // right click). Nothing is hidden by a mode and no tool appears twice.
-    const groups: { id: string; tools: T[] }[] = [
-      { id: 'select', tools: [T('select', 'cursor', 'Select', 'V', 'Click to select; drag the arrows to move, rotate or size')] },
-      { id: 'move', tools: [T('move', 'move', 'Move', 'M', 'Drag to move; type a distance'), T('rotate', 'rotate', 'Rotate', 'Q', 'Drag to rotate; type an angle'), T('scale', 'scale', 'Scale', 'S', 'Drag a corner to size; type a factor')] },
-      { id: 'walls', tools: [T('walls', 'wall', 'Wall', 'W', 'Click point to point and type the lengths; inside a building it divides the floor')] },
-      { id: 'door', tools: [T('door', 'door', 'Door', 'D', 'Click a wall to put a door'), T('opening', 'opening', 'Opening', 'O', 'Drag a rectangle on a wall: balcony, canopy, niche, shopfront')] },
-      { id: 'window', tools: [T('window', 'window', 'Window', 'J', 'Click a wall to put a window')] },
-      { id: 'room', tools: [T('room', 'room', 'Room', 'Shift+R', 'Click inside walls: a named room with its area')] },
-      { id: 'slab', tools: [T('slab', 'flat', 'Slab', 'Shift+F', 'Click the corners of a slab on the floor shown'), T('column', 'pillar', 'Column', 'Shift+K', 'Click on the floor shown'), T('beam', 'row', 'Beam', 'Shift+B', 'Click its two ends')] },
-      { id: 'stair', tools: [T('stair', 'floorUp', 'Stair', 'Shift+I', 'Click the foot, then where it ends')] },
-      { id: 'shape', tools: [T('rect', 'rect', 'Rectangle', 'R', 'A volume: two corners, or type 10x8'), T('circle', 'circle', 'Circle', 'C', 'A round volume: centre, then the radius'), T('polygon', 'polygon', 'Polygon', 'L', 'A volume: click its corners'), T('arc', 'arc', 'Arc', 'Shift+C', 'The two ends, then a point of the arc'), T('spline', 'path', 'Curve', 'Shift+P', 'A smooth outline through the points')] },
-      { id: 'push', tools: [T('push', 'push', 'Push', 'P', 'Drag a face in or out; type the distance'), T('extrude', 'extrude', 'Extrude', 'E', 'A new volume from a face'), T('cut', 'knife', 'Cut', 'U', 'Split a face or a volume')] },
-      { id: 'site', tools: [T('lot', 'lot', 'Lot', 'Shift+L', 'Drag the lot on the ground; its setbacks show where to build'), T('street', 'street', 'Street', 'Shift+S', 'Click the points of its centre line'), T('terrain', 'terrain', 'Terrain', 'Shift+T', 'Click the ground to set its height there'), T('axis', 'axis', 'Grid axis', 'Shift+A', 'Click the two ends of a grid line'), T('mirror', 'mirror', 'Mirror', 'Shift+M', 'Click two points of the mirror line; Ctrl keeps the original')] },
-      { id: 'catalog', tools: [T('catalog', 'catalog', 'Library', 'K', 'Furniture, doors, windows, plants and blocks')] },
-      { id: 'paint', tools: [T('paint', 'paint', 'Paint', 'B', 'Click a surface with the chosen material (Alt: pick one)')] },
-      { id: 'tape', tools: [T('tape', 'tape', 'Measure', 'T', 'Click two points: a dimension; Shift+click: a label')] },
-    ];
+    type T = ToolDef;
+    const groups = TOOL_GROUPS;
     const placingFamily = () => (this.tool === 'place' && this.placing ? (typeById(this.placing, this.project)?.family ?? null) : null);
     const pressed = (t: T) =>
       t.id === 'catalog' ? !this.shell.cat.classList.contains('closed') : t.id === 'door' ? placingFamily() === 'door' : t.id === 'window' ? placingFamily() === 'window' : this.tool === t.id;
@@ -3115,12 +3105,7 @@ export class Editor3 {
     snapBtn?.setAttribute('aria-pressed', String(this.infer.enabled));
     const libBtn = this.shell.status.bar.querySelector('[data-cmd="library"]');
     libBtn?.setAttribute('aria-pressed', String(!this.shell.cat.classList.contains('closed')));
-    const run = (id: string) => {
-      if (id === 'catalog') this.toggleLibrary();
-      else if (id === 'door') this.startPlacing('door-panel');
-      else if (id === 'window') this.startPlacing('win-casement');
-      else this.setTool(id as Tool);
-    };
+    const run = (id: string) => this.runTool(id);
     const flyout = (b: HTMLButtonElement) => {
       const g = groups.find((x) => x.id === b.dataset.group)!;
       this.shell.root.querySelector('.f3-flyout')?.remove();
@@ -7833,38 +7818,9 @@ export class Editor3 {
         else if (e.shiftKey) this.isolateSelection();
         else this.hideSelected();
       } else if (k === 'g' && e.shiftKey) this.selectSimilar();
-      else if (k === 'v') this.setTool('select');
-      else if (k === 'm') this.setTool('move');
-      else if (k === 'q') this.setTool('rotate');
-      else if (k === 's' && e.shiftKey) this.setTool('street');
-      else if (k === 's') this.setTool('scale');
-      else if (k === 'p' && e.shiftKey) this.setTool('spline');
-      else if (k === 'p') this.setTool('push');
-      else if (k === 'e') this.setTool('extrude');
-      else if (k === 'r' && e.shiftKey) this.setTool('room');
-      else if (k === 'f' && e.shiftKey) this.setTool('slab');
-      else if (k === 'k' && e.shiftKey) this.setTool('column');
-      else if (k === 'b' && e.shiftKey) this.setTool('beam');
-      else if (k === 'w' && !e.shiftKey) this.setTool('walls');
-      else if (k === 'r') this.setTool('rect');
-      else if (k === 'c' && e.shiftKey) this.setTool('arc');
-      else if (k === 'c') this.setTool('circle');
-      else if (k === 'l' && e.shiftKey) this.setTool('lot');
-      else if (k === 'l') this.setTool('polygon');
-      else if (k === 'b') this.setTool('paint');
-      else if (k === 't' && e.shiftKey) this.setTool('terrain');
-      else if (k === 'a' && e.shiftKey) this.setTool('axis');
-      else if (k === 'm' && e.shiftKey) this.setTool('mirror');
-      else if (k === 't') this.setTool('tape');
-      else if (k === 'u') this.setTool('cut');
-      else if (k === 'o') this.setTool('opening');
-      // One wall tool: I (the old interior walls key) draws walls too; inside a building they divide it.
-      else if (k === 'i' && !e.shiftKey) this.setTool('walls');
-      else if (k === 'd' && !e.shiftKey) this.startPlacing('door-panel');
-      else if (k === 'j' && !e.shiftKey) this.startPlacing('win-casement');
-      else if (k === 'i') this.setTool('stair');
+      // The tools' keys come from the registry (editor/commands.ts), as the bar shows them.
+      else if (k.length === 1 && toolForKey(k, e.shiftKey)) this.runTool(toolForKey(k, e.shiftKey)!);
       else if (k === 'x') this.toggleDrawMode();
-      else if (k === 'k') this.toggleLibrary();
       else if (k === 'f') this.frameSelection();
       else if (k === 'g') this.toggleSnap();
       else if (k === '?') this.helpRequested?.();
