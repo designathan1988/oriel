@@ -205,7 +205,7 @@ export function mountPlanView(ed: Editor3): PlanView {
     };
     const unnamed = fp.rooms.filter((r) => !r.name).length;
     const fails = checks.filter((c) => !c.ok).length;
-    box.innerHTML = `<h4>${esc(tr('Code check'))}: ${fails ? `${fails} ${esc(tr('to fix'))}` : esc(tr('all right'))}</h4><p>${esc(tr('Reference: window area 1/6 of the floor in bedrooms and living rooms, 1/8 in kitchens and laundries, 1/12 in bathrooms (municipal code of Porto Velho, LC 471/2012); ceiling height 2.50 m, 2.30 m in bathrooms and halls (NBR 15575). Check the code of your city.'))}</p><ul>${checks.map(line).join('')}</ul>${unnamed ? `<p style="margin-top:8px">${unnamed} ${esc(tr('room(s) without a name are not checked: name them (Quarto, Sala, Cozinha…) to check them.'))}</p>` : ''}`;
+    box.innerHTML = `<h4 title="${esc(tr('Reference: window area 1/6 of the floor in bedrooms and living rooms, 1/8 in kitchens and laundries, 1/12 in bathrooms (municipal code of Porto Velho, LC 471/2012); ceiling height 2.50 m, 2.30 m in bathrooms and halls (NBR 15575). Check the code of your city.'))}">${esc(tr('Code check'))}: ${fails ? `${fails} ${esc(tr('to fix'))}` : esc(tr('all right'))}</h4><ul>${checks.map(line).join('')}</ul>${unnamed ? `<p style="margin-top:8px">${unnamed} ${esc(tr('room(s) without a name are not checked: name them (Quarto, Sala, Cozinha…) to check them.'))}</p>` : ''}`;
     // Room names are the user's: set as text.
     box.querySelectorAll('li strong').forEach((s2, i) => (s2.textContent = checks[i]!.room.name));
     box.setAttribute('data-i18n-skip', '');

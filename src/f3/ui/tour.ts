@@ -99,8 +99,7 @@ export function openTour(ed: Editor3, pub: TourPublish): void {
       </div>
     </div>
     <footer>
-      <div class="btns"><button class="f3-btn" data-preview>Preview</button><button class="f3-btn primary" data-site>Download the site (HTML)</button><button class="f3-btn" data-app>Download the app (PWA, ZIP)</button></div>
-      <p>The site is one file: it opens in any browser, also offline. To share a link, put it on any host (Netlify Drop, GitHub Pages): its address is the link, and the Share button on the site copies a link to the very view being seen. The app installs on phones from that address and works without internet.</p>
+      <div class="btns"><button class="f3-btn" data-preview>Preview</button><button class="f3-btn primary" data-site title="One file: opens in any browser, also offline; put it on any host to share a link">Download the site (HTML)</button><button class="f3-btn" data-app title="Installs on phones from the site's address and works without internet">Download the app (PWA, ZIP)</button></div>
     </footer>`;
   ed.shell.view.appendChild(panel);
   open = panel;

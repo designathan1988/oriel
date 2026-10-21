@@ -73,7 +73,7 @@ export function mountPrefs(ed: Editor3): void {
       `<div class="hd">Navigation</div>${seg('nav', [['forma', 'Revit', 'Middle drag pans, Shift+middle orbits (Revit, AutoCAD)'], ['sketchup', 'SketchUp', 'Middle drag orbits, Shift+middle pans'], ['blender', 'Blender', 'Middle drag orbits, Shift+middle pans']])}` +
       `<div class="hd">Graphics</div>${seg('quality', [['light', 'Fast', 'For laptops and integrated graphics: no ambient occlusion, softer shadows, one pixel per screen point'], ['normal', 'Normal', 'Ambient occlusion and sharp shadows'], ['high', 'Maximum', 'As Normal, at the full sharpness of high-density screens']])}` +
       `<div class="hd">Language</div><div class="f3-prefs-seg" role="radiogroup">${[['pt-BR', 'Português', 'Português (Brasil)'], ['en', 'English', 'English']].map(([v, l, t]) => `<button role="radio" data-lang="${v}" aria-checked="${loadLang() === v}" title="${t}" data-i18n-skip>${l}</button>`).join('')}</div>` +
-      `<p class="f3-prefs-note">In every preset the right button orbits and the wheel zooms at the pointer; on a touch screen two fingers pan and pinch.</p>`;
+      '';
     ed.shell.root.appendChild(m);
     const r = gear.getBoundingClientRect(),
       rr = ed.shell.root.getBoundingClientRect();

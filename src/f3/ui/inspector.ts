@@ -385,7 +385,6 @@ function solidPanel(ed: Editor3, b: Building3, s: Solid): string {
         // niches). Showing the roof chips here made "Hip" carve a wedge out of the building instead of roofing it.
         `<div class="f3-sec"><h3>Top of the cut</h3><div class="f3-chips">${CUT_TOPS.map(([k, l, ic]) => `<button class="f3-chip" data-roof="${k}" aria-pressed="${r.kind === k}" title="${l}">${icon(ic)}<span>${l}</span></button>`).join('')}</div>
     ${r.kind === 'vault' || r.kind === 'gable' ? `<div style="margin-top:6px">${r.kind === 'vault' ? prow('Rise', 'rise', [nk('rise', 'Rise of the arch (0 = half circle)', r.rise, gicon('rise'))]) : ''}${prow('Direction', 'compass', [nk('direction', 'Direction of the arch: it shows on the walls across it (0 = it runs along the width)', r.direction, gicon('compass'), '°', 15)])}</div>` : ''}
-    <p class="f3-empty" style="padding:6px 0 0">This cutter removes from the building. The roof is set on the volume it cuts.</p>
     ${s.host && b.solids.some((x) => x.id === s.host!.solid) ? `<div class="f3-btns n2" style="margin-top:6px"><button class="f3-btn" data-act="tohost" title="Select the volume this was made on (its roof, facade and materials)">${icon('modeObject')}Wall's volume</button></div>` : ''}</div>
   <div class="f3-sec"><h3>Materials</h3>${finishSelect('wall', 'Cut faces', s.materials.wall)}</div>`
       : `<div class="f3-sec"><h3>Roof</h3><div class="f3-chips">${ROOFS.map(([k, l, ic]) => `<button class="f3-chip" data-roof="${k}" aria-pressed="${r.kind === k}" title="${l}">${icon(ic)}<span>${l}</span></button>`).join('')}</div>
@@ -575,7 +574,7 @@ function elementsPanel(ed: Editor3): string {
       .sort((a, b) => b[2] - a[2])
       .map(([id, name, n]) => '<button class="f3-chip" data-onlytype="' + esc(id) + '" title="Keep only these">' + esc(name) + ' <b>' + n + '</b></button>')
       .join('');
-    params = '<div class="f3-sec"><h3>Types in the selection</h3><div class="f3-chips">' + chips + '</div><p class="f3-empty" style="padding:6px 0 0">Choose a type to edit its parameters.</p></div>';
+    params = '<div class="f3-sec"><h3>Types in the selection</h3><div class="f3-chips">' + chips + '</div></div>';
   }
   return '<div class="f3-title"><span style="flex:1;font-weight:600">' + (t ? esc(t.name) : picked.length + ' element(s)') + '</span><span class="f3-kind">' + (f ? esc(f.name) : 'Facade') + ' · ' + picked.length + '</span></div>' +
   groupsSection(ed) +
