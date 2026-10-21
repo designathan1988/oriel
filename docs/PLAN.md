@@ -274,7 +274,7 @@ only), Müller 2006 CGA, CityEngine docs, Houdini Labs, TestFit, Forma):
       on facades). [ ] Component mode (4).
 - [x] Editable dimension labels; value typed next to the cursor; expressions in fields and in the measure
       box; formulas between component parameters.
-- [x] Arc drawing (Shift+C: chord ends, then a point of the arc). [x] Spline outlines (Shift+P, smooth points); copies along a drawn line. [ ] Free hand curve. [x] Mirror with copy and axis; radial arrays (ring,
+- [x] Arc drawing (Shift+C: chord ends, then a point of the arc). [x] Spline outlines (Shift+P, smooth points); copies along a drawn line. [x] Free-hand curve (drag with the Curve tool; simplified on release). [x] Mirror with copy and axis; radial arrays (ring,
       helix); booleans between chosen volumes (Combine); twist handle.
 - [x] Same height when dragging a top; contact snapping (face against face, vertex, centered and aligned on a neighbour).
 - [x] Revolve, sweep (family), bridge and loft generators.

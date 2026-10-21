@@ -3194,7 +3194,7 @@ export class Editor3 {
         rect: "Two corners · or type 10x8",
         circle: "Centre, then radius · or type the radius",
         polygon: "Click the corners · type the lengths · Enter closes",
-        spline: "Click the points · Enter closes",
+        spline: "Click the points · Enter closes · or drag a free-hand outline",
         arc: "Two ends, then a point of the arc",
         opening: "Drag a rectangle on a wall",
         iwall: "Click point to point · type the length · Enter ends",
@@ -3959,6 +3959,16 @@ export class Editor3 {
     }
     if (this.drag) return this.finishDrag(e);
     if (this.opening.active) return this.opening.up(e);
+    // The end of a free-hand stroke: the outline closes (a short stroke goes on as points).
+    if (this.tool === 'spline' && this.freehand) {
+      this.freehand = false;
+      if (this.draft && this.draft.points.length >= 4) {
+        // The hand's wobble taken out (Ramer–Douglas–Peucker, 25 cm): the smooth outline needs few points.
+        this.draft.points = simplifyClosed(this.draft.points, 0.25);
+        if (this.draft.points.length >= 3) this.finishPolygon();
+      }
+      return;
+    }
     if (this.tool === 'lot') return this.site.lotUp(e);
     if (this.tool === 'terrain' && this.terrainDrag) return this.terrainDragEnd();
     if (this.tool === 'room' && this.roomFrom) return this.roomUp(e);
@@ -6340,6 +6350,9 @@ export class Editor3 {
     return this.tool === 'rect' ? { parallel: false, axes: false } : this.tool === 'circle' ? { parallel: false } : {};
   }
 
+  /** A free-hand stroke of the Curve tool is going on. */
+  private freehand = false;
+
   private drawMove(e: PointerEvent): void {
     const from = this.draft?.points[this.draft.points.length - 1] ?? null;
     const y = this.draft?.y ?? this.drawPlane(e).y;
@@ -6347,6 +6360,16 @@ export class Editor3 {
     if (!sn) return;
     this.showSnap(sn, e);
     if (!this.draft) return;
+    // Curve tool dragged: a free-hand outline, a point every 30 cm along the stroke (simplified on release).
+    if (this.tool === 'spline' && e.buttons & 1) {
+      const last = this.draft.points[this.draft.points.length - 1]!;
+      // The pointer as it is (no grid: a stroke snapped to the grid comes out as steps).
+      const raw = this.view.onPlane(e, this.draft.y);
+      if (raw && raw.distanceTo(last) > 0.3 && this.draft.points.length < 2000) {
+        this.draft.points.push(raw.clone());
+        this.freehand = true;
+      }
+    }
     this.draft.hover = sn.p.clone();
     this.drawDraft();
     const a = this.draft.points[0]!;
@@ -8016,4 +8039,37 @@ function cutEdgePoint(s: Solid, q: Vec2, from: Vec2 | null, grid: number): { p: 
     if (d < 1.2 && (!best || d < best.d)) best = { p, d };
   }
   return best && { p: best.p };
+}
+
+/** Ramer–Douglas–Peucker on a closed stroke (plan x, z): the points that keep it within `tol` m. */
+function simplifyClosed(pts: THREE.Vector3[], tol: number): THREE.Vector3[] {
+  if (pts.length < 5) return pts;
+  const d2 = (p: THREE.Vector3, a: THREE.Vector3, b: THREE.Vector3) => {
+    const dx = b.x - a.x,
+      dz = b.z - a.z;
+    const l2 = dx * dx + dz * dz || 1e-12;
+    const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.z - a.z) * dz) / l2));
+    return Math.hypot(a.x + dx * t - p.x, a.z + dz * t - p.z);
+  };
+  const keep = new Array<boolean>(pts.length).fill(false);
+  const rdp = (i: number, j: number) => {
+    let best = -1,
+      bd = tol;
+    for (let k = i + 1; k < j; k++) {
+      const d = d2(pts[k]!, pts[i]!, pts[j]!);
+      if (d > bd) [best, bd] = [k, d];
+    }
+    if (best < 0) return;
+    keep[best] = true;
+    rdp(i, best);
+    rdp(best, j);
+  };
+  // Split the loop at its farthest point from the start, then simplify both halves.
+  let far = 0;
+  for (let k = 1; k < pts.length; k++) if (pts[k]!.distanceTo(pts[0]!) > pts[far]!.distanceTo(pts[0]!)) far = k;
+  keep[0] = keep[far] = true;
+  rdp(0, far);
+  rdp(far, pts.length - 1);
+  keep[pts.length - 1] = pts[pts.length - 1]!.distanceTo(pts[0]!) > tol * 2;
+  return pts.filter((_, k) => keep[k]);
 }
