@@ -175,6 +175,8 @@ function selectionActions(ed: Editor3): Action[] {
     add('Floors', 'lvdown', 'Floor −', 'floorDown', () => ed.floorsDelta(-1), { title: 'Floor −' });
     add('Edit', 'dup', 'Duplicate', 'copy', () => ed.duplicate(), { title: 'Duplicate · Ctrl+D' });
     add('Edit', 'mirror', 'Mirror', 'mirror', () => ed.command('mirror'));
+    add('Edit', 'copyprops', 'Copy properties', 'paint', () => ed.copyProperties(), { title: 'Roof, facade and materials of this volume · Ctrl+Shift+C' });
+    add('Edit', 'pasteprops', 'Paste properties', 'paint', () => ed.pasteProperties(), { title: 'On the selected volumes · Ctrl+Shift+V' });
     if (b.solids.length > 1) add('Edit', 'sep1', 'Separate', 'detach', () => ed.separate(b.id, [s.id]), { title: 'This volume becomes a building of its own' });
   }
   if (inside && ed.workspace === 'interior' && !ed.sel.item && !ed.sel.elems.length) {

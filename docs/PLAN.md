@@ -217,7 +217,9 @@ Backlog (P1 first):
 - [x] P2 Automatic beams between columns (bar or Ctrl+K → Beams between columns).
 - [x] P2 Section box as a live section plane (Interior view → Section: front or side, position, flip).
 - [ ] P2 Guide lines; loft by
-      several sections; mirror about a drawn axis; transfer properties; component from selection.
+      several sections; mirror about a drawn axis; component from selection.
+- [x] P2 Transfer properties: Copy / Paste properties (Ctrl+Shift+C / V) — roof, facade rules mapped to the
+      sides facing the same way, materials, plinth, bands, bevel, walls.
 - [x] P2 View styles: realistic, white model, x-ray (Interior view → Style; view.style).
 - [ ] P2 Parking along a path; renovation phases; design options.
 

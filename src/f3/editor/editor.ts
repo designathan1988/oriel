@@ -28,7 +28,7 @@ import { addInteriorWall, interiorDoors, replicateLevel, type InteriorWithDoors 
 import { stairBetween } from '../model/stairs';
 import { keyParts } from '../model/levelpick';
 import { alignBuildings, alignSolids, buildingBox, freeShift, volumeBox, type AlignOp, type PlanBox } from '../model/align';
-import { arcOf, cornerLimit, offsetRing, ringValid, sampleRing, signedArea2 } from '../model/plan';
+import { arcOf, cornerLimit, offsetRing, oriented, ringValid, sampleRing, signedArea2 } from '../model/plan';
 import { BLOCKS, blockSolid, type BlockPlacement } from '../model/blocks';
 import { View, type Hit } from './view';
 import { Handles, HANDLE_COLORS, type Handle, type HandleKind } from './handles';
@@ -7018,6 +7018,77 @@ export class Editor3 {
     }, `${add.length} beam(s) between the columns.`);
   }
 
+  /** The look copied from a volume (Copy properties), to paste on others. */
+  private matchSource: (Pick<Solid, 'roof' | 'facade' | 'materials' | 'plinth' | 'bands' | 'bevel' | 'shell' | 'wallLayers'> & { dirs: Map<ID, Vec2> }) | null = null;
+
+  /** Outward direction of each side of a volume (plan, unit), by its edge ID. */
+  private sideDirs(s: Solid): Map<ID, Vec2> {
+    const out = new Map<ID, Vec2>();
+    const r = oriented(s.plan.outer, 1);
+    r.forEach((v, i) => {
+      const w = r[(i + 1) % r.length]!;
+      const dx = w.p[0] - v.p[0],
+        dz = w.p[1] - v.p[1];
+      const l = Math.hypot(dx, dz) || 1;
+      // Counterclockwise ring: the outside is on the right of each side.
+      out.set(v.id, [dz / l, -dx / l]);
+    });
+    return out;
+  }
+
+  /**
+   * Copy properties (SketchUp's Match, Revit's Match Type): the look of the selected volume — roof, facade
+   * rules, materials, plinth, bands, bevel, walls — kept to paste on other volumes. Nothing of its shape.
+   */
+  copyProperties(): void {
+    const s = this.activeSolid();
+    if (!s) return this.toast('Select a volume first.');
+    this.matchSource = { ...structuredClone({ roof: s.roof, facade: s.facade, materials: s.materials, plinth: s.plinth, bands: s.bands, bevel: s.bevel, shell: s.shell, wallLayers: s.wallLayers }), dirs: this.sideDirs(s) };
+    this.toast(`Properties of ${s.name} copied: select volumes and paste them (Ctrl+Shift+V).`);
+  }
+
+  /** Paste properties on the selected volumes (or every volume of the selected buildings). */
+  pasteProperties(): void {
+    const src = this.matchSource;
+    if (!src) return this.toast('Copy the properties of a volume first (Ctrl+Shift+C).');
+    const b = this.activeBuilding();
+    if (!b) return this.toast('Select the volumes to paste on.');
+    const inside = this.context === b.id && this.sel.solids.length;
+    const targets = inside ? [{ b, ids: this.sel.solids }] : this.selectedBuildings().map((id) => ({ b: this.store.building(id)!, ids: this.store.building(id)!.solids.filter((x) => x.op === 'add').map((x) => x.id) }));
+    let n = 0;
+    for (const t of targets) {
+      for (const id of t.ids) {
+        const s = findSolid(t.b, id);
+        if (!s || s.op !== 'add') continue;
+        const { dirs, ...look } = src;
+        const c = structuredClone(look);
+        // A rule kept to some sides goes to the sides of this volume facing the same way; its exceptions
+        // (single windows changed by hand) belong to the other volume and stay there. Each rule a new ID.
+        const mine = this.sideDirs(s);
+        const sideFor = (id: ID): ID | undefined => {
+          const d = dirs.get(id);
+          if (!d) return undefined;
+          let best: ID | undefined,
+            bd = 0.5;
+          for (const [k, m] of mine) {
+            const dot = m[0] * d[0] + m[1] * d[1];
+            if (dot > bd) [best, bd] = [k, dot];
+          }
+          return best;
+        };
+        c.facade = c.facade.map((r) => ({ ...r, id: uid(), edges: [...new Set(r.edges.map(sideFor).filter((x): x is ID => !!x))], except: {} }));
+        // A rule that kept to sides none of which face the same way here is left out.
+        c.facade = c.facade.filter((r, i) => !look.facade[i]!.edges.length || r.edges.length);
+        Object.assign(s, c);
+        for (const k of ['bands', 'bevel', 'shell', 'wallLayers'] as const) if (c[k] === undefined) delete s[k];
+        n++;
+      }
+    }
+    if (!n) return this.toast('Select the volumes to paste on.');
+    this.store.commit(targets.map((t) => t.b.id), `Properties pasted on ${n} volume(s).`);
+    this.toast(`Properties pasted on ${n} volume(s).`);
+  }
+
   /** A railing around the selected flat top (a terrace, a slab edge), 8 cm in from its edge. */
   railAround(): void {
     const b = this.activeBuilding();
@@ -7358,6 +7429,8 @@ export class Editor3 {
         if (k === 'z') this.command(e.shiftKey ? 'redo' : 'undo');
         else if (k === 'y') this.command('redo');
         else if (k === 'd') this.duplicate(e.shiftKey);
+        else if (k === 'c' && e.shiftKey) this.copyProperties();
+        else if (k === 'v' && e.shiftKey) this.pasteProperties();
         else if (k === 'c') this.copy();
         else if (k === 'v') this.paste();
         else if (k === 's') this.saveRequested?.();
