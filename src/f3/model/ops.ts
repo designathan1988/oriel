@@ -222,8 +222,20 @@ export function rotateSolid(s: Solid, deg: number, c: Vec2 = planCenter(s)): voi
 }
 
 export function mirrorSolid(s: Solid, axis: 'x' | 'z', c: Vec2 = planCenter(s)): void {
+  mirrorSolidAbout(s, c, axis === 'x' ? [0, 1] : [1, 0]);
+}
+
+/** Reflection of a point across the line through `a` along the unit direction `d`. */
+export function reflect(p: Vec2, a: Vec2, d: Vec2): Vec2 {
+  const t = (p[0] - a[0]) * d[0] + (p[1] - a[1]) * d[1];
+  const f: Vec2 = [a[0] + d[0] * t, a[1] + d[1] * t];
+  return [2 * f[0] - p[0], 2 * f[1] - p[1]];
+}
+
+/** Mirrors a solid across the line through `a` along the unit direction `d` (plan frame of its building). */
+export function mirrorSolidAbout(s: Solid, a: Vec2, d: Vec2): void {
   for (const ring of [s.plan.outer, ...s.plan.holes]) {
-    for (const v of ring) v.p = axis === 'x' ? [2 * c[0] - v.p[0], v.p[1]] : [v.p[0], 2 * c[1] - v.p[1]];
+    for (const v of ring) v.p = reflect(v.p, a, d);
     // Mirroring flips the orientation: reverse while keeping each side with its ID. The reflection and
     // the reversal each swap left and right, so an arc keeps its sign (outward stays outward; before,
     // the sign was flipped and a mirrored curved front bent inward).

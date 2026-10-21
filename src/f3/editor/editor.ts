@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import type { Building3, ID, Item, MaterialRef, Project3, Solid, Vec2, Vec3, NoteRef } from '../model/schema';
 import { building as newBuilding, circlePlan, facadeRule, levelsFor, planVertices, project as newProject, roofSpec, solid as newSolid, uid } from '../model/defaults';
-import { bendEdge, cloneBuilding, inside, locateVertex, cloneSolid, dirToLocal, edgeNormal, findSolid, mirrorSolid, moveVertex, planCenter, planValid as planValidOps, pushEdge, removeVertex, rotateSolid, splitEdge, toLocal, topRing, toWorld, topAt, translateSolid } from '../model/ops';
+import { bendEdge, cloneBuilding, inside, mirrorSolidAbout, reflect, locateVertex, cloneSolid, dirToLocal, edgeNormal, findSolid, mirrorSolid, moveVertex, planCenter, planValid as planValidOps, pushEdge, removeVertex, rotateSolid, splitEdge, toLocal, topRing, toWorld, topAt, translateSolid } from '../model/ops';
 import { solidRings } from '../eval/body';
 import { stairClashes } from '../eval/clashes';
 import { terrainField, type TerrainField } from '../model/terrain';
@@ -54,7 +54,7 @@ import { clipperOffset } from '../eval/clipoffset';
 import { between, column, elemKey, elementsOf, groupElements, grow, row, rowOnFace, sameFace, sameType, shift, shrink, type Elem, type GroupRow } from './elements';
 import { placeLabels } from './labels';
 
-export type Tool = 'select' | 'move' | 'rotate' | 'scale' | 'push' | 'extrude' | 'cut' | 'opening' | 'iwall' | 'room' | 'walls' | 'slab' | 'column' | 'beam' | 'stair' | 'lot' | 'street' | 'terrain' | 'axis' | 'rect' | 'arc' | 'circle' | 'polygon' | 'spline' | 'place' | 'paint' | 'block' | 'tape';
+export type Tool = 'select' | 'move' | 'rotate' | 'scale' | 'push' | 'extrude' | 'cut' | 'opening' | 'iwall' | 'room' | 'walls' | 'slab' | 'column' | 'beam' | 'stair' | 'lot' | 'street' | 'terrain' | 'axis' | 'mirror' | 'rect' | 'arc' | 'circle' | 'polygon' | 'spline' | 'place' | 'paint' | 'block' | 'tape';
 
 export interface Selection {
   building: ID | null;
@@ -3076,7 +3076,7 @@ export class Editor3 {
       { id: 'stair', tools: [T('stair', 'floorUp', 'Stair', 'Shift+I', 'Click the foot, then where it ends')] },
       { id: 'shape', tools: [T('rect', 'rect', 'Rectangle', 'R', 'A volume: two corners, or type 10x8'), T('circle', 'circle', 'Circle', 'C', 'A round volume: centre, then the radius'), T('polygon', 'polygon', 'Polygon', 'L', 'A volume: click its corners'), T('arc', 'arc', 'Arc', 'Shift+C', 'The two ends, then a point of the arc'), T('spline', 'path', 'Curve', 'Shift+P', 'A smooth outline through the points')] },
       { id: 'push', tools: [T('push', 'push', 'Push', 'P', 'Drag a face in or out; type the distance'), T('extrude', 'extrude', 'Extrude', 'E', 'A new volume from a face'), T('cut', 'knife', 'Cut', 'U', 'Split a face or a volume')] },
-      { id: 'site', tools: [T('lot', 'lot', 'Lot', 'Shift+L', 'Drag the lot on the ground; its setbacks show where to build'), T('street', 'street', 'Street', 'Shift+S', 'Click the points of its centre line'), T('terrain', 'terrain', 'Terrain', 'Shift+T', 'Click the ground to set its height there'), T('axis', 'axis', 'Grid axis', 'Shift+A', 'Click the two ends of a grid line')] },
+      { id: 'site', tools: [T('lot', 'lot', 'Lot', 'Shift+L', 'Drag the lot on the ground; its setbacks show where to build'), T('street', 'street', 'Street', 'Shift+S', 'Click the points of its centre line'), T('terrain', 'terrain', 'Terrain', 'Shift+T', 'Click the ground to set its height there'), T('axis', 'axis', 'Grid axis', 'Shift+A', 'Click the two ends of a grid line'), T('mirror', 'mirror', 'Mirror', 'Shift+M', 'Click two points of the mirror line; Ctrl keeps the original')] },
       { id: 'catalog', tools: [T('catalog', 'catalog', 'Library', 'K', 'Furniture, doors, windows, plants and blocks')] },
       { id: 'paint', tools: [T('paint', 'paint', 'Paint', 'B', 'Click a surface with the chosen material (Alt: pick one)')] },
       { id: 'tape', tools: [T('tape', 'tape', 'Measure', 'T', 'Click two points: a dimension; Shift+click: a label')] },
@@ -3208,6 +3208,7 @@ export class Editor3 {
         street: "Click the centre line · Enter ends",
         terrain: "Click the ground: a point at the height in the bar · drag a point up or down · Alt+click removes",
         axis: "Click the two ends of the grid line · type its label after · Alt+click a label deletes it",
+        mirror: "Click two points of the mirror line · Ctrl keeps the original",
         block: "Click the ground, a roof or a wall",
         place: "Click to place",
         paint: "Click a face · Alt picks the material",
@@ -3650,6 +3651,7 @@ export class Editor3 {
     if (this.tool === 'lot') return this.site.lotDown(e);
     if (this.tool === 'terrain') return this.terrainAt(e, true);
     if (this.tool === 'axis') return this.axisAt(e, true);
+    if (this.tool === 'mirror') return this.mirrorAt(e, true);
     if (this.tool === 'street') return this.site.streetDown(e);
     if (this.tool === 'paint') return this.paintAt(e);
   }
@@ -3823,6 +3825,7 @@ export class Editor3 {
     if (this.tool === 'lot') return this.site.lotMove(e, (e.buttons & 1) === 1);
     if (this.tool === 'terrain') return this.terrainDrag && (e.buttons & 1) ? this.terrainDragMove(e) : this.terrainAt(e, false);
     if (this.tool === 'axis') return this.axisAt(e, false);
+    if (this.tool === 'mirror') return this.mirrorAt(e, false);
     if (this.tool === 'street') return this.site.streetMove(e);
   }
 
@@ -3974,6 +3977,7 @@ export class Editor3 {
     this.clearBeamDraft();
     this.clearTerrainMarks();
     this.axisFrom = null;
+    this.mirrorFrom = null;
     this.roomFrom = null;
     this.marquee = null;
     if (this.marqueeEl) this.marqueeEl.hidden = true;
@@ -5749,6 +5753,112 @@ export class Editor3 {
   private terrainDrag: { id: ID; y0: number; sy: number; moved: boolean } | null = null;
 
   private axisFrom: THREE.Vector3 | null = null;
+  private mirrorFrom: THREE.Vector3 | null = null;
+
+  /**
+   * Mirror tool (SketchUp's Flip along a line, Revit's Mirror – Draw Axis): two clicks draw the mirror line;
+   * the selected volumes (inside a building) or the selected buildings are reflected across it; with Ctrl
+   * a reflected copy is made and the original stays.
+   */
+  private mirrorAt(e: PointerEvent, commit: boolean): void {
+    const sn = this.infer.snap(e, 0, this.mirrorFrom, null);
+    if (!sn) return;
+    const p = sn.p;
+    const old = this.snapOverlay.getObjectByName('mirror-draft') as THREE.Line | undefined;
+    if (old) {
+      this.snapOverlay.remove(old);
+      old.geometry.dispose();
+    }
+    if (!this.mirrorFrom) {
+      if (commit) {
+        if (!this.activeBuilding()) return this.toast('Select what to mirror first.');
+        this.mirrorFrom = p.clone();
+      } else this.showDim('Click the first point of the mirror line', e);
+      return this.view.mark();
+    }
+    const dir = p.clone().sub(this.mirrorFrom);
+    if (!commit) {
+      const far = dir.lengthSq() > 1e-6 ? dir.clone().normalize().multiplyScalar(60) : new THREE.Vector3();
+      const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints([this.mirrorFrom.clone().sub(far), p.clone().add(far)]), new THREE.LineDashedMaterial({ color: '#7a4fd1', dashSize: 0.6, gapSize: 0.3, depthTest: false }));
+      l.computeLineDistances();
+      l.name = 'mirror-draft';
+      l.renderOrder = 26;
+      this.snapOverlay.add(l);
+      return this.view.mark();
+    }
+    const a: Vec2 = [this.mirrorFrom.x, this.mirrorFrom.z];
+    this.mirrorFrom = null;
+    this.shell.dim.hidden = true;
+    if (dir.lengthSq() < 0.01) return;
+    const len = Math.hypot(dir.x, dir.z);
+    this.mirrorAcross(a, [dir.x / len, dir.z / len], e.ctrlKey || e.metaKey);
+  }
+
+  /** Reflects the selection across the world line through `a` along `d`; `copy` keeps the original. */
+  mirrorAcross(a: Vec2, d: Vec2, copy: boolean): void {
+    const b = this.activeBuilding();
+    if (!b) return;
+    if (this.context === b.id && this.sel.solids.length) {
+      // Volumes: the line in the building's frame.
+      const la = toLocal(b, a),
+        lb = toLocal(b, [a[0] + d[0], a[1] + d[1]]);
+      const ld: Vec2 = [lb[0] - la[0], lb[1] - la[1]];
+      const ids: ID[] = [];
+      this.change(b.id, (x) => {
+        for (const sid of this.sel.solids) {
+          const src = findSolid(x, sid);
+          if (!src) continue;
+          const t = copy ? cloneSolid(src) : src;
+          mirrorSolidAbout(t, la, ld);
+          // Parts on its sides: the distance along each side counted from its other end.
+          if (!copy) for (const it of x.items) if (it.host.kind === 'face' && it.host.solid === t.id) it.host.u = Math.round((edgeLength(t, it.host.edge) - it.host.u) * 1000) / 1000;
+          if (copy) {
+            t.name = src.name.replace(/( \(copy\))+$/, '') + ' (copy)';
+            x.solids.push(t);
+          }
+          ids.push(t.id);
+        }
+      }, copy ? 'Mirrored copy.' : 'Mirrored.');
+      return this.select({ building: b.id, solids: ids });
+    }
+    // Buildings: the position reflected, the rotation turned and the plan flipped across its own x axis.
+    const phi = Math.atan2(d[1], d[0]);
+    const ids: ID[] = [];
+    for (const id of this.selectedBuildings()) {
+      const src = this.store.building(id);
+      if (!src) continue;
+      const t = copy ? cloneBuilding(src) : src;
+      t.position = reflect(src.position, a, d);
+      t.rotation = Math.round(((((-(2 * phi * 180) / Math.PI - src.rotation) % 360) + 540) % 360 - 180) * 1000) / 1000;
+      for (const s of t.solids) mirrorSolidAbout(s, [0, 0], [1, 0]);
+      for (const it of t.items) {
+        const h = it.host;
+        if (h.kind === 'free') {
+          h.p = [h.p[0], h.p[1], -h.p[2]];
+          // Its front (local +z) reflected: the turn that faces the mirrored way.
+          h.rot = Math.round(((180 - h.rot + 540) % 360) - 180);
+        } else if (h.kind === 'face') {
+          // The side runs the other way now: the distance along it is counted from its other end.
+          const so = findSolid(t, h.solid);
+          if (so) h.u = Math.round((edgeLength(so, h.edge) - h.u) * 1000) / 1000;
+        } else if (h.kind === 'roof') h.p = [h.p[0], -h.p[1]];
+        else if (h.kind === 'path') h.points = h.points.map((q) => [q[0], q[1], -q[2]] as Vec3);
+      }
+      for (const it of Object.values(t.interiors ?? {})) {
+        for (const n of it.nodes) n.p = [n.p[0], -n.p[1]];
+        for (const r of it.rooms) if (r.polygon) r.polygon = r.polygon.map((q) => [q[0], -q[1]] as Vec2).reverse();
+      }
+      if (copy) {
+        t.name = src.name.replace(/( \(copy\))+$/, '') + ' (copy)';
+        this.store.project.buildings.push(t);
+      }
+      ids.push(t.id);
+    }
+    if (!ids.length) return;
+    this.store.commit(ids, copy ? 'Mirrored copy.' : 'Mirrored.');
+    this.toast(copy ? 'Mirrored copy.' : 'Mirrored.');
+    this.selectBuildings(ids);
+  }
 
   /**
    * Grid axis tool (Revit's Grid): two clicks on the ground draw a grid line; it is numbered (1, 2, 3…)
@@ -7516,6 +7626,7 @@ export class Editor3 {
       else if (k === 'b') this.setTool('paint');
       else if (k === 't' && e.shiftKey) this.setTool('terrain');
       else if (k === 'a' && e.shiftKey) this.setTool('axis');
+      else if (k === 'm' && e.shiftKey) this.setTool('mirror');
       else if (k === 't') this.setTool('tape');
       else if (k === 'u') this.setTool('cut');
       else if (k === 'o') this.setTool('opening');
