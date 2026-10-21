@@ -31,6 +31,12 @@ export function saveLang(l: Lang): void {
   }
 }
 
+/** A number as the interface language writes it: 10,25 in Portuguese (ABNT), 10.25 in English. */
+export function decimal(v: number | string): string {
+  const s = String(v);
+  return loadLang() === 'pt-BR' ? s.replace(/(\d)\.(\d)/g, '$1,$2') : s;
+}
+
 interface Pattern {
   re: RegExp;
   to: string;

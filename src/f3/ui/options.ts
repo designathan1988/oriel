@@ -6,9 +6,9 @@ import type { Editor3 } from '../editor/editor';
 import { BUILTIN_TYPES, family } from '../families/index';
 import { resolveParams } from '../families/family';
 import { icon } from './icons';
-import { tr } from './i18n';
+import { decimal, tr } from './i18n';
 
-const dec = (v: number) => String(Math.round(v * 1000) / 1000);
+const dec = (v: number) => decimal(Math.round(v * 1000) / 1000);
 const parse = (s: string) => {
   const v = parseFloat(s.replace(',', '.'));
   return Number.isFinite(v) ? v : null;
@@ -18,7 +18,7 @@ export function mountToolOptions(ed: Editor3): void {
   const box = document.createElement('div');
   box.className = 'f3-opts';
   box.setAttribute('aria-label', 'Tool options');
-  ed.shell.viewctl.before(box);
+  ed.shell.viewctl.append(box);
   const sep = document.createElement('span');
   sep.className = 'f3-topsep';
   ed.shell.viewctl.before(sep);

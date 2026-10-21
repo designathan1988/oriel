@@ -18,7 +18,7 @@ import { OpeningTool } from './tools/opening';
 import { SiteTools } from './tools/site';
 import { StairTool } from './tools/stair';
 import { WallsTool } from './tools/walls';
-import { tr } from '../ui/i18n';
+import { decimal, tr } from '../ui/i18n';
 import { PolylineTool, pointsAlong } from './tools/polyline';
 import { lotAt, lotOverlaps, replantStreetTrees, setbackWarnings, streetAt } from '../model/site';
 import { WalkMode } from './tools/walk';
@@ -114,7 +114,7 @@ interface Drag {
 }
 
 const rad = (d: number) => (d * Math.PI) / 180;
-const fmt = (n: number) => String(Math.round(n * 100) / 100);
+const fmt = (n: number) => decimal(Math.round(n * 100) / 100);
 
 /** Reads a number with a comma or a dot and an optional unit (m, cm). */
 /**
@@ -3111,32 +3111,32 @@ export class Editor3 {
     const t =
       text ??
       ({
-        select: this.context ? 'Click: volume, face or part · Ctrl adds · Shift toggles · drag on empty space: box · double click: row' : 'Click: building · Ctrl adds · Shift toggles · drag on empty space: box · double click: enter',
-        move: 'Move: drag the object or an arrow (type the distance and Enter). Ctrl copies.',
-        rotate: 'Rotate: drag the ring (type the angle and Enter).',
-        scale: 'Scale: drag a corner (Shift keeps the proportion), a side arrow or the top square (height).',
-        push: 'Drag a face to push or pull it. Type the distance and Enter.',
-        extrude: 'Extrude: drag a face to create a new volume from it. Type the depth and Enter.',
-        cut: 'Cut: click a wall to split it in two faces (Shift: across, at a height) · on a top, click two points of the edge to cut the volume · Esc cancels.',
-        tape: 'Click two points to measure; the dimension stays in the model.',
-        rect: 'Click two corners (on the ground or on a flat roof). Then type 10x8 and Enter for width × depth, or a number for the height.',
-        circle: 'Click the center and then the radius.',
-        polygon: 'Click the points; click the first one or Enter to close. Backspace removes a point.',
-        spline: 'Click the points of a smooth outline; click the first one or Enter to close. Its points stay editable.',
-        arc: 'Click the two ends of the chord, then a point the arc passes through.',
-        opening: 'Click a wall: a window there · drag a rectangle on a wall: choose window, door, balcony, canopy, annex or niche.',
-        iwall: 'Click points on the floor that is cut open (Interior view) to draw walls; drag a corner dot to move it; Alt+click a wall dot deletes it; Shift+click a wall: a door.',
-        slab: 'Click the corners of a slab on the floor shown (Interior view picks the floor); click the first corner to close it.',
-        column: 'Click on the floor shown: a column from the floor to the slab above (size and shape in its panel).',
-        beam: 'Click the two ends of the beam: it runs under the slab above the floor shown.',
-        walls: 'Click the centre line of the walls; click the first point to close it into a building (type the thickness: 0.25); Enter: a free-standing wall.',
-        room: 'Click inside walls: a room with its name and area · drag a rectangle: four walls and the room (type the wall thickness).',
-        stair: 'Click the foot of the stair, click where it ends, then move up or down for the height and click (it snaps to the floors).',
-        lot: 'Drag a rectangle on the ground (or click two corners): a lot with setbacks; its panel builds on it.',
-        street: 'Click the points of the street’s center line; Enter or a double click ends.',
-        block: 'Click the ground to create, a roof to stack, a wall to attach. X: add or subtract.',
-        place: 'Click to place.',
-        paint: 'Click a face to paint. Alt+click copies the material.',
+        select: "Click: select · Ctrl adds · drag: box · double click: enter",
+        move: "Drag · type the distance · Ctrl copies",
+        rotate: "Drag the ring · type the angle",
+        scale: "Drag a corner · Shift keeps proportions",
+        push: "Drag a face · type the distance",
+        extrude: "Drag a face · type the depth",
+        cut: "Click a wall to split it · on a top, two points cut the volume",
+        tape: "Click two points",
+        rect: "Two corners · or type 10x8",
+        circle: "Centre, then radius · or type the radius",
+        polygon: "Click the corners · type the lengths · Enter closes",
+        spline: "Click the points · Enter closes",
+        arc: "Two ends, then a point of the arc",
+        opening: "Drag a rectangle on a wall",
+        iwall: "Click point to point · type the length · Enter ends",
+        slab: "Click the corners · type the lengths · click the first to close",
+        column: "Click to place",
+        beam: "Click the two ends",
+        walls: "Click point to point · type the length · click the first point to close",
+        room: "Click inside walls · or drag a rectangle",
+        stair: "Click the foot, then the end",
+        lot: "Drag the lot",
+        street: "Click the centre line · Enter ends",
+        block: "Click the ground, a roof or a wall",
+        place: "Click to place",
+        paint: "Click a face · Alt picks the material",
       } as Record<Tool, string>)[this.tool];
     this.shell.status.hint.textContent = t;
     // In a narrow window the hint may be cut: the full text shows on hover.

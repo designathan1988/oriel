@@ -28,6 +28,7 @@ import { evalExpr } from '../model/expr';
 import { openCreator } from './creator';
 import { withModifiers } from '../eval/modifiers';
 import { openPhoto } from './photo';
+import { decimal } from './i18n';
 
 const ROOFS: [RoofKind, string, string][] = [
   ['flat', 'Flat', 'flat'],
@@ -218,7 +219,7 @@ function projectSummary(p: Project3): string {
   const m2 = (v: number) => `${v.toLocaleString(undefined, { maximumFractionDigits: 0 })} m²`;
   const stat = (v: string, l: string) => `<div><b>${v}</b><span>${l}</span></div>`;
   return `<div class="f3-sec f3-summary"><h3>Project</h3>
-    <div class="f3-sumstats">${stat(String(p.buildings.length), 'buildings')}${stat(String(floors), 'floors (tallest)')}${stat(m2(footprint), 'footprint')}${stat(m2(gfa), 'floor area')}</div></div>`;
+    <div class="f3-sumstats">${stat(String(p.buildings.length), 'buildings')}${stat(String(floors), 'floors')}${stat(m2(footprint), 'footprint')}${stat(m2(gfa), 'floor area')}</div></div>`;
 }
 
 /**
@@ -980,7 +981,7 @@ function splitEdgeOf(s: Solid, edge: string): void {
   ring.splice(i + 1, 0, { id: uid(), p: [(a.p[0] + n.p[0]) / 2, (a.p[1] + n.p[1]) / 2] });
 }
 
-const fmtNum = (v: number) => String(+v.toFixed(2));
+const fmtNum = (v: number) => decimal(+v.toFixed(2));
 /** Height of the building body (the highest additive volume). */
 const bodyTop = (x: Building3) => Math.max(0, ...x.solids.filter((q) => q.op === 'add').map((q) => q.base + q.height));
 

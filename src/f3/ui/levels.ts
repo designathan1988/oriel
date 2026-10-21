@@ -8,12 +8,15 @@ import { viewOf } from '../model/layers';
 import { icon } from './icons';
 
 export function mountLevels(ed: Editor3): void {
-  const bar = ed.shell.viewctl;
+  const bar = ed.shell.viewbar;
   const box = document.createElement('label');
   box.className = 'f3-ctl f3-levels';
   box.title = 'Floor worked on (Page Up / Page Down)';
   box.innerHTML = `${icon('cutaway')}<select data-level aria-label="Floor worked on"></select>`;
-  bar.append(box);
+  // Right under the 2D button, above the view cube.
+  const plan = bar.querySelector('.plan2d');
+  if (plan) plan.after(box);
+  else bar.prepend(box);
   const sel = box.querySelector('select')!;
   const count = () => Math.max(1, ...ed.project.buildings.map((b) => b.levels.length));
   const name = (i: number) => (i === 0 ? 'Ground floor' : `Floor ${i}`);

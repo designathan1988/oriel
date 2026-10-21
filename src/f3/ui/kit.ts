@@ -11,6 +11,7 @@
 // dragging the glyph changes the number; the full name is the tooltip.
 
 import { icon } from './icons';
+import { decimal } from './i18n';
 
 const escA = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const show = (v: number) => String(Math.round(v * 100) / 100);
@@ -87,7 +88,7 @@ function saveClosed(): void {
 const parse = (s: string) => parseFloat(s.replace(',', '.'));
 const fmt = (v: number, step: number) => {
   const d = step >= 1 ? 0 : step >= 0.1 ? 2 : 3;
-  return String(Math.round(v * 10 ** d) / 10 ** d);
+  return decimal(Math.round(v * 10 ** d) / 10 ** d);
 };
 
 /** Standardizes a freshly drawn panel. */
