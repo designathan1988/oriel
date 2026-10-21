@@ -267,6 +267,10 @@ export const CSS = `
 .f3-warn.on{display:block}
 .f3-tip{position:fixed;z-index:60;pointer-events:none;background:#0d0e10f2;color:#f3f4f5;border:1px solid #ffffff14;border-radius:6px;padding:4px 8px;font:12px/1.35 Inter,"Segoe UI",system-ui,sans-serif;max-width:280px;box-shadow:0 6px 18px #0006;opacity:0;transition:opacity .12s}
 .f3-tip.on{opacity:1}
+.f3-tip.rich{max-width:300px;padding:7px 10px;border-radius:8px}
+.f3-tip.rich b{font-weight:600}
+.f3-tip.rich kbd{margin-left:8px;font:600 10.5px/1 ui-monospace,monospace;background:#ffffff14;border-radius:4px;padding:2px 5px;color:#c9ccd1}
+.f3-tip.rich p{margin:3px 0 0;color:#b7bbc2}
 /* Inspector */
 .f3-title{display:flex;align-items:center;gap:6px;padding:8px 8px 8px 10px;border-bottom:1px solid var(--line);min-height:41px}
 .f3-title input{flex:1;min-width:0;font:600 13px Inter,"Segoe UI",system-ui,sans-serif;border:1px solid transparent;border-radius:6px;padding:3px 5px;background:transparent;color:var(--ink)}
@@ -723,7 +727,29 @@ function installTooltips(root: HTMLElement): void {
     cur = el;
     timer = window.setTimeout(() => {
       if (!cur || !cur.isConnected || typing(cur)) return;
-      tip.textContent = cur.dataset.tip ?? '';
+      const text = cur.dataset.tip ?? '';
+      // A tool: its name and key on the first line, what it does below ("Name: what it does · Key").
+      const cut = text.lastIndexOf(' · ');
+      const body = cut > 0 ? text.slice(0, cut) : text;
+      const colon = body.indexOf(': ');
+      if (cur.closest('.f3-tools') && cut > 0) {
+        tip.textContent = '';
+        const b = doc.createElement('b');
+        b.textContent = colon > 0 ? body.slice(0, colon) : body;
+        const k = doc.createElement('kbd');
+        k.textContent = text.slice(cut + 3);
+        tip.append(b, k);
+        if (colon > 0) {
+          const pr = doc.createElement('p');
+          const what = body.slice(colon + 2);
+          pr.textContent = what[0]!.toUpperCase() + what.slice(1);
+          tip.append(pr);
+        }
+        tip.classList.add('rich');
+      } else {
+        tip.classList.remove('rich');
+        tip.textContent = text;
+      }
       const r = cur.getBoundingClientRect();
       tip.classList.add('on');
       const tw = tip.offsetWidth,
@@ -738,7 +764,8 @@ function installTooltips(root: HTMLElement): void {
       if (y + th > innerHeight - 4) y = r.top - th - 6;
       tip.style.left = `${Math.max(4, Math.min(innerWidth - tw - 4, x))}px`;
       tip.style.top = `${Math.max(4, y)}px`;
-    }, 380);
+      // The tool bar answers at once (its icons have no words); elsewhere after a short pause.
+    }, cur.closest('.f3-tools') ? 120 : 380);
   };
   root.addEventListener('pointerover', (e) => over(e.target));
   root.addEventListener('pointermove', (e) => {
