@@ -375,7 +375,7 @@ function solidPanel(ed: Editor3, b: Building3, s: Solid): string {
     ${prow('Taper', 'taper', [nk('taper', 'Taper: the top shrinks by this much on each side', s.taper, gicon('taper')), nk('twist', 'Twist: the top turned against the base (degrees)', s.twist ?? 0, gicon('rotate'), '°', 5)], { title: 'Taper and twist' })}
     ${s.op === 'add' ? prow('Shell', 'thickness', [nk('shell', 'Hollow: walls, floor and top this thick (0: solid)', s.shell ?? 0, gicon('thickness'), 'm', 0.05)], { title: 'Hollow shell: the inside empty' }) : ''}
   </div>
-  ${s.op === 'add' && !s.revolve ? `<div class="f3-sec"><h3>Loft</h3>${prow('Top', 'taper', [selectCell('data-loft', 'Shape on top (the walls go from the plan to it)', [['none', 'Same as the base'], ['0', 'Circle'], ['3', 'Triangle'], ['4', 'Square'], ['6', 'Hexagon'], ['8', 'Octagon']], s.loft ? String(s.loft.sides) : 'none')], { title: 'Loft: a different shape on top', wide: true })}${s.loft ? prow('Size', 'scale', [nk('loftscale', 'Size of the top (× the base)', s.loft.scale, gicon('scale'), '', 0.05), nk('loftturn', 'Turn of the top (degrees)', s.loft.turn, gicon('rotate'), '°', 5)], { title: 'Size and turn of the top' }) : ''}</div>` : ''}
+  ${s.op === 'add' && !s.revolve ? `<div class="f3-sec"><h3>Loft</h3>${prow('Top', 'taper', [selectCell('data-loft', 'Shape on top (the walls go from the plan to it)', [['none', 'Same as the base'], ['0', 'Circle'], ['3', 'Triangle'], ['4', 'Square'], ['6', 'Hexagon'], ['8', 'Octagon']], s.loft ? String(s.loft.sides) : 'none')], { title: 'Loft: a different shape on top', wide: true })}${s.loft ? prow('Size', 'scale', [nk('loftscale', 'Size of the top (× the base)', s.loft.scale, gicon('scale'), '', 0.05), nk('loftturn', 'Turn of the top (degrees)', s.loft.turn, gicon('rotate'), '°', 5)], { title: 'Size and turn of the top' }) + prow('Middle', 'scale', [nk('loftmid', 'Size at half height (× the blend; 1 = straight)', s.loft.mids?.[0]?.scale ?? 1, gicon('scale'), '', 0.05), nk('loftmidturn', 'Turn at half height (degrees)', s.loft.mids?.[0]?.turn ?? 0, gicon('rotate'), '°', 5)], { title: 'A section at half height' }) : ''}</div>` : ''}
   ${s.revolve ? `<div class="f3-sec"><h3>Revolved shape</h3>${prow('Profile', 'rise', [`<label class="f3-cell" title="Profile points: radius,height; radius,height… (m from the axis and the base), turned around the center"><input data-revolve value="${s.revolve.profile.map((q) => `${num(q[0])},${num(q[1])}`).join('; ')}" aria-label="Revolve profile"></label>`], { wide: true })}${prow('Sides', 'segments', [nk('revseg', 'Facets around (8–96)', s.revolve.segments, gicon('count'), '', 4)])}</div>` : ''}
   <div class="f3-sec"><h3>Repeat and mirror</h3>
     ${prow('Repeat', 'array', [selectCell('data-rep', 'Live copies of this volume', [['none', 'None'], ['line', 'Row'], ['ring', 'Ring'], ['helix', 'Helix']], s.repeat?.kind ?? 'none'), ...(s.repeat ? [nk('repcount', 'How many (with this one)', s.repeat.count, gicon('count'), '', 1)] : [])], { title: 'Live copies: they follow every change of this volume' })}
@@ -1142,6 +1142,14 @@ function applyNumber(ed: Editor3, b: Building3, s: Solid | undefined, k: string,
       else delete x.twist;
     } else if (k === 'loftscale' && x.loft) x.loft.scale = Math.max(0.05, Math.min(4, v));
     else if (k === 'loftturn' && x.loft) x.loft.turn = Math.max(-360, Math.min(360, v));
+    else if ((k === 'loftmid' || k === 'loftmidturn') && x.loft) {
+      const m = x.loft.mids?.[0] ?? { at: 0.5, scale: 1, turn: 0 };
+      if (k === 'loftmid') m.scale = Math.max(0.05, Math.min(4, v));
+      else m.turn = Math.max(-360, Math.min(360, v));
+      // A straight middle is no section.
+      if (Math.abs(m.scale - 1) < 1e-3 && Math.abs(m.turn) < 1e-3) delete x.loft.mids;
+      else x.loft.mids = [m];
+    }
     else if (k === 'revseg' && x.revolve) x.revolve.segments = Math.max(8, Math.min(96, Math.round(v)));
     else if (k === 'repcount' && x.repeat) x.repeat.count = Math.max(1, Math.min(64, Math.round(v)));
     else if (k === 'repdx' && x.repeat?.kind === 'line') x.repeat.dx = v;

@@ -572,6 +572,7 @@ function checkSolid(e: Errors, where: string, s: Solid, p: Project3, ruleIds: Se
     if (!isObj(r) || (r.kind !== 'line' && r.kind !== 'ring' && r.kind !== 'helix') || !fin(r.count) || (r.count as number) < 1 || (r.kind === 'line' ? !fin(r.dx) || !fin(r.dz) : !fin(r.cx) || !fin(r.cz)) || (r.kind === 'helix' && (!fin(r.rise) || !fin(r.turn) || Math.abs(r.rise as number) > 50 || Math.abs(r.turn as number) > 360))) e.add(w, 'invalid repeat.');
   }
   if (s.loft !== undefined && (!isObj(s.loft) || !fin(s.loft.sides) || !fin(s.loft.scale) || !fin(s.loft.turn) || s.loft.scale <= 0 || s.loft.scale > 4 || (s.loft.sides !== 0 && s.loft.sides < 3) || s.loft.sides > 64)) e.add(w, 'invalid loft.');
+  if (s.loft?.mids !== undefined && (!Array.isArray(s.loft.mids) || s.loft.mids.length > 8 || !s.loft.mids.every((m) => isObj(m) && fin(m.at) && m.at > 0 && m.at < 1 && fin(m.scale) && m.scale > 0 && m.scale <= 4 && fin(m.turn)))) e.add(w, 'invalid loft sections.');
   if (s.revolve !== undefined && (!isObj(s.revolve) || !Array.isArray(s.revolve.profile) || s.revolve.profile.length < 2 || !s.revolve.profile.every((q) => Array.isArray(q) && fin(q[0]) && fin(q[1]) && q[0] >= 0) || !fin(s.revolve.segments))) e.add(w, 'invalid revolve profile.');
   if (!fin(s.plinth) || s.plinth < 0) e.add(w, 'invalid plinth.');
   if (s.hidden !== undefined && typeof s.hidden !== 'boolean') e.add(w, 'invalid visibility.');

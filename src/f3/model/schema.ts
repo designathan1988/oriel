@@ -465,7 +465,13 @@ export interface Solid {
   /** Solid of revolution: the profile [radius, height above the base] turned around the plan center (domes, spheres, spires). */
   revolve?: { profile: Vec2[]; segments: number };
   /** Loft: the walls go from the plan at the base to another shape on top (a regular polygon, `sides` ≥ 3, or a circle with 0), `scale` of the base size, turned `turn` degrees. */
-  loft?: { sides: number; scale: number; turn: number };
+  loft?: {
+    sides: number;
+    scale: number;
+    turn: number;
+    /** Sections between the base and the top (Rhino's loft through several curves): at a share of the height, the blend of the two scaled and turned. */
+    mids?: { at: number; scale: number; turn: number }[];
+  };
 }
 
 // ── Components ─────────────────────────────────────────────────────────

@@ -136,16 +136,37 @@ export function loftMesh(s: Solid, table: FaceTable): MeshBuilder {
   const side = table.add({ kind: 'side', solid: s.id, smooth: true }),
     top = table.add({ kind: 'top', solid: s.id }),
     bot = table.add({ kind: 'bottom', solid: s.id });
-  for (let j = 0; j < N; j++) {
-    const j2 = (j + 1) % N;
-    const p = B[j]!,
-      q = B[j2]!,
-      pt = T[j]!,
-      qt = T[j2]!;
-    // Outward: away from the center at the middle of the strip.
-    const mx = (p[0] + q[0] + pt[0] + qt[0]) / 4 - c[0],
-      mz = (p[1] + q[1] + pt[1] + qt[1]) / 4 - c[1];
-    mb.quad([p[0], y0, p[1]], [q[0], y0, q[1]], [qt[0], y1, qt[1]], [pt[0], y1, pt[1]], side, [mx, 0, mz]);
+  // The sections from the base up: the base, each middle section (the blend of base and top at its share
+  // of the height, scaled and turned around the center), the top.
+  const sections: { y: number; ring: Vec2[] }[] = [{ y: y0, ring: B }];
+  for (const m of [...(s.loft!.mids ?? [])].filter((x) => x.at > 0.01 && x.at < 0.99).sort((a, b) => a.at - b.at)) {
+    const ang = (m.turn * Math.PI) / 180,
+      cs = Math.cos(ang),
+      sn = Math.sin(ang);
+    sections.push({
+      y: y0 + (y1 - y0) * m.at,
+      ring: B.map((p, j) => {
+        const x = (p[0] + (T[j]![0] - p[0]) * m.at - c[0]) * m.scale,
+          z = (p[1] + (T[j]![1] - p[1]) * m.at - c[1]) * m.scale;
+        return [c[0] + x * cs - z * sn, c[1] + x * sn + z * cs] as Vec2;
+      }),
+    });
+  }
+  sections.push({ y: y1, ring: T });
+  for (let k = 0; k + 1 < sections.length; k++) {
+    const lo = sections[k]!,
+      hi = sections[k + 1]!;
+    for (let j = 0; j < N; j++) {
+      const j2 = (j + 1) % N;
+      const p = lo.ring[j]!,
+        q = lo.ring[j2]!,
+        pt = hi.ring[j]!,
+        qt = hi.ring[j2]!;
+      // Outward: away from the center at the middle of the strip.
+      const mx = (p[0] + q[0] + pt[0] + qt[0]) / 4 - c[0],
+        mz = (p[1] + q[1] + pt[1] + qt[1]) / 4 - c[1];
+      mb.quad([p[0], lo.y, p[1]], [q[0], lo.y, q[1]], [qt[0], hi.y, qt[1]], [pt[0], hi.y, pt[1]], side, [mx, 0, mz]);
+    }
   }
   // Caps: a fan from the center (the top is convex; the base fan works for the plans a loft starts from,
   // star-shaped around their center).
