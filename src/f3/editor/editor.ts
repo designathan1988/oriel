@@ -7229,6 +7229,32 @@ export class Editor3 {
     this.toast(`Properties pasted on ${n} volume(s).`);
   }
 
+  /**
+   * A corner window at the selected corner of a volume (on the floor shown): a window on each of the two
+   * sides meeting there, each running to the corner, so the wall's corner is open from sill to head and
+   * the two frames meet as the corner post.
+   */
+  cornerWindow(width = 1.6): void {
+    const b = this.activeBuilding();
+    const s = this.activeSolid();
+    const vid = this.sel.vertex;
+    if (!b || !s || !vid) return this.toast('Select a corner of a volume first.');
+    const ring = s.plan.outer;
+    const i = ring.findIndex((v) => v.id === vid);
+    if (i < 0) return this.toast('Select a corner of a volume first.');
+    const next = vid,
+      prev = ring[(i - 1 + ring.length) % ring.length]!.id;
+    const ln = edgeLength(s, next),
+      lp = edgeLength(s, prev);
+    const w = Math.min(width, ln - 0.3, lp - 0.3);
+    if (w < 0.6) return this.toast('The sides at this corner are too short.');
+    const lv = this.workLevel(b);
+    const y = Math.max(0, (lv?.elevation ?? s.base) + 0.9 - s.base);
+    const mk = (edge: ID, u: number): Item => ({ id: uid(), type: 'win-casement', params: { width: Math.round(w * 100) / 100, trim: 0, shutters: 'none' }, host: { kind: 'face', solid: s.id, edge, u: Math.round(u * 1000) / 1000, y } });
+    // The side that starts at the corner, and the one that ends there.
+    this.change(b.id, (x) => void x.items.push(mk(next, w / 2), mk(prev, lp - w / 2)), 'Corner window.');
+  }
+
   /** A railing around the selected flat top (a terrace, a slab edge), 8 cm in from its edge. */
   railAround(): void {
     const b = this.activeBuilding();

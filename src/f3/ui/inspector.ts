@@ -341,7 +341,7 @@ function solidPanel(ed: Editor3, b: Building3, s: Solid): string {
     if (v)
       facePart += `<div class="f3-sec"><h3>Selected corner</h3>
     ${prow('Corner', 'round', [nk('cround', 'Round this corner (radius)', v.round ?? 0, gicon('round')), nk('cchamfer', 'Chamfer this corner', v.chamfer ?? 0, gicon('chamfer'))], { title: 'Round and chamfer' })}
-    <div class="f3-btns n3"><button class="f3-btn danger" data-act="delvertex" title="Delete this vertex">${icon('trash')}Delete</button></div></div>`;
+    <div class="f3-btns n3"><button class="f3-btn" data-act="cornerwin" title="A window on each side, meeting at this corner">${icon('window')}Corner window</button><button class="f3-btn danger" data-act="delvertex" title="Delete this vertex">${icon('trash')}Delete</button></div></div>`;
   }
   const ops = [
     ['add', 'add', 'Add'],
@@ -983,6 +983,7 @@ function bind(ed: Editor3, b: Building3, s: Solid | undefined): void {
       if (a === 'enter') ed.enter(b.id);
       else if (a === 'dup') ed.duplicate();
       else if (a === 'railaround') ed.railAround();
+      else if (a === 'cornerwin') ed.cornerWindow();
       else if (a === 'del') ed.remove();
       else if (a === 'mirror') ed.command('mirror');
       else if (a === 'unique') ed.makeUnique();
