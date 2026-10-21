@@ -136,6 +136,17 @@ function exportMenu(anchor: HTMLElement): void {
   m.setAttribute('role', 'menu');
   // Grouped by what people deliver: drawings first, then BIM and 3D, the project file, game engines last.
   const items: [string, string, (() => Promise<void> | void) | null][] = [
+    ['Client', '', null],
+    ['Presentation for the client: 3D, plans and areas (HTML)', '.html', async () => {
+      editor.toast('Preparing the presentation…');
+      const { optimizeGlb } = await import('../f3/io/glbopt');
+      const { presentationHtml } = await import('../f3/io/presentation');
+      const glb = await optimizeGlb(new Uint8Array(await exportGLB(editor.project)), { maxTexture: 1024 });
+      const pt = loadLang() === 'pt-BR';
+      const html = presentationHtml(editor.project, glb, { t: tr, decimal: pt ? ',' : '.', lang: pt ? 'pt-BR' : 'en' });
+      download(html, fileName(editor.project.name + '-presentation', 'html'), 'text/html');
+      editor.toast('Presentation ready: send the file to the client; it opens in any browser.');
+    }],
     ['Drawings', '', null],
     ['Drawing set: floor plans, section, area table (PDF)', '.pdf', async () => {
       const b = editor.store.building(editor.sel.building ?? editor.context);
