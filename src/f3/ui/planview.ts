@@ -557,6 +557,23 @@ export function mountPlanView(ed: Editor3): PlanView {
     const b = building(),
       id = levelId();
     const w = wallAt(p);
+    if (b && id && !w) {
+      // An outside wall: the standard door on that side of the volume, on the floor of this level.
+      const lv = sortedLevels(b)[level];
+      let best: { sid: ID; edge: ID; u: number; d: number; base: number } | null = null;
+      for (const s of b.solids) {
+        if (s.op !== 'add' || s.hidden || !lv || s.base > lv.elevation + 0.1 || s.base + s.height < lv.elevation + 2) continue;
+        const ring = s.plan.outer;
+        for (let i = 0; i < ring.length; i++) {
+          const n = near(p, ring[i]!.p, ring[(i + 1) % ring.length]!.p);
+          if (n.d < Math.max(0.45, 12 * mpp()) && (!best || n.d < best.d)) best = { sid: s.id, edge: ring[i]!.id, u: n.u, d: n.d, base: s.base };
+        }
+      }
+      if (!best) return ed.toast(tr('Click a wall to put a door'));
+      const pick = best;
+      const y = Math.max(0, (lv?.elevation ?? 0) - pick.base);
+      return void ed.change(b.id, (x) => void x.items.push({ id: newId(), type: 'door-panel', params: {}, host: { kind: 'face', solid: pick.sid, edge: pick.edge, u: Math.round(pick.u * 100) / 100, y } }), tr('Door added.'));
+    }
     if (!b || !id || !w) return ed.toast(tr('Click on an interior wall to put a door in it.'));
     if (w.len < 0.9) return ed.toast(tr('This wall is too short for a door.'));
     const u = Math.max(0.4, Math.min(w.len - 0.4, w.u));
