@@ -45,7 +45,7 @@ const ROOFS: [RoofKind, string, string][] = [
 ];
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-const num = (v: number) => String(Math.round(v * 100) / 100);
+const num = (v: number) => decimal(Math.round(v * 100) / 100);
 // A typed field takes arithmetic too ('3*2.5', '(4+2)/3', '250cm'): model/expr.ts.
 const parse = (s: string) => evalExpr(s) ?? parseFloat(s.replace(',', '.'));
 
@@ -227,7 +227,7 @@ function projectSummary(p: Project3): string {
     footprint += a.footprint;
     floors = Math.max(floors, b.levels.length);
   }
-  const m2 = (v: number) => `${v.toLocaleString(undefined, { maximumFractionDigits: 0 })} m²`;
+  const m2 = (v: number) => `${Math.round(v)} m²`;
   const stat = (v: string, l: string) => `<div><b>${v}</b><span>${l}</span></div>`;
   return `<div class="f3-sec f3-summary"><h3>Project</h3>
     <div class="f3-sumstats">${stat(String(p.buildings.length), 'buildings')}${stat(String(floors), 'floors')}${stat(m2(footprint), 'footprint')}${stat(m2(gfa), 'floor area')}</div></div>`;

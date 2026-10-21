@@ -5,12 +5,13 @@
 import type { Editor3 } from '../editor/editor';
 import { icon } from './icons';
 import { gicon, numCell, polish, prow, selectCell } from './kit';
+import { decimal } from './i18n';
 
 /** Row icon of each operation parameter (panel standard: icon + short label, the note in the tooltip). */
 const PARAM_ICON: Record<string, string> = { d: 'distance', depth: 'extrude', margin: 'margin', inset: 'inset', y: 'split', top: 'bevel', bottom: 'bevel', segments: 'segments', profile: 'segments', corner: 'round', copy: 'copy', foot: 'floors', r: 'round', c: 'chamfer', w: 'bevel', sag: 'arc' };
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-const num = (v: number) => String(Math.round(v * 1000) / 1000);
+const num = (v: number) => decimal(Math.round(v * 1000) / 1000);
 
 export function mountLastOp(ed: Editor3): void {
   const box = document.createElement('div');

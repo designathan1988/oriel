@@ -17,9 +17,10 @@ import { icon } from './icons';
 import { withModifiers } from '../eval/modifiers';
 import { evalExpr } from '../model/expr';
 import { gicon, gtext, numCell, prow } from './kit';
+import { decimal } from './i18n';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-const num = (v: number) => String(Math.round(v * 100) / 100);
+const num = (v: number) => decimal(Math.round(v * 100) / 100);
 const parse = (s: string) => evalExpr(s) ?? parseFloat(s.replace(',', '.'));
 const m2 = (v: number) => `${num(Math.round(v * 10) / 10)} m²`;
 const cell = (attr: string, name: string, value: number, glyph: string, unit = 'm', step = 0.5) => numCell({ attr, name, value, glyph, unit, step });

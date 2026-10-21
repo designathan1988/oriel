@@ -9,6 +9,7 @@ import { finishOf } from '../render/finishes';
 import { readImageFile } from '../render/images';
 import { icon } from './icons';
 import { numCell, prow, selectCell } from './kit';
+import { decimal } from './i18n';
 
 /** Bumped when a surface editor opens or closes: the inspector redraws even with the focus inside it. */
 export const surfaceToggles = { n: 0 };
@@ -45,7 +46,7 @@ export function surfaceValue(ref: MaterialRef, k: (typeof FIELDS)[number]['k']):
 /** Whether the material carries any adjustment over its finish. */
 export const adjusted = (ref: MaterialRef): boolean => FIELDS.some((d) => ref[d.k] !== undefined);
 
-const num = (v: number) => String(Math.round(v * 1000) / 1000);
+const num = (v: number) => decimal(Math.round(v * 1000) / 1000);
 
 /**
  * The rows of the editor for `ref`. `attr` names the material (the bucket, or a slot of the selected

@@ -8,7 +8,7 @@ import type { View } from '../view';
 import { DEFAULT_SETBACKS, frontTowardStreet } from '../../model/site';
 import { signedArea2 } from '../../model/plan';
 import { uid } from '../../model/defaults';
-import { tr } from '../../ui/i18n';
+import { decimal, tr } from '../../ui/i18n';
 
 /** What the tools need from the editor. */
 export interface SiteHost {
@@ -24,7 +24,7 @@ export interface SiteHost {
   toast(text: string): void;
 }
 
-const fmt = (n: number) => String(Math.round(n * 10) / 10);
+const fmt = (n: number) => decimal(Math.round(n * 10) / 10);
 const DRAFT = 'site-draft';
 
 export class SiteTools {

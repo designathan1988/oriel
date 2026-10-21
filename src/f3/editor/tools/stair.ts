@@ -8,6 +8,7 @@ import type { View } from '../view';
 import { toLocal } from '../../model/ops';
 import { uid } from '../../model/defaults';
 import { STAIR_TYPE } from '../../model/stairs';
+import { decimal } from '../../ui/i18n';
 
 export interface StairHost {
   view: View;
@@ -27,7 +28,7 @@ const MAX_RISER = 0.18,
   MIN_GOING = 0.22,
   MAX_GOING = 0.4,
   WIDTH = 1.1;
-const fmt = (n: number) => String(Math.round(n * 100) / 100);
+const fmt = (n: number) => decimal(Math.round(n * 100) / 100);
 const NAME = 'stair-draft';
 
 /** Risers and tread of a flight of `rise` over `run` (the family's rule, the tread kept in its range). */

@@ -13,6 +13,7 @@ import { uid } from '../../model/defaults';
 import { family, typeById } from '../../families/index';
 import { resolveParams } from '../../families/family';
 import { choose } from '../../ui/chooser';
+import { decimal } from '../../ui/i18n';
 
 /** What the tool needs from the editor. */
 export interface OpeningHost {
@@ -39,7 +40,7 @@ interface Wall {
   M: THREE.Matrix4;
 }
 
-const fmt = (n: number) => String(Math.round(n * 100) / 100);
+const fmt = (n: number) => decimal(Math.round(n * 100) / 100);
 
 export class OpeningTool {
   private wall: Wall | null = null;

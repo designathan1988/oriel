@@ -12,10 +12,10 @@ import { FINISHES } from '../render/finishes';
 import { createThumbnailer, type Thumbnailer } from '../render/thumbs';
 import { uid } from '../model/defaults';
 import { evalExpr } from '../model/expr';
-import { tr } from './i18n';
+import { decimal, tr } from './i18n';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-const num = (v: number) => String(Math.round(v * 1000) / 1000);
+const num = (v: number) => decimal(Math.round(v * 1000) / 1000);
 
 const CSS = `
 .f3-objm .cols{grid-template-columns:220px minmax(0,1fr) 320px}

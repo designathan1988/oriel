@@ -12,6 +12,7 @@ import { icon } from './icons';
 import { materialUses, replaceMaterial, sameMaterial } from '../model/matlib';
 import { uid } from '../model/defaults';
 import { bindSurface, surfaceRows } from './mateditor';
+import { decimal } from './i18n';
 
 export interface MaterialPreset {
   id: string;
@@ -97,7 +98,7 @@ export function materialThumb(ref: MaterialRef): string | null {
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-const num = (v: number) => String(Math.round(v * 1000) / 1000);
+const num = (v: number) => decimal(Math.round(v * 1000) / 1000);
 
 /** Panel of the active bucket material (in the inspector while painting). */
 export function paintPanel(ed: Editor3): string {
