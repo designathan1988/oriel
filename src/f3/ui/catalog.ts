@@ -125,7 +125,7 @@ export function mountCatalog(ed: Editor3): { open(): void } {
   });
 
   const label = (c: string) => (c === 'blocks' ? 'Massing blocks' : c === 'materials' ? 'Materials' : c === 'fav' ? 'Favorites' : c === 'recent' ? 'Recent' : c === 'mine' ? 'My types' : CATEGORY_NAMES[c as Category]);
-  const count = (c: string) => (c === 'blocks' ? BLOCKS.length : c === 'materials' ? MATERIAL_PRESETS.length : c === 'fav' ? favs.size : c === 'recent' ? recent.length : c === 'mine' ? ed.project.types.filter((t) => t.user).length : types().filter((t) => family(t.family)?.category === c).length);
+  const count = (c: string) => (c === 'blocks' ? BLOCKS.length : c === 'materials' ? MATERIAL_PRESETS.length : c === 'fav' ? favs.size : c === 'recent' ? recent.length : c === 'mine' ? ed.project.types.filter((t) => t.user).length + (ed.project.components?.length ?? 0) : types().filter((t) => family(t.family)?.category === c).length);
   const renderTabs = () => {
     tabsEl.innerHTML = cats()
       .map((c) => `<button data-tab="${c}" aria-pressed="${c === tab && !query}"><span>${label(c)}</span><small>${count(c) || ''}</small></button>${c === 'recent' ? '<hr>' : ''}`)
@@ -200,8 +200,10 @@ export function mountCatalog(ed: Editor3): { open(): void } {
     // Cladding and facade: besides the areas, the own-image card.
     // My types: share them as a file, bring types from another project, or make a new one.
     const mine = tab === 'mine' && !query ? `<div class="f3-card" data-mine="new" title="New component: any family, every parameter"><div class="f3-blockico">${icon('add')}</div><span>New…</span></div><div class="f3-card" data-mine="shapes" title="Your own object, made of boxes, cylinders, spheres, cones, rings…: anything, no library needed"><div class="f3-blockico">${icon('catalog')}</div><span>Object from shapes…</span></div><div class="f3-card" data-mine="import" title="Bring the types of a file exported from ${BRAND}"><div class="f3-blockico">${icon('open')}</div><span>Import…</span></div>${items.length ? `<div class="f3-card" data-mine="export" title="Save these types as a file (for another project or a colleague)"><div class="f3-blockico">${icon('export')}</div><span>Export</span></div>` : ''}` : '';
+    // Saved components (buildings kept from a selection): a click inserts one at the middle of the view.
+    const comps = tab === 'mine' && !query ? (ed.project.components ?? []).map((c) => `<div class="f3-card" data-comp="${c.id}" title="Insert at the middle of the view (Alt+click deletes it from the library)"><div class="f3-blockico">${icon('modeObject')}</div><span data-i18n-skip>${c.name.replace(/[&<>"]/g, '')}</span></div>`).join('') : '';
     const upload = tab === 'facade' && !query ? `<div class="f3-card" data-upload title="Choose an image from the computer and place it on a wall (poster, graffiti, logo, mural)"><div class="f3-blockico">${icon('open')}</div><span>Image…</span></div>` : '';
-    if (!items.length && !upload && !mine) {
+    if (!items.length && !upload && !mine && !comps) {
       cards.innerHTML = `<p class="f3-empty" style="padding:6px 4px">${tab === 'fav' && !query ? 'Mark ★ on the components you use most.' : tab === 'recent' && !query ? 'The components you place appear here.' : 'Nothing found.'}</p>`;
       return;
     }
@@ -213,7 +215,7 @@ export function mountCatalog(ed: Editor3): { open(): void } {
     // A tag every card has filters nothing.
     const chips = [...tagCount.entries()].filter(([, n]) => n >= 2 && n < inTab).sort((a, b) => b[1] - a[1]).slice(0, 10);
     const chipBar = chips.length > 1 ? `<div class="f3-chips">${chips.map(([g]) => `<button data-chip="${g}" aria-pressed="${tag === g}">${g}</button>`).join('')}</div>` : '';
-    cards.innerHTML = chipBar + mine + upload + items
+    cards.innerHTML = chipBar + mine + comps + upload + items
       .map((t) => {
         const f = family(t.family)!;
         // Where it goes, as it really behaves (audit E8: free parts said "on the ground" and went on a terrace).
@@ -236,6 +238,14 @@ export function mountCatalog(ed: Editor3): { open(): void } {
         ed.view.mark();
       }).catch(() => undefined);
     });
+    cards.querySelectorAll<HTMLElement>('[data-comp]').forEach((c) =>
+      c.addEventListener('click', (e) => {
+        const id = c.dataset.comp!;
+        if (e.altKey) return void ed.changeSite((p) => void (p.components = (p.components ?? []).filter((x) => x.id !== id)), 'Component removed from the library.');
+        ed.insertComponent(id);
+        ed.toggleLibrary(false);
+      }),
+    );
     cards.querySelectorAll<HTMLButtonElement>('[data-chip]').forEach((c) =>
       c.addEventListener('click', () => {
         tag = tag === c.dataset.chip ? null : c.dataset.chip!;

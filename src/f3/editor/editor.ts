@@ -7255,6 +7255,45 @@ export class Editor3 {
     this.change(b.id, (x) => void x.items.push(mk(next, w / 2), mk(prev, lp - w / 2)), 'Corner window.');
   }
 
+  /** Saves the selected buildings as a component of the project's library (Library → My types). */
+  saveAsComponent(): void {
+    const bs = this.selectedBuildings().map((id) => this.store.building(id)).filter((x): x is Building3 => !!x);
+    if (!bs.length) return this.toast('Select the buildings to keep as a component.');
+    const cx = bs.reduce((a, b) => a + b.position[0], 0) / bs.length,
+      cz = bs.reduce((a, b) => a + b.position[1], 0) / bs.length;
+    const name = (bs.length === 1 ? bs[0]!.name : `${bs[0]!.name} +${bs.length - 1}`).slice(0, 60);
+    const comp = {
+      id: uid(),
+      name,
+      buildings: bs.map((b) => {
+        const c = structuredClone(b);
+        c.position = [b.position[0] - cx, b.position[1] - cz];
+        c.lotId = null;
+        delete c.linked;
+        return c;
+      }),
+    };
+    if ((this.project.components?.length ?? 0) >= 200) return this.toast('At most 200 components.');
+    this.changeSite((p) => void (p.components ??= []).push(comp), `${name}: kept in the Library (My types).`);
+  }
+
+  /** Inserts a copy of a saved component at the middle of the view, selected (M moves it). */
+  insertComponent(id: ID): void {
+    const comp = this.project.components?.find((c) => c.id === id);
+    if (!comp) return;
+    const t = this.view.target;
+    const ids: ID[] = [];
+    for (const src of comp.buildings) {
+      const b = cloneBuilding(src);
+      b.position = [Math.round((t.x + src.position[0]) * 100) / 100, Math.round((t.z + src.position[1]) * 100) / 100];
+      this.store.project.buildings.push(b);
+      ids.push(b.id);
+    }
+    if (!this.store.commit(ids, `${comp.name} inserted.`)) return;
+    this.toast(`${comp.name} inserted: M moves it.`);
+    this.selectBuildings(ids);
+  }
+
   /** A railing around the selected flat top (a terrace, a slab edge), 8 cm in from its edge. */
   railAround(): void {
     const b = this.activeBuilding();

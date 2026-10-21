@@ -34,6 +34,11 @@ export interface Project3 {
    * that building's frame and follow it when it moves or turns; without, they are in the world.
    */
   notes?: Note[];
+  /**
+   * Components made from a selection (SketchUp's Make Component, Revit's groups saved to the library):
+   * buildings kept with their positions relative to their center, inserted again from the Library.
+   */
+  components?: { id: ID; name: string; buildings: Building3[] }[];
   /** Guide lines (SketchUp's construction lines): endless lines on the plan the drawing tools snap to. */
   guides?: { id: ID; a: Vec2; b: Vec2 }[];
   /** Grid axes (Revit's grids, ArchiCAD's grid elements): lines of the structural grid, labelled 1, 2, 3… and A, B, C…, in the world. */

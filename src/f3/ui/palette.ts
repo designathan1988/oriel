@@ -93,6 +93,7 @@ export function mountPalette(ed: Editor3): void {
       { label: 'Redo', group: 'Edit', ic: 'redo', key: 'Ctrl Y', run: () => ed.command('redo') },
       { label: 'Duplicate selection', group: 'Edit', ic: 'copy', key: 'Ctrl D', run: () => ed.duplicate() },
       { label: 'Beams between columns', group: 'Edit', ic: 'row', run: () => ed.beamsBetweenColumns() },
+      { label: 'Save as component (Library)', group: 'Edit', ic: 'catalog', run: () => ed.saveAsComponent() },
       { label: 'Copy properties (roof, facade, materials)', group: 'Edit', ic: 'paint', key: 'Ctrl Shift C', run: () => ed.copyProperties() },
       { label: 'Paste properties', group: 'Edit', ic: 'paint', key: 'Ctrl Shift V', run: () => ed.pasteProperties() },
       { label: 'Linked copy (an edit of one is made on all)', group: 'Edit', ic: 'array', key: 'Ctrl Shift D', run: () => ed.duplicate(true) },

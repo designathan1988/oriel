@@ -789,6 +789,17 @@ export function validateForma3(raw: unknown): string[] {
         if (!ok) e.add('Project', 'invalid dimension or label.');
       }
   }
+  if (p.components !== undefined) {
+    if (!Array.isArray(p.components) || p.components.length > 200) e.add('Project', 'invalid components (at most 200).');
+    else
+      for (const c of p.components) {
+        if (!isObj(c) || !str(c.id) || !str(c.name, 60) || !Array.isArray(c.buildings) || c.buildings.length > 50) {
+          e.add('Project', 'invalid component.');
+          continue;
+        }
+        for (const b of c.buildings) checkBuilding(e, b, p, new Set());
+      }
+  }
   if (p.guides !== undefined) {
     const g2 = (q: unknown) => vec(q, 2) && (q as number[]).every((c) => Math.abs(c) <= LIMITS3.worldExtent);
     if (!Array.isArray(p.guides) || p.guides.length > 500 || !p.guides.every((x) => isObj(x) && str(x.id) && g2(x.a) && g2(x.b))) e.add('Project', 'invalid guide lines (at most 500).');
