@@ -17,7 +17,8 @@ const escA = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&
 const show = (v: number) => String(Math.round(v * 100) / 100);
 
 /** Glyph of an axis, colored like the gizmo arrow of that axis (X red, Y green and vertical, Z blue). */
-export const axis = (a: 'x' | 'y' | 'z'): string => `<b class="g g${a}">${a.toUpperCase()}</b>`;
+// The letters architects read (SketchUp, Revit, ArchiCAD: Z up): the model's y (height) shows as Z, its z (plan depth) as Y.
+export const axis = (a: 'x' | 'y' | 'z'): string => `<b class="g g${a}">${a === 'y' ? 'Z' : a === 'z' ? 'Y' : 'X'}</b>`;
 /** Glyph of a short word or letter (W, D, H, Top…). */
 export const gtext = (t: string): string => `<b class="g gt">${t}</b>`;
 /** Glyph of an icon. */

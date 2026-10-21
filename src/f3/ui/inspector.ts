@@ -245,7 +245,7 @@ function buildingPanel(b: Building3, _inside = false, groups = '', project?: Pro
   return `<div class="f3-title"><input data-b="name" value="${esc(b.name)}" aria-label="Building name"><span class="f3-kind">Building</span></div>
   ${groups}
   <div class="f3-sec"><h3>Transform</h3>
-    ${prow('Position', 'move', [nk('px', 'Position X', b.position[0], axis('x')), nk('py', 'Elevation (Y): base above the ground', b.elevation ?? 0, axis('y')), nk('pz', 'Position Z', b.position[1], axis('z'))])}
+    ${prow('Position', 'move', [nk('px', 'Position X', b.position[0], axis('x')), nk('py', 'Elevation (Z): base above the ground', b.elevation ?? 0, axis('y')), nk('pz', 'Position Y', b.position[1], axis('z'))])}
     ${prow('Rotation', 'rotate', [nk('rotation', 'Rotation around the vertical axis', b.rotation, gicon('rotate'), '°', 15)])}
   </div>
   <div class="f3-sec"><h3>Floors</h3>
@@ -333,7 +333,7 @@ function solidPanel(ed: Editor3, b: Building3, s: Solid): string {
     ${prow('Walls', 'thickness', [nk('shell', 'Wall thickness', s.shell, gicon('thickness'), 'm', 0.05), nk('height', 'Wall height', s.height, gtext('H'))], { title: 'Thickness and height of the walls' })}
     ${finishSelect('wall', 'Finish', s.materials.wall)}</div>` : ''}
   <div class="f3-sec"><h3>Transform</h3>
-    ${prow('Position', 'move', [nk('cx', 'Center X', c[0], axis('x')), nk('base', 'Base (Y): height of the bottom above the building', s.base, axis('y')), nk('cz', 'Center Z', c[1], axis('z'))])}
+    ${prow('Position', 'move', [nk('cx', 'Center X', c[0], axis('x')), nk('base', 'Base (Z): height of the bottom above the building', s.base, axis('y')), nk('cz', 'Center Y', c[1], axis('z'))])}
     ${prow('Rotate', 'rotate', [nk('spin', 'Rotate the volume by this angle', 0, gicon('rotate'), '°', 15, '0')])}
   </div>
   <div class="f3-sec"><h3>Size</h3>
