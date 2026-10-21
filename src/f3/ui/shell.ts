@@ -23,7 +23,23 @@ export const CSS = `
 .f3-ws button{height:26px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--muted);font-size:12px;white-space:nowrap}
 .f3-ws button:hover{color:var(--ink)}
 .f3-ws button[aria-selected=true]{background:var(--raise);color:var(--ink);box-shadow:0 1px 2px #0003}
-@media (max-width:1180px){.f3-ws button{padding:0 6px;font-size:11px}}
+.f3-ws button i{display:inline-grid;place-items:center;width:15px;height:15px;margin-right:5px;border-radius:50%;background:var(--line-2);color:var(--ink);font:600 9.5px/1 Inter,system-ui,sans-serif;font-style:normal;vertical-align:1px}
+.f3-ws button[aria-selected=true] i{background:var(--accent);color:#fff}
+.f3-guide{position:absolute;left:12px;bottom:12px;z-index:13;width:300px;max-width:calc(100% - 24px);background:var(--panel);backdrop-filter:blur(8px);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:var(--shadow);font-size:12px}
+.f3-guide[hidden],.f3-view:has(>.f3-lastop:not([hidden])) .f3-guide{display:none}
+.f3-guide header{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.f3-guide header i{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--accent);color:#fff;font:600 10.5px/1 Inter,system-ui,sans-serif;font-style:normal}
+.f3-guide header b{flex:1;font-size:12.5px}
+.f3-guide header button{background:none;border:0;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:0 2px}
+.f3-guide header button:hover{color:var(--ink)}
+.f3-guide:not(.open){width:auto;padding:6px 10px;cursor:pointer}
+.f3-guide:not(.open) header{margin:0}
+.f3-guide:not(.open) ol,.f3-guide:not(.open) .f3-btn,.f3-guide:not(.open) header button{display:none}
+.f3-view:has(>.f3-guide.open:not([hidden])) .f3-toast{left:calc(312px + (100% - 312px) / 2);max-width:calc(100% - 340px)}
+.f3-guide ol{margin:4px 0 8px;padding-left:18px;color:var(--muted);line-height:1.45}
+.f3-guide li{margin:2px 0}
+.f3-guide .f3-btn{width:100%;justify-content:center}
+@media (max-width:1180px){.f3-ws button{padding:0 6px;font-size:11px}.f3-ws button i{display:none}}
 @media (max-width:780px){.f3-ws{margin:0 4px}.f3-ws button{padding:0 3px}}
 .f3-info{display:grid;grid-template-columns:1fr auto;gap:3px 10px;margin:0;font-size:11.5px}
 .f3-info dt{color:var(--muted)}

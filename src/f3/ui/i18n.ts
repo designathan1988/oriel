@@ -61,7 +61,9 @@ export class Dictionary {
           const m = /^\{(\d+)\}$/.exec(part);
           if (m) {
             order.push(Number(m[1]));
-            return '(.+?)';
+            // A value is a number or a name, never a whole sentence: a short pattern ("Room {0}")
+            // must not swallow a long text that merely contains its words.
+            return '(.{1,48}?)';
           }
           return part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         })

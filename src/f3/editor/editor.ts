@@ -1438,6 +1438,8 @@ export class Editor3 {
   prefsRequested: (() => void) | null = null;
   /** Opens (true), closes (false) or toggles the plan view (ui/planview.ts). */
   planRequested: ((on?: boolean) => void) | null = null;
+  /** Shows the guide of the current stage again (ui/workspaces.ts). */
+  guideRequested: (() => void) | null = null;
   /** Mouse navigation preset (ui/prefs.ts): which middle-button drag pans and which orbits. */
   navPreset: 'forma' | 'sketchup' | 'blender' = 'forma';
 
@@ -3002,7 +3004,7 @@ export class Editor3 {
     for (let i = groups.length - 1; i >= 0; i--) if (!groups[i]!.length) groups.splice(i, 1);
     const pressed = (t: T) => (t.id === 'mode' ? this.drawMode === 'subtract' : t.id === 'catalog' ? !this.shell.cat.classList.contains('closed') : this.tool === t.id);
     this.shell.tools.innerHTML = groups
-      .map((g) => g.map((t) => `<button class="f3-tool" data-tool="${t.id}" title="${t.label} · ${t.key}" aria-label="${t.label}" aria-pressed="${pressed(t)}">${icon(t.ic)}</button>`).join(''))
+      .map((g) => g.map((t) => `<button class="f3-tool" data-tool="${t.id}" title="${tr(t.label)} · ${t.key}" aria-label="${t.label}" aria-pressed="${pressed(t)}">${icon(t.ic)}</button>`).join(''))
       .join('<hr>');
     const snapBtn = this.shell.viewbar.querySelector('[data-cmd="snap"]');
     snapBtn?.setAttribute('aria-pressed', String(this.infer.enabled));

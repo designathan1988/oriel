@@ -21,7 +21,7 @@ const CSS = `
 .f3-plan .lv button{height:24px;border:0;border-radius:5px;background:transparent;color:var(--muted);padding:0 10px;font-size:12px;cursor:pointer}
 .f3-plan .lv button[aria-pressed=true]{background:var(--accent-2);color:var(--accent-ink)}
 .f3-plan .sp{flex:1}
-.f3-plan .hint{position:absolute;left:12px;top:10px;max-width:calc(100% - 24px);background:var(--panel-solid);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;pointer-events:none;box-shadow:0 6px 18px #0002}
+.f3-plan .hint{position:absolute;right:12px;top:10px;max-width:min(520px,calc(100% - 24px));background:var(--panel-solid);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12px;pointer-events:none;box-shadow:0 6px 18px #0002}
 .f3-plan .paper[data-mode=wall],.f3-plan .paper[data-mode=door]{cursor:crosshair}
 .f3-plan .bar .f3-btn{height:28px;display:inline-flex;align-items:center;gap:6px}
 .f3-plan .paper{flex:1;position:relative;overflow:hidden;cursor:grab;background-image:linear-gradient(#0000000a 1px,transparent 1px),linear-gradient(90deg,#0000000a 1px,transparent 1px);background-size:24px 24px}

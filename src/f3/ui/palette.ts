@@ -7,6 +7,7 @@ import { BUILTIN_TYPES, family } from '../families/index';
 import { CATEGORY_NAMES } from '../families/family';
 import { icon } from './icons';
 import { tr } from './i18n';
+import { WORKSPACES } from './workspaces';
 import { actionsFor, transformActions } from './actions';
 
 interface Cmd {
@@ -73,7 +74,8 @@ export function mountPalette(ed: Editor3): void {
       { label: 'Copy the interior walls of this floor to the floors above', group: 'Interior', ic: 'floors', run: () => ed.replicateFloor() },
       { label: 'New component (window, door, balcony, stair, tree, furniture…)', group: 'Library', ic: 'add', run: () => openCreator(ed) },
       { label: 'Preferences (theme, navigation)', group: 'View', ic: 'props', run: () => ed.prefsRequested?.() },
-      ...(['model', 'components', 'materials', 'interior', 'present'] as const).map((w) => ({ label: `Workspace: ${w[0]!.toUpperCase()}${w.slice(1)}`, group: 'View', ic: 'layers', key: 'Alt PgUp/PgDn', run: () => ed.workspaceRequested?.(w) })),
+      ...(Object.entries(WORKSPACES) as [string, { label: string }][]).map(([w, d]) => ({ label: `Stage: ${d.label}`, group: 'View', ic: 'layers', key: 'Alt PgUp/PgDn', run: () => ed.workspaceRequested?.(w) })),
+      { label: 'Show the stage guide', group: 'Help', ic: 'help', run: () => ed.guideRequested?.() },
       { label: 'Parallel / perspective view', group: 'View', ic: 'grid', key: 'Numpad 5', run: () => ed.view.setParallel(!ed.view.parallel) },
       { label: 'Undo', group: 'Edit', ic: 'undo', key: 'Ctrl Z', run: () => ed.command('undo') },
       { label: 'Redo', group: 'Edit', ic: 'redo', key: 'Ctrl Y', run: () => ed.command('redo') },

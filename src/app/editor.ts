@@ -21,6 +21,7 @@ import { mountCatalog } from '../f3/ui/catalog';
 import { mountLayers } from '../f3/ui/layers';
 import { mountPalette } from '../f3/ui/palette';
 import { mountPlanView } from '../f3/ui/planview';
+import { mountToolTips } from '../f3/ui/tooltips';
 import { mountTime } from '../f3/ui/time';
 import { mountActions } from '../f3/ui/actions';
 import { mountLastOp } from '../f3/ui/lastop';
@@ -70,6 +71,7 @@ mountViewCube(editor);
 mountInteriorView(editor);
 mountWorkspaces(editor);
 mountPlanView(editor);
+mountToolTips(editor);
 (globalThis as { forma3?: Editor3 }).forma3 = editor;
 if (startNote) editor.toast(startNote);
 
