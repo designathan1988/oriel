@@ -4,7 +4,7 @@
 // face or component. Drags start from a copy of the initial state and are only
 // recorded in the history on release.
 import * as THREE from 'three';
-import type { Building3, ID, Item, MaterialRef, Project3, Solid, Vec2, Vec3 } from '../model/schema';
+import type { Building3, ID, Item, MaterialRef, Project3, Solid, Vec2, Vec3, NoteRef } from '../model/schema';
 import { building as newBuilding, circlePlan, facadeRule, levelsFor, planVertices, project as newProject, roofSpec, solid as newSolid, uid } from '../model/defaults';
 import { bendEdge, cloneBuilding, inside, locateVertex, cloneSolid, dirToLocal, edgeNormal, findSolid, mirrorSolid, moveVertex, planCenter, planValid as planValidOps, pushEdge, removeVertex, rotateSolid, splitEdge, toLocal, topRing, toWorld, topAt, translateSolid } from '../model/ops';
 import { solidRings } from '../eval/body';
@@ -6459,7 +6459,30 @@ export class Editor3 {
 
   /** The pinned dimensions and labels in the world (project.notes, with their buildings' moves). */
   get dims(): { id: ID; a: THREE.Vector3; b: THREE.Vector3 }[] {
-    return (this.project.notes ?? []).flatMap((n) => (n.kind === 'dim' ? [{ id: n.id, a: this.noteWorld(n.a, n.building), b: this.noteWorld(n.b, n.building) }] : []));
+    return (this.project.notes ?? []).flatMap((n) => (n.kind === 'dim' ? [{ id: n.id, a: this.noteWorld(this.refPoint(n.building, n.aRef) ?? n.a, n.building), b: this.noteWorld(this.refPoint(n.building, n.bRef) ?? n.b, n.building) }] : []));
+  }
+
+  /** Where a tied dimension end is now (building frame), or null when its corner is gone. */
+  private refPoint(building: ID | undefined, r: NoteRef | undefined): Vec3 | null {
+    if (!r || !building) return null;
+    const s = findSolid(this.store.building(building) ?? ({ solids: [] } as unknown as Building3), r.solid);
+    const v = s?.plan.outer.find((q) => q.id === r.vertex);
+    if (!s || !v) return null;
+    return [v.p[0], r.at === 'base' ? s.base : r.at === 'top' ? s.base + s.height : r.at, v.p[1]];
+  }
+
+  /** The corner of a volume a point (building frame) lies on, at its base or top, within 3 cm. */
+  private refAt(building: ID | null, p: Vec3): NoteRef | undefined {
+    const b = building ? this.store.building(building) : undefined;
+    for (const s of b?.solids ?? []) {
+      if (s.op !== 'add') continue;
+      for (const v of s.plan.outer) {
+        if (Math.hypot(v.p[0] - p[0], v.p[1] - p[2]) > 0.03) continue;
+        const at = Math.abs(p[1] - s.base) < 0.03 ? 'base' : Math.abs(p[1] - s.base - s.height) < 0.03 ? 'top' : p[1] > s.base && p[1] < s.base + s.height ? p[1] : null;
+        if (at !== null) return { solid: s.id, vertex: v.id, at };
+      }
+    }
+    return undefined;
   }
 
   private noteWorld(p: Vec3, building?: ID): THREE.Vector3 {
@@ -6521,7 +6544,9 @@ export class Editor3 {
       const len = this.tapeFrom.distanceTo(p);
       this.tapeFrom = null;
       this.tapeOn = null;
-      this.changeSite((pr) => void (pr.notes ??= []).push({ id: uid(), kind: 'dim', a, b, ...(on ? { building: on } : {}) }), `Dimension ${fmt(len)} m.`);
+      const aRef = this.refAt(on, a),
+        bRef = this.refAt(on, b);
+      this.changeSite((pr) => void (pr.notes ??= []).push({ id: uid(), kind: 'dim', a, b, ...(on ? { building: on } : {}), ...(aRef ? { aRef } : {}), ...(bRef ? { bRef } : {}) }), `Dimension ${fmt(len)} m.`);
       return;
     }
     if (!this.tapeFrom) {

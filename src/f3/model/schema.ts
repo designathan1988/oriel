@@ -97,7 +97,14 @@ export interface ProjectMaterial {
   ref: MaterialRef;
 }
 
-export type Note = { id: ID; kind: 'dim'; a: Vec3; b: Vec3; building?: ID } | { id: ID; kind: 'label'; p: Vec3; text: string; building?: ID };
+/** A dimension end tied to a corner of a volume (at its base, its top or a height): it follows the corner. */
+export interface NoteRef {
+  solid: ID;
+  vertex: ID;
+  at: 'base' | 'top' | number;
+}
+
+export type Note = { id: ID; kind: 'dim'; a: Vec3; b: Vec3; building?: ID; aRef?: NoteRef; bRef?: NoteRef } | { id: ID; kind: 'label'; p: Vec3; text: string; building?: ID };
 
 export interface Scene {
   id: ID;

@@ -780,7 +780,8 @@ export function validateForma3(raw: unknown): string[] {
     if (!Array.isArray(p.notes) || p.notes.length > 2000) e.add('Project', 'invalid notes (at most 2000).');
     else
       for (const n of p.notes) {
-        const ok = isObj(n) && str(n.id) && (n.building === undefined || str(n.building)) && (n.kind === 'dim' ? v3(n.a) && v3(n.b) : n.kind === 'label' ? v3(n.p) && str(n.text, 200) : false);
+        const ref = (r: unknown) => r === undefined || (isObj(r) && str((r as { solid: unknown }).solid) && str((r as { vertex: unknown }).vertex) && ((r as { at: unknown }).at === 'base' || (r as { at: unknown }).at === 'top' || fin((r as { at: unknown }).at)));
+        const ok = isObj(n) && str(n.id) && (n.building === undefined || str(n.building)) && (n.kind === 'dim' ? v3(n.a) && v3(n.b) && ref(n.aRef) && ref(n.bRef) : n.kind === 'label' ? v3(n.p) && str(n.text, 200) : false);
         if (!ok) e.add('Project', 'invalid dimension or label.');
       }
   }
