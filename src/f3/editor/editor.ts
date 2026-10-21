@@ -3588,7 +3588,10 @@ export class Editor3 {
       if (this.context) this.context = null;
       // Several buildings (to align and distribute).
       if (mode !== 'replace') return this.selectBuildings(combine(this.selectedBuildings(), [b.id], mode));
-      return this.select({ building: b.id });
+      // A door, a window, a piece of furniture or any part is selected at once (Revit elements, SketchUp
+      // components): sizing or editing it never needs entering the building first.
+      if (!(hit.part && (hit.part.item || hit.part.rule))) return this.select({ building: b.id });
+      this.context = b.id;
     }
     if (hit.part) {
       const key = hit.part.rule ? `r|${hit.part.solid}|${hit.part.rule}|${hit.part.key}` : hit.part.item ? `i|${hit.part.item}|${hit.part.key ?? '0'}` : null;
