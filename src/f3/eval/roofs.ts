@@ -184,10 +184,16 @@ const ov = spec.kind === 'dome' || spec.kind === 'vault' ? 0 : Math.max(0, Math.
   const gables = gableSet(s, rings, gableKind);
   const all = [outer, ...holes];
   const weights: number[] = [];
+  // A side with a pitch of its own moves inward at its own speed (the weighted straight skeleton): heights
+  // rise at the roof's pitch per unit of time, so a side at speed w slopes at tan(pitch) / w.
+  const sideSpeed = (i: number) => {
+    const own = s.edges[rings.outer.segs[i]?.edge ?? '']?.pitch;
+    return own !== undefined && own > 0 ? tanP / Math.tan(rad(Math.max(3, Math.min(75, own)))) : 1;
+  };
   const offsets: number[][] = all.map((ring, r) =>
     ring.map((_, i) => {
       const g = r === 0 && gables.has(i);
-      weights.push(g ? 0 : 1);
+      weights.push(g ? 0 : r === 0 ? sideSpeed(i) : 1);
       return g ? 0 : -ov;
     }),
   );
@@ -199,7 +205,13 @@ const ov = spec.kind === 'dome' || spec.kind === 'vault' ? 0 : Math.max(0, Math.
     sk = straightSkeleton(ovRings[0]!, ovRings.slice(1), weights);
   } catch (e) {
     if (!(e instanceof SkeletonError)) throw e;
-    return null;
+    // Pitches the skeleton cannot resolve (parallel sides at different speeds): every side at the roof's pitch.
+    try {
+      sk = straightSkeleton(ovRings[0]!, ovRings.slice(1), weights.map((w) => (w > 0 ? 1 : 0)));
+    } catch (e2) {
+      if (!(e2 instanceof SkeletonError)) throw e2;
+      return null;
+    }
   }
   const T = sk.maxTime;
   const steep = Math.tan(rad(Math.max(pitch + 15, 68)));

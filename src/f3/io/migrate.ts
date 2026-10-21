@@ -594,6 +594,7 @@ function checkSolid(e: Errors, where: string, s: Solid, p: Project3, ruleIds: Se
       if (!vids.has(id)) e.add(w, `setting on a missing side (${id}).`);
       if (!isObj(spec)) continue;
       if (spec.lean !== undefined && !fin(spec.lean)) e.add(w, 'invalid side lean.');
+      if (spec.pitch !== undefined && (!fin(spec.pitch) || spec.pitch < 3 || spec.pitch > 75)) e.add(w, 'invalid side roof pitch (3 to 75°).');
       if (spec.bevel !== undefined && (!fin(spec.bevel) || spec.bevel < 0)) e.add(w, 'invalid side bevel.');
       for (const k of ['gable', 'blank'] as const) if (spec[k] !== undefined && typeof spec[k] !== 'boolean') e.add(w, `${k} must be true or false.`);
       if (spec.material !== undefined) checkMaterial(e, w, spec.material, 'side material');

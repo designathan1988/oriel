@@ -1948,6 +1948,8 @@
 "Roof (sloped area)": "Cobertura (área inclinada)",
 "Roof changed.": "Telhado alterado.",
 "Roof color": "Cor do telhado",
+"Roof pitch": "Inclinação do telhado",
+"Roof pitch of this side (empty = the roof’s)": "Inclinação do telhado deste lado",
 "Roof slope": "Inclinação do telhado",
 "Roof tile": "Telha",
 "Roof tile (photo)": "Telha (foto)",

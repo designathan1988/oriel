@@ -187,7 +187,8 @@ Backlog (P1 first):
 - [ ] P1 Wall types with thickness and layers (poché by layer in section and plan).
 - [ ] P1 Curtain wall per face (U/V grid, mullions, glass/opaque/door panels).
 - [ ] P1 Slab as an element per level (outline, thickness, holes, cantilever); shafts/atria through slabs.
-- [ ] P1 Pitch per side on hip roofs (weighted skeleton).
+- [x] P1 Pitch per side on hip, gable, mansard and gambrel roofs (weighted straight skeleton; selected side
+      → Roof pitch; EdgeSpec.pitch).
 - [x] P1 Railings: on stairs (the stair family's rails), around a selected top (terrace, slab edge: panel and
       bar → Railing around), drawn on a flat top at its height. [ ] Edge host kept by a relation.
 - [x] P1 Rooms: use, ceiling height (a lowered ceiling board when below the slab), perimeter and volume;

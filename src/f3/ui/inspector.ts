@@ -312,6 +312,7 @@ function solidPanel(ed: Editor3, b: Building3, s: Solid): string {
     facePart = `<div class="f3-sec"><h3>${icon('push')} Selected face</h3>
     ${prow('Face', 'push', [nk('push', 'Push the face out (− in)', 0, gicon('push'), '', 0.1, '0'), nk('lean', 'Lean of the wall', e.lean ?? 0, gicon('lean'), '°', 1)], { title: 'Push and lean' })}
     ${prow('Bevel', 'bevel', [nk('edgebevel', 'Bevel of this side (top and base)', e.bevel ?? 0, gicon('bevel'), '', 0.05)])}
+    ${['hip', 'gable', 'mansard', 'gambrel'].includes(r.kind) && !e.gable ? prow('Roof pitch', 'slope', [nk('edgepitch', 'Roof pitch of this side (empty = the roof’s)', e.pitch ?? r.pitch, gicon('slope'), '°', 1)]) : ''}
     ${finishSelect('edgemat', 'Wall', e.material ?? s.materials.wall)}
     <div class="f3-btns n3">
       <button class="f3-btn" data-act="gable" aria-pressed="${!!e.gable}" title="${e.gable ? 'This side is a gable: click to undo' : 'Make this side a gable (the roof rises to it)'}">${icon('gable')}Gable</button>
@@ -1121,6 +1122,12 @@ function applyNumber(ed: Editor3, b: Building3, s: Solid | undefined, k: string,
     else if (k === 'direction') x.roof.direction = v;
     else if (k === 'rise') x.roof.rise = Math.max(0, v);
     else if (k === 'lean' && ed.sel.face?.edge) (x.edges[ed.sel.face.edge] ??= {}).lean = Math.max(-45, Math.min(45, v));
+    else if (k === 'edgepitch' && ed.sel.face?.edge) {
+      const es = (x.edges[ed.sel.face.edge] ??= {});
+      // The roof's own pitch typed back: the side follows the roof again.
+      if (Math.abs(v - x.roof.pitch) < 0.01) delete es.pitch;
+      else es.pitch = Math.max(3, Math.min(75, v));
+    }
     else if (k === 'push' && ed.sel.face?.edge) return void import('../model/ops').then(() => undefined);
   });
   if (k === 'push' && ed.sel.face?.edge && v !== 0) void import('../model/ops').then((ops) => ed.changeSolid((x) => ops.pushEdge(x, ed.sel.face!.edge!, v), `Face moved ${num(v)} m.`));
