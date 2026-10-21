@@ -18,7 +18,6 @@ import { migrateForma3 } from '../f3/io/migrate';
 import { loadLang, startI18n, tr } from '../f3/ui/i18n';
 import { mountInspector } from '../f3/ui/inspector';
 import { mountPrefs } from '../f3/ui/prefs';
-import { mountWorkspaces } from '../f3/ui/workspaces';
 import { mountCatalog } from '../f3/ui/catalog';
 import { mountLayers } from '../f3/ui/layers';
 import { mountPalette } from '../f3/ui/palette';
@@ -82,7 +81,6 @@ mountLastOp(editor);
 mountViewCube(editor);
 mountInteriorView(editor);
 mountPhoto(editor);
-mountWorkspaces(editor);
 mountPlanView(editor);
 // Account and cloud (only when this build has a cloud configured: cloud/api.ts).
 const account = mountAccount(editor, () => currentId!);

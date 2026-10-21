@@ -1032,6 +1032,25 @@ export class View {
 
   /** First building under the pointer (shell or component). */
   /** What is under the pointer. `wallsOnly`: the parts (windows, balconies) let the ray through to the body. */
+  /** The side face of a volume whose wall is nearest to a point (building frame) within its span. */
+  private sideBehind(faces: FaceInfo[], solid: ID, p: THREE.Vector3): FaceInfo | undefined {
+    let best: FaceInfo | undefined;
+    let bd = 0.3;
+    for (const f of faces) {
+      const fr = f.frame;
+      if (f.kind !== 'side' || f.solid !== solid || !fr) continue;
+      const d = [p.x - fr.o[0], p.y - fr.o[1], p.z - fr.o[2]];
+      const along = fr.s0 + d[0]! * fr.u[0] + d[1]! * fr.u[1] + d[2]! * fr.u[2];
+      if (along < fr.s0 - 0.05 || along > fr.s1 + 0.05) continue;
+      const off = Math.abs(d[0]! * fr.n[0] + d[1]! * fr.n[1] + d[2]! * fr.n[2]);
+      if (off < bd) {
+        bd = off;
+        best = f;
+      }
+    }
+    return best;
+  }
+
   pick(p: Project3, e: { clientX: number; clientY: number }, only?: ID | null, wallsOnly = false, skip?: Set<ID>): Hit | null {
     const ray = this.rayFrom(e);
     const groups = [...this.built.entries()].filter(([id]) => (!only || id === only) && !skip?.has(id) && this.built.get(id)!.group.visible).map(([, b]) => b.group);
@@ -1053,7 +1072,10 @@ export class View {
         const fi = built.shell.faceOf[h.faceIndex];
         const fs = fi !== undefined ? b.solids.find((x) => x.id === built.ev.faces[fi]?.solid) : undefined;
         if (fs && solidLocked(p, fs)) continue;
-        const face = fi !== undefined ? built.ev.faces[fi] : undefined;
+        let face = fi !== undefined ? built.ev.faces[fi] : undefined;
+        // The plinth is the foot of the wall: a door or a window pointed there goes on the wall above it
+        // (the side face of the same volume nearest to the point), not "nowhere".
+        if (face?.kind === 'plinth') face = this.sideBehind(built.ev.faces, face.solid, h.point.clone().applyMatrix4(built.group.matrixWorld.clone().invert())) ?? face;
         // A copy made by a modifier (repeat, mirror) answers for its source volume.
         return { building: b, point: h.point.clone(), normal, face: face && face.solid.includes('~') ? { ...face, solid: sourceId(face.solid) } : face };
       }

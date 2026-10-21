@@ -2,6 +2,9 @@
 import { ICON_PATHS } from '../../ui/icons';
 
 const EXTRA: Record<string, string> = {
+  door: 'M6 21V3h12v18 M3 21h18 M14.5 12.5h.01',
+  window: 'M4 4h16v16H4z M12 4v16 M4 12h16',
+  room: 'M3 3h18v18H3z M3 13h7 M10 13v8 M14 3v6 M14 9h7',
   camera: 'M4 8h3l2-3h6l2 3h3v11H4z M12 10a3.5 3.5 0 100 7 3.5 3.5 0 000-7',
   push: 'M4 14h16v6H4z M12 12V3 M8 7l4-4 4 4',
   home: 'M3 11l9-8 9 8 M5 9v12h14V9 M10 21v-6h4v6',

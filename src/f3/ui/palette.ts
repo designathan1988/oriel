@@ -8,7 +8,6 @@ import { BUILTIN_TYPES, family } from '../families/index';
 import { CATEGORY_NAMES } from '../families/family';
 import { icon } from './icons';
 import { tr } from './i18n';
-import { WORKSPACES } from './workspaces';
 import { actionsFor, transformActions } from './actions';
 import { openPhoto } from './photo';
 
@@ -64,7 +63,13 @@ export function mountPalette(ed: Editor3): void {
       tool('cut', 'Cut a face or a volume', 'knife', 'U'),
       { label: 'Library', group: 'Tool', ic: 'catalog', key: 'K', run: () => ed.toggleLibrary(true) },
       tool('opening', 'Opening on a wall (window, door, balcony, annex, niche)', 'opening', 'O'),
-      tool('iwall', 'Interior walls (Shift+click: a door)', 'draw', 'I'),
+      tool('walls', 'Walls (outside: a building; inside: divides the floor)', 'wall', 'W'),
+      { label: 'Door', group: 'Tool', ic: 'door', key: 'D', run: () => ed.startPlacing('door-panel') },
+      { label: 'Window', group: 'Tool', ic: 'window', key: 'J', run: () => ed.startPlacing('win-casement') },
+      tool('room', 'Room (click inside walls: name and area)', 'room', 'Shift+R'),
+      tool('slab', 'Slab', 'flat', 'Shift+F'),
+      tool('column', 'Column', 'pillar', 'Shift+K'),
+      tool('beam', 'Beam', 'row', 'Shift+B'),
       tool('stair', 'Stair (foot, end, then the height)', 'floorUp', 'Shift+I'),
       tool('lot', 'Lot (drag a rectangle on the ground)', 'lot', 'Shift+L'),
       tool('street', 'Street (click its points, Enter ends)', 'street', 'Shift+S'),
@@ -77,11 +82,9 @@ export function mountPalette(ed: Editor3): void {
       { label: 'New component (window, door, balcony, stair, tree, furniture…)', group: 'Library', ic: 'add', run: () => openCreator(ed) },
       { label: 'New object from shapes (box, cylinder, sphere, cone, ring…)', group: 'Library', ic: 'catalog', run: () => openObjectMaker(ed) },
       { label: 'Preferences (theme, navigation)', group: 'View', ic: 'props', run: () => ed.prefsRequested?.() },
-      ...(Object.entries(WORKSPACES) as [string, { label: string }][]).map(([w, d]) => ({ label: `Stage: ${d.label}`, group: 'View', ic: 'layers', key: 'Alt PgUp/PgDn', run: () => ed.workspaceRequested?.(w) })),
       { label: 'Quantities and cost estimate', group: 'Project', ic: 'count', run: () => ed.quantitiesRequested?.() },
       { label: 'Virtual tour and site', group: 'Project', ic: 'enter', run: () => ed.tourRequested?.() },
       { label: 'Photorealistic render (path tracing)', group: 'View', ic: 'camera', run: () => openPhoto(ed) },
-      { label: 'Show the stage guide', group: 'Help', ic: 'help', run: () => ed.guideRequested?.() },
       { label: 'Parallel / perspective view', group: 'View', ic: 'grid', key: 'Numpad 5', run: () => ed.view.setParallel(!ed.view.parallel) },
       { label: 'Undo', group: 'Edit', ic: 'undo', key: 'Ctrl Z', run: () => ed.command('undo') },
       { label: 'Redo', group: 'Edit', ic: 'redo', key: 'Ctrl Y', run: () => ed.command('redo') },

@@ -96,6 +96,7 @@ export class Dictionary {
         });
         break;
       }
+    if (out === null && ENGLISH.test(key)) missingTranslation?.(key);
     if (this.cache.size > 20000) this.cache.clear();
     this.cache.set(key, out);
     return out === null ? null : text.replace(key, out);
@@ -103,6 +104,15 @@ export class Dictionary {
 }
 
 let active: Dictionary | null = null;
+
+/** Words that only an English text has: a shown text with one of them and no translation is a gap. */
+const ENGLISH = /(the|to|of|and|click|drag|type|wall|walls|floor|floors|enter|with|for|this|from|here|select|building|buildings|volume|inside|outside|first|then|points?|not|no longer|is|are)/i;
+
+/** Called with each shown text that has no translation (the development sentinel lists them). */
+export let missingTranslation: ((text: string) => void) | null = null;
+export function onMissingTranslation(fn: (text: string) => void): void {
+  missingTranslation = fn;
+}
 
 /** The text in the interface language (for text drawn outside the DOM: canvas, document title, files). */
 export function tr(text: string): string {

@@ -11,7 +11,7 @@ export const CSS = `
 .f3{--canvas:#d9d6cc;--panel:#1d1f23f2;--panel-solid:#1d1f23;--raise:#26292e;--field:#2b2e34;--field-h:#33373e;--line:#33363c;--line-2:#3d4148;
   --ink:#e9eaec;--muted:#a3a8b0;--faint:#737881;--accent:#f07a32;--accent-2:#f07a3229;--accent-ink:#ffb48a;--sel:#5b9cff;--sel-2:#5b9cff26;--danger:#ff7b72;
   --r:10px;--shadow:0 8px 28px #0000004d,0 1px 0 #ffffff0a inset;
-  position:absolute;inset:0;display:grid;grid-template-rows:40px minmax(0,1fr) 26px;grid-template-columns:44px auto minmax(0,1fr) auto;grid-template-areas:"top top top top" "tools cat view aside" "status status status status";
+  position:absolute;inset:0;display:grid;grid-template-rows:40px minmax(0,1fr) 26px;grid-template-columns:64px auto minmax(0,1fr) auto;grid-template-areas:"top top top top" "tools cat view aside" "status status status status";
   font:12px/1.35 Inter,"Segoe UI",system-ui,-apple-system,sans-serif;color:var(--ink);background:var(--panel-solid);user-select:none;overflow:hidden;letter-spacing:.005em}
 .f3[data-theme=light]{--canvas:#d9d6cc;--panel:#f7f6f3f2;--panel-solid:#f7f6f3;--raise:#ebe9e4;--field:#ffffff;--field-h:#f0eee9;--line:#dcd9d2;--line-2:#cfcbc3;
   --ink:#1e2024;--muted:#555b63;--faint:#858a92;--accent:#e86a1e;--accent-2:#e86a1e24;--accent-ink:#a2470f;--sel:#2f7bf0;--sel-2:#2f7bf024;--danger:#c93a31;--shadow:0 8px 24px #0000001f,0 1px 0 #ffffff inset}
@@ -19,28 +19,6 @@ export const CSS = `
 .f3[data-theme=light] .f3-cell.over,.f3[data-theme=light] .f3-field.over input,.f3[data-theme=light] .f3-field.over select{background:#e3edff;border-color:#2f7bf066}
 .f3[data-theme=light] .f3-cell>.f3-reset{color:#2f7bf0}
 .f3[data-theme=light] .f3-card .fav{background:#ffffffcc}
-.f3-ws{display:flex;gap:2px;padding:2px;margin:0 8px;background:var(--field);border-radius:8px;flex:none}
-.f3-ws button{height:26px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--muted);font-size:12px;white-space:nowrap}
-.f3-ws button:hover{color:var(--ink)}
-.f3-ws button[aria-selected=true]{background:var(--raise);color:var(--ink);box-shadow:0 1px 2px #0003}
-.f3-ws button i{display:inline-grid;place-items:center;width:15px;height:15px;margin-right:5px;border-radius:50%;background:var(--line-2);color:var(--ink);font:600 9.5px/1 Inter,system-ui,sans-serif;font-style:normal;vertical-align:1px}
-.f3-ws button[aria-selected=true] i{background:var(--accent);color:#fff}
-.f3-guide{position:absolute;left:12px;bottom:12px;z-index:13;width:300px;max-width:calc(100% - 24px);background:var(--panel);backdrop-filter:blur(8px);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px 12px;box-shadow:var(--shadow);font-size:12px}
-.f3-guide[hidden],.f3-view:has(>.f3-lastop:not([hidden])) .f3-guide{display:none}
-.f3-guide header{display:flex;align-items:center;gap:8px;margin-bottom:4px}
-.f3-guide header i{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--accent);color:#fff;font:600 10.5px/1 Inter,system-ui,sans-serif;font-style:normal}
-.f3-guide header b{flex:1;font-size:12.5px}
-.f3-guide header button{background:none;border:0;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:0 2px}
-.f3-guide header button:hover{color:var(--ink)}
-.f3-guide:not(.open){width:auto;padding:6px 10px;cursor:pointer}
-.f3-guide:not(.open) header{margin:0}
-.f3-guide:not(.open) ol,.f3-guide:not(.open) .f3-btn,.f3-guide:not(.open) header button{display:none}
-.f3-view:has(>.f3-guide.open:not([hidden])) .f3-toast{left:calc(312px + (100% - 312px) / 2);max-width:calc(100% - 340px)}
-.f3-guide ol{margin:4px 0 8px;padding-left:18px;color:var(--muted);line-height:1.45}
-.f3-guide li{margin:2px 0}
-.f3-guide .f3-btn{width:100%;justify-content:center}
-@media (max-width:1180px){.f3-ws button{padding:0 6px;font-size:11px}.f3-ws button i{display:none}}
-@media (max-width:780px){.f3-ws{margin:0 4px}.f3-ws button{padding:0 3px}}
 .f3-info{display:grid;grid-template-columns:1fr auto;gap:3px 10px;margin:0;font-size:11.5px}
 .f3-info dt{color:var(--muted)}
 .f3-info dd{margin:0;font-variant-numeric:tabular-nums;text-align:right}
@@ -92,12 +70,20 @@ export const CSS = `
 .f3-view{grid-area:view;position:relative;overflow:hidden;min-height:0;background:var(--canvas)}
 .f3-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;outline:none}
 .f3-island{position:absolute;z-index:6;background:var(--panel);border:1px solid #00000059;border-radius:var(--r);box-shadow:var(--shadow);backdrop-filter:blur(10px)}
-.f3-tools{grid-area:tools;position:relative;z-index:6;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;background:var(--panel-solid);border-right:1px solid #000;overflow-y:auto;overflow-x:hidden}
-.f3-tool{width:32px;height:32px;border:0;border-radius:7px;background:transparent;display:grid;place-items:center;position:relative;color:var(--muted)}
+.f3-tools{grid-area:tools;position:relative;z-index:6;display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 0;background:var(--panel-solid);border-right:1px solid #000;overflow-y:auto;overflow-x:hidden}
+.f3-tool{width:58px;height:44px;flex:none;border:0;border-radius:8px;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;position:relative;color:var(--muted);padding:0 2px}
+.f3-tool span{font-size:10px;line-height:1.1;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:0}
+.f3-tool svg{width:18px;height:18px}
 .f3-tool:hover{background:var(--raise);color:var(--ink)}
-.f3-tool[aria-pressed=true]{background:var(--accent);color:#1b0f06}
-.f3-tool.grp::after{content:"";position:absolute;right:3px;bottom:3px;border:2.5px solid transparent;border-right-color:currentColor;border-bottom-color:currentColor;opacity:.6}
-.f3-tools hr{width:20px;border:0;border-top:1px solid var(--line);margin:3px auto}
+.f3-tool[aria-pressed=true]{background:var(--accent-2);color:var(--accent-ink);box-shadow:inset 0 0 0 1px var(--accent)}
+.f3-tool.grp::after{content:"";position:absolute;right:4px;bottom:4px;border:2.5px solid transparent;border-right-color:currentColor;border-bottom-color:currentColor;opacity:.55}
+.f3-tools hr{width:36px;border:0;border-top:1px solid var(--line);margin:4px auto;flex:none}
+.f3-flyout{position:absolute;z-index:40;display:flex;flex-direction:column;gap:1px;padding:4px;min-width:170px;background:var(--panel-solid);border:1px solid var(--line-2);border-radius:10px;box-shadow:var(--shadow)}
+.f3-flyout button{display:flex;align-items:center;gap:10px;height:32px;padding:0 10px;border:0;border-radius:7px;background:transparent;color:var(--ink);text-align:left}
+.f3-flyout button span{flex:1}
+.f3-flyout button kbd{font:10.5px ui-monospace,Consolas,monospace;color:var(--faint)}
+.f3-flyout button:hover{background:var(--raise)}
+.f3-flyout button[aria-pressed=true]{background:var(--accent-2);color:var(--accent-ink)}
 .f3-fly{position:absolute;z-index:12;min-width:200px;padding:4px}
 .f3-fly button{display:flex;align-items:center;gap:9px;width:100%;border:0;background:transparent;border-radius:6px;height:30px;padding:0 8px;color:var(--ink)}
 .f3-fly button:hover{background:var(--raise)}

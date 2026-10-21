@@ -1413,7 +1413,7 @@ export class Editor3 {
 
   /** The command search (ui/palette.ts) listens to this. */
   paletteRequested: (() => void) | null = null;
-  /** Workspace (ui/workspaces.ts): the tools it offers (null: all) and whether it only presents. */
+  /** A tool filter and a look-only mode (none is set since the stage tabs were removed: every tool is offered). */
   workspace = 'model';
   private wsTools: Set<Tool> | null = null;
   presenting = false;
@@ -1438,8 +1438,6 @@ export class Editor3 {
   prefsRequested: (() => void) | null = null;
   /** Opens (true), closes (false) or toggles the plan view (ui/planview.ts). */
   planRequested: ((on?: boolean) => void) | null = null;
-  /** Shows the guide of the current stage again (ui/workspaces.ts). */
-  guideRequested: (() => void) | null = null;
   /** Opens the quantities and cost estimate (ui/quantities.ts). */
   quantitiesRequested: (() => void) | null = null;
   /** Opens the virtual tour panel (ui/tour.ts). */
@@ -2963,65 +2961,99 @@ export class Editor3 {
     this.emit();
   }
 
+  /** The tool shown on each toolbar group (the last one used in it, as in Photoshop and Revit). */
+  private toolPick = new Map<string, string>();
+
   private renderTools(): void {
-    type T = { id: string; ic: string; label: string; key: string };
-    // Everything in view, in groups (like the Blender toolbar): nothing hidden in a submenu.
-    const groups: T[][] = [
-      [
-        { id: 'select', ic: 'cursor', label: 'Select: move, rotate and size right on the selection', key: 'V' },
-        { id: 'move', ic: 'move', label: 'Move', key: 'M' },
-        { id: 'rotate', ic: 'rotate', label: 'Rotate', key: 'Q' },
-        { id: 'scale', ic: 'scale', label: 'Scale and size', key: 'S' },
-      ],
-      [
-        { id: 'push', ic: 'push', label: 'Push/pull faces', key: 'P' },
-        { id: 'extrude', ic: 'extrude', label: 'Extrude face (new volume)', key: 'E' },
-        { id: 'cut', ic: 'knife', label: 'Cut: a wall in two faces (Shift: across, at a height); two clicks on a top cut the volume', key: 'U' },
-        { id: 'iwall', ic: 'draw', label: 'Interior walls: click points on the floor that is cut open (Shift+click on a wall: a door); Enter or Esc ends', key: 'I' },
-        { id: 'walls', ic: 'wall', label: 'Walls: click the centre line on the ground; click the first point to close it into a building with walls of real thickness; Enter: a free-standing wall', key: 'W' },
-        { id: 'slab', ic: 'flat', label: 'Slab: click the corners of a floor slab on the floor shown (a balcony, a mezzanine, a landing)', key: 'Shift+F' },
-        { id: 'column', ic: 'pillar', label: 'Column: click on the floor shown; it reaches the slab above', key: 'Shift+K' },
-        { id: 'beam', ic: 'row', label: 'Beam: click its two ends; it runs under the slab above', key: 'Shift+B' },
-        { id: 'room', ic: 'lot', label: 'Room: click inside walls to make a room (name and area), or drag a rectangle: four walls and the room', key: 'Shift+R' },
-        { id: 'stair', ic: 'floorUp', label: 'Stair: click the foot, click where it ends, then move up or down for the height and click (it snaps to the floors)', key: 'Shift+I' },
-        { id: 'opening', ic: 'opening', label: 'Opening: a click on a wall puts a window; a rectangle dragged on it asks what it is (door, balcony, canopy, annex, niche…)', key: 'O' },
-      ],
-      [
-        { id: 'rect', ic: 'rect', label: 'Rectangle', key: 'R' },
-        { id: 'circle', ic: 'circle', label: 'Circle', key: 'C' },
-        { id: 'polygon', ic: 'polygon', label: 'Polygon', key: 'L' },
-        { id: 'spline', ic: 'path', label: 'Spline: click the points of a smooth outline; click the first point or Enter closes it (its points stay editable)', key: 'Shift+P' },
-        { id: 'arc', ic: 'arc', label: 'Arc: click the two ends of the chord, then a point of the arc', key: 'Shift+C' },
-        { id: 'lot', ic: 'lot', label: 'Lot: drag a rectangle on the ground (or click two corners); its panel builds a house or a block in what the setbacks leave', key: 'Shift+L' },
-        { id: 'street', ic: 'street', label: 'Street: click the points of its center line; Enter or a double click ends', key: 'Shift+S' },
-        { id: 'mode', ic: this.drawMode === 'add' ? 'add' : 'subtract', label: this.drawMode === 'add' ? 'Drawing adds (switch to subtract)' : 'Drawing subtracts (switch to add)', key: 'X' },
-      ],
-      [
-        { id: 'catalog', ic: 'catalog', label: 'Library of blocks and components', key: 'K' },
-        { id: 'paint', ic: 'paint', label: 'Paint (Alt: eyedropper)', key: 'B' },
-        { id: 'tape', ic: 'tape', label: 'Tape and dimensions (Shift+Delete clears)', key: 'T' },
-      ],
+    type T = { id: string; ic: string; label: string; key: string; tip: string };
+    const T = (id: string, ic: string, label: string, key: string, tip: string): T => ({ id, ic, label, key, tip });
+    // Groups of the toolbar, in the order a building is made. Each button carries its name; tools of
+    // the same kind share one button whose other tools open from it (press and hold, or a right
+    // click). Nothing is hidden by a mode and no tool appears twice.
+    const groups: { id: string; tools: T[] }[] = [
+      { id: 'select', tools: [T('select', 'cursor', 'Select', 'V', 'Click to select; drag the arrows to move, rotate or size')] },
+      { id: 'move', tools: [T('move', 'move', 'Move', 'M', 'Drag to move; type a distance'), T('rotate', 'rotate', 'Rotate', 'Q', 'Drag to rotate; type an angle'), T('scale', 'scale', 'Scale', 'S', 'Drag a corner to size; type a factor')] },
+      { id: 'walls', tools: [T('walls', 'wall', 'Wall', 'W', 'Click point to point and type the lengths; inside a building it divides the floor')] },
+      { id: 'door', tools: [T('door', 'door', 'Door', 'D', 'Click a wall to put a door'), T('opening', 'opening', 'Opening', 'O', 'Drag a rectangle on a wall: balcony, canopy, niche, shopfront')] },
+      { id: 'window', tools: [T('window', 'window', 'Window', 'J', 'Click a wall to put a window')] },
+      { id: 'room', tools: [T('room', 'room', 'Room', 'Shift+R', 'Click inside walls: a named room with its area')] },
+      { id: 'slab', tools: [T('slab', 'flat', 'Slab', 'Shift+F', 'Click the corners of a slab on the floor shown'), T('column', 'pillar', 'Column', 'Shift+K', 'Click on the floor shown'), T('beam', 'row', 'Beam', 'Shift+B', 'Click its two ends')] },
+      { id: 'stair', tools: [T('stair', 'floorUp', 'Stair', 'Shift+I', 'Click the foot, then where it ends')] },
+      { id: 'shape', tools: [T('rect', 'rect', 'Rectangle', 'R', 'A volume: two corners, or type 10x8'), T('circle', 'circle', 'Circle', 'C', 'A round volume: centre, then the radius'), T('polygon', 'polygon', 'Polygon', 'L', 'A volume: click its corners'), T('arc', 'arc', 'Arc', 'Shift+C', 'The two ends, then a point of the arc'), T('spline', 'path', 'Curve', 'Shift+P', 'A smooth outline through the points')] },
+      { id: 'push', tools: [T('push', 'push', 'Push/Pull', 'P', 'Drag a face in or out; type the distance'), T('extrude', 'extrude', 'Extrude', 'E', 'A new volume from a face'), T('cut', 'knife', 'Cut', 'U', 'Split a face or a volume')] },
+      { id: 'site', tools: [T('lot', 'lot', 'Lot', 'Shift+L', 'Drag the lot on the ground; its setbacks show where to build'), T('street', 'street', 'Street', 'Shift+S', 'Click the points of its centre line')] },
+      { id: 'catalog', tools: [T('catalog', 'catalog', 'Library', 'K', 'Furniture, doors, windows, plants and blocks')] },
+      { id: 'paint', tools: [T('paint', 'paint', 'Paint', 'B', 'Click a surface with the chosen material (Alt: pick one)')] },
+      { id: 'tape', tools: [T('tape', 'tape', 'Measure', 'T', 'Click two points; Shift+Delete clears')] },
     ];
-    // The workspace shows only its tools (the library and paint follow their own tools).
-    const offered = (t: T) => t.id === 'catalog' ? this.toolOffered('place') || this.workspace === 'materials' : t.id === 'mode' ? this.toolOffered('rect') : this.toolOffered(t.id as Tool);
-    for (let i = 0; i < groups.length; i++) groups[i] = groups[i]!.filter(offered);
-    for (let i = groups.length - 1; i >= 0; i--) if (!groups[i]!.length) groups.splice(i, 1);
-    const pressed = (t: T) => (t.id === 'mode' ? this.drawMode === 'subtract' : t.id === 'catalog' ? !this.shell.cat.classList.contains('closed') : this.tool === t.id);
-    this.shell.tools.innerHTML = groups
-      .map((g) => g.map((t) => `<button class="f3-tool" data-tool="${t.id}" title="${tr(t.label)} · ${t.key}" aria-label="${t.label}" aria-pressed="${pressed(t)}">${icon(t.ic)}</button>`).join(''))
-      .join('<hr>');
+    const placingFamily = () => (this.tool === 'place' && this.placing ? (typeById(this.placing, this.project)?.family ?? null) : null);
+    const pressed = (t: T) =>
+      t.id === 'catalog' ? !this.shell.cat.classList.contains('closed') : t.id === 'door' ? placingFamily() === 'door' : t.id === 'window' ? placingFamily() === 'window' : this.tool === t.id;
+    const cell = (g: { id: string; tools: T[] }) => {
+      const cur = g.tools.find(pressed) ?? g.tools.find((t) => t.id === this.toolPick.get(g.id)) ?? g.tools[0]!;
+      const many = g.tools.length > 1;
+      const on = g.tools.some(pressed);
+      return `<button class="f3-tool${many ? ' grp' : ''}" data-tool="${cur.id}" data-group="${g.id}" title="${tr(cur.label)} (${cur.key}) · ${tr(cur.tip)}" aria-label="${tr(cur.label)}" aria-pressed="${on}">${icon(cur.ic)}<span>${tr(cur.label)}</span></button>`;
+    };
+    const sep = new Set(['move', 'walls', 'shape', 'site', 'catalog']);
+    this.shell.tools.innerHTML = groups.map((g) => `${sep.has(g.id) ? '<hr>' : ''}${cell(g)}`).join('');
     const snapBtn = this.shell.viewbar.querySelector('[data-cmd="snap"]');
     snapBtn?.setAttribute('aria-pressed', String(this.infer.enabled));
     const libBtn = this.shell.status.bar.querySelector('[data-cmd="library"]');
     libBtn?.setAttribute('aria-pressed', String(!this.shell.cat.classList.contains('closed')));
-    this.shell.tools.querySelectorAll<HTMLButtonElement>('button').forEach((b) =>
+    const run = (id: string) => {
+      if (id === 'catalog') this.toggleLibrary();
+      else if (id === 'door') this.startPlacing('door-panel');
+      else if (id === 'window') this.startPlacing('win-casement');
+      else this.setTool(id as Tool);
+    };
+    const flyout = (b: HTMLButtonElement) => {
+      const g = groups.find((x) => x.id === b.dataset.group)!;
+      this.shell.root.querySelector('.f3-flyout')?.remove();
+      const m = document.createElement('div');
+      m.className = 'f3-flyout';
+      m.setAttribute('role', 'menu');
+      m.innerHTML = g.tools.map((t) => `<button role="menuitem" data-pick="${t.id}" aria-pressed="${pressed(t)}">${icon(t.ic)}<span>${tr(t.label)}</span><kbd>${t.key}</kbd></button>`).join('');
+      const r = b.getBoundingClientRect(),
+        root = this.shell.root.getBoundingClientRect();
+      m.style.left = `${r.right - root.left + 4}px`;
+      m.style.top = `${r.top - root.top}px`;
+      this.shell.root.appendChild(m);
+      const close = (e: PointerEvent) => {
+        if (m.contains(e.target as Node)) return;
+        m.remove();
+        document.removeEventListener('pointerdown', close, true);
+      };
+      document.addEventListener('pointerdown', close, true);
+      m.addEventListener('click', (e) => {
+        const p = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-pick]');
+        if (!p) return;
+        this.toolPick.set(g.id, p.dataset.pick!);
+        m.remove();
+        document.removeEventListener('pointerdown', close, true);
+        run(p.dataset.pick!);
+      });
+    };
+    this.shell.tools.querySelectorAll<HTMLButtonElement>('button').forEach((b) => {
+      let hold = 0;
+      let held = false;
+      const many = b.classList.contains('grp');
+      b.addEventListener('pointerdown', () => {
+        held = false;
+        if (many) hold = window.setTimeout(() => ((held = true), flyout(b)), 350);
+      });
+      b.addEventListener('pointerup', () => clearTimeout(hold));
+      b.addEventListener('pointerleave', () => clearTimeout(hold));
+      b.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        if (many) flyout(b);
+      });
       b.addEventListener('click', () => {
-        const id = b.dataset.tool!;
-        if (id === 'mode') this.toggleDrawMode();
-        else if (id === 'catalog') this.toggleLibrary();
-        else this.setTool(id as Tool);
-      }),
-    );
+        if (held) return;
+        this.toolPick.set(b.dataset.group!, b.dataset.tool!);
+        run(b.dataset.tool!);
+      });
+    });
   }
 
 
@@ -6680,7 +6712,10 @@ export class Editor3 {
       else if (k === 't') this.setTool('tape');
       else if (k === 'u') this.setTool('cut');
       else if (k === 'o') this.setTool('opening');
-      else if (k === 'i' && !e.shiftKey) this.setTool('iwall');
+      // One wall tool: I (the old interior walls key) draws walls too; inside a building they divide it.
+      else if (k === 'i' && !e.shiftKey) this.setTool('walls');
+      else if (k === 'd' && !e.shiftKey) this.startPlacing('door-panel');
+      else if (k === 'j' && !e.shiftKey) this.startPlacing('win-casement');
       else if (k === 'i') this.setTool('stair');
       else if (k === 'x') this.toggleDrawMode();
       else if (k === 'k') this.toggleLibrary();

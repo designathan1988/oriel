@@ -4,11 +4,13 @@
 // context, kernel mesh Manifold refused (f3/kernel/kernel.ts usable) and document that would not open
 // again (validated after every history step) is collected in f3/kernel/problems.ts and shown in a
 // panel at the bottom left: red for errors, amber for warnings only. So every look at the editor,
-// a person's or a screenshot's, is also a check. `globalThis.forma3Problems()` lists them (the smoke
+// a person's or a screenshot's, is also a check. Text shown in English in the Portuguese interface is a
+// warning too (a gap in the dictionary). `globalThis.forma3Problems()` lists them (the smoke
 // check, e2e/smoke.spec.ts, fails on any error).
 import type { Editor3 } from '../f3/editor/editor';
 import { validateForma3 } from '../f3/io/migrate';
 import { clearProblems, onProblem, problems, report, type Problem } from '../f3/kernel/problems';
+import { onMissingTranslation } from '../f3/ui/i18n';
 
 let installed = false;
 
@@ -32,6 +34,8 @@ export function installSentinel(): void {
   };
   (globalThis as { forma3Problems?: () => Problem[] }).forma3Problems = problems;
   onProblem(() => queueMicrotask(draw));
+  // English shown in the Portuguese interface: a gap in src/f3/ui/i18n/pt-BR.json.
+  onMissingTranslation((text) => report('warning', 'i18n', text.slice(0, 300)));
 }
 
 /** What only the editor can tell: its WebGL context and its document. */
