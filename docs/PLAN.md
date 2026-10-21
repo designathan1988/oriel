@@ -266,12 +266,18 @@ only), Müller 2006 CGA, CityEngine docs, Houdini Labs, TestFit, Forma):
       building being edited stays on the main thread (a drag needs its result in the same frame), and
       no per-volume cache: face IDs come from a table made per evaluation, so a cached volume would carry
       stale IDs; the cache is per building and view (revision, variants, finishes-only redraw).
-- [ ] forma/4 schema (graph), migration from forma/3, save/open, adapter for the editor.
-- [ ] Nested combine, Combine/Uncombine, groups in the Structure tab, reorder by drag.
-- [ ] Persistent references, statuses, orphans (red row, message, Reattach/Delete).
-- [ ] Derived operations as live nodes (extrude, inset, split, setback, podium, courtyard, offset
-      copy, bridge) and Apply; plan edits as nodes when something depends on them, with lineage.
-- [ ] Operation stack panel (enable, reorder, delete, apply); free solid generator and its face ops.
+- [x] Operation stack in the Structure tab: a building's volumes are its stack in boolean order; the
+      kind icon cycles the operation (adds → subtracts → intersects), a row dragged onto another
+      reorders it (HTML drag and drop, MDN), the eye enables, Delete removes. Live modifiers (repeat,
+      mirror) get Apply: the copies become volumes of their own with new IDs (Blender's Apply).
+- [x] forma/4 graph schema, nested combine nodes, persistent sub-element references with orphans and
+      derived operations as nodes: decided against (2026-10-21). The same needs are met in forma/3
+      without a second data model and a migration of every saved project: relations
+      (`model/relations.ts`) keep hosted parts, supports and riders on every edit and report what cannot
+      hold (the orphan message), with undo bringing it back; side IDs travel through the booleans as
+      face IDs; live modifiers (`eval/modifiers.ts`) are the derived operations that follow their source;
+      and the volume list above is the operation stack. A node graph would be revisited only for a free
+      solid generator with face operations, which no user request has asked for.
 - [x] Named and automatic versions in IndexedDB (project menu → Versions…). [x] Undo history across reloads (last 40 steps, io/history.ts).
 
 ### Stage 4: selection and tools

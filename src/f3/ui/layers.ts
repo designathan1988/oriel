@@ -22,6 +22,8 @@ export function mountLayers(ed: Editor3): void {
   let filter = '';
   let renaming: string | null = null;
   let lastKey = '';
+  /** The volume row being dragged (`building|solid`); the drag data cannot be read during dragover. */
+  let dragged: string | null = null;
   tabs.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((t) =>
     t.addEventListener('click', () => {
       const tab = t.dataset.tab;
@@ -185,8 +187,11 @@ export function mountLayers(ed: Editor3): void {
 
   function solidRow(b: Building3, s: Solid): string {
     const sel = ed.sel.solids.includes(s.id);
-    const k = s.op === 'add' ? kind('add', 'Volume (adds)') : s.op === 'subtract' ? kind('subtract', 'Cutter (subtracts)') : kind('intersect', 'Intersection');
-    return `<div class="f3-lrow sub${solidHidden(ed.project, s) ? ' off' : ''}" data-b="${b.id}" data-s="${s.id}" aria-selected="${sel}">${k}${nameCell(`s:${s.id}`, s.name, true)}${layerCell(s.layer, sel)}${eye(!s.hidden, 'data-tact="eye"')}${lock(!!s.locked, 'data-tact="lock"')}</div>`;
+    // The volumes are the building's operation stack, in boolean order: the kind icon cycles the
+    // operation (adds → subtracts → intersects) and a row dragged onto another moves it there.
+    const [ic, title] = s.op === 'add' ? ['add', 'Volume (adds)'] : s.op === 'subtract' ? ['subtract', 'Cutter (subtracts)'] : ['intersect', 'Intersection'];
+    const k = `<button class="kind" data-tact="op" title="${title} · click: change">${icon(ic)}</button>`;
+    return `<div class="f3-lrow sub${solidHidden(ed.project, s) ? ' off' : ''}" data-b="${b.id}" data-s="${s.id}" aria-selected="${sel}"${renaming === `s:${s.id}` ? '' : ' draggable="true"'}>${k}${nameCell(`s:${s.id}`, s.name, true)}${layerCell(s.layer, sel)}${eye(!s.hidden, 'data-tact="eye"')}${lock(!!s.locked, 'data-tact="lock"')}</div>`;
   }
 
   function renderLayers(): void {
@@ -286,6 +291,56 @@ export function mountLayers(ed: Editor3): void {
         lastKey = '';
         render();
       });
+      if (sid && !rid) {
+        row.querySelector('[data-tact="op"]')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          ed.change(
+            bid,
+            (b) => {
+              const s = b.solids.find((x) => x.id === sid);
+              if (!s) return false;
+              s.op = s.op === 'add' ? 'subtract' : s.op === 'subtract' ? 'intersect' : 'add';
+            },
+            'Operation changed.',
+          );
+        });
+        row.addEventListener('dragstart', (e) => {
+          dragged = `${bid}|${sid}`;
+          e.dataTransfer?.setData('text/plain', dragged);
+          if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+        });
+        // Only volumes of the same building take the drop (the boolean order is per building).
+        const accepts = () => !!dragged && dragged.startsWith(bid + '|');
+        row.addEventListener('dragend', () => (dragged = null));
+        row.addEventListener('dragover', (e) => {
+          if (!accepts()) return;
+          e.preventDefault();
+          if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+          const after = e.offsetY > row.clientHeight / 2;
+          row.classList.toggle('drop-before', !after);
+          row.classList.toggle('drop-after', after);
+        });
+        row.addEventListener('dragleave', () => row.classList.remove('drop-before', 'drop-after'));
+        row.addEventListener('drop', (e) => {
+          e.preventDefault();
+          const after = row.classList.contains('drop-after');
+          row.classList.remove('drop-before', 'drop-after');
+          const [fb, fs] = (dragged ?? '').split('|');
+          dragged = null;
+          if (fb !== bid || !fs || fs === sid) return;
+          ed.change(
+            bid,
+            (b) => {
+              const from = b.solids.findIndex((x) => x.id === fs);
+              if (from < 0) return false;
+              const [moved] = b.solids.splice(from, 1);
+              const to = b.solids.findIndex((x) => x.id === sid) + (after ? 1 : 0);
+              b.solids.splice(to, 0, moved!);
+            },
+            'Volume order changed.',
+          );
+        });
+      }
       const pick = row.querySelector<HTMLElement>('[data-tact="pick"]');
       pick?.addEventListener('click', () => {
         if (!sid && !iid) {

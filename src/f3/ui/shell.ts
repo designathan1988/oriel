@@ -132,6 +132,11 @@ export const CSS = `
 .f3-tree-bar input{flex:1;min-width:0;height:26px;border:1px solid var(--line);border-radius:6px;background:var(--field);color:var(--ink);padding:0 8px;font:inherit}
 .f3-lrow .kind{width:18px;flex:none;display:grid;place-items:center;color:var(--muted)}
 .f3-lrow .kind svg{width:14px;height:14px}
+.f3-lrow button.kind{background:none;border:0;padding:0;height:22px;border-radius:4px;cursor:pointer}
+.f3-lrow button.kind:hover{color:var(--ink);background:var(--raise)}
+.f3-lrow[draggable="true"]{cursor:grab}
+.f3-lrow.drop-before{box-shadow:inset 0 2px 0 var(--accent)}
+.f3-lrow.drop-after{box-shadow:inset 0 -2px 0 var(--accent)}
 .f3-lrow .ldot{width:8px;height:8px;border-radius:50%;flex:none;margin:0 4px;box-shadow:0 0 0 1px var(--line)}
 .f3-lrow mark{background:var(--accent-2);color:inherit;border-radius:2px}
 .f3-sets{border-bottom:1px solid var(--line);padding-bottom:4px}

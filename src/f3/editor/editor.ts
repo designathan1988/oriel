@@ -9,6 +9,7 @@ import { building as newBuilding, circlePlan, facadeRule, levelsFor, planVertice
 import { bendEdge, cloneBuilding, inside, mirrorSolidAbout, reflect, locateVertex, cloneSolid, dirToLocal, edgeNormal, findSolid, mirrorSolid, moveVertex, planCenter, planValid as planValidOps, pushEdge, removeVertex, rotateSolid, splitEdge, toLocal, topRing, toWorld, topAt, translateSolid } from '../model/ops';
 import { solidRings } from '../eval/body';
 import { stairClashes } from '../eval/clashes';
+import { modifierCopies } from '../eval/modifiers';
 import { terrainField, type TerrainField } from '../model/terrain';
 import { adoptOffsetSides, sideCurve, stackOnTop, edgeLength, extrudeSide, hostedFrame, insetSide, insetTop, offsetCopy, offsetSolid, setSideDepth, setSolidSize, splitAtHeight, splitByLine, splitSideAt } from '../model/modeling';
 import { activeLayer, buildingHidden, buildingLocked, ensureLayers, explodeGap, itemHidden, itemLocked, solidHidden, solidLocked, viewOf, optionHidden } from '../model/layers';
@@ -7348,6 +7349,33 @@ export class Editor3 {
       for (const x of p.buildings) if (x.option?.set === set) delete x.option;
       if (p.view?.options) delete p.view.options[set];
     }, 'Option kept; the others deleted.');
+  }
+
+  /**
+   * Applies the live copies of the selected volume (repeat, mirror; Blender's Apply modifier): each copy
+   * becomes a volume of its own with new IDs, right after the source, and the source keeps no modifier.
+   */
+  applyModifiers(): void {
+    const b = this.activeBuilding(),
+      s = this.activeSolid();
+    if (!b || !s || !((s.repeat && s.repeat.count > 1) || s.mirror)) return this.toast('Select a volume with copies first.');
+    const n = modifierCopies(s).length;
+    this.change(
+      b.id,
+      (x) => {
+        const src = x.solids.find((q) => q.id === s.id);
+        if (!src) return false;
+        const copies = modifierCopies(src).map((c, i) => {
+          const k = cloneSolid(c);
+          k.name = `${src.name} ${i + 2}`;
+          return k;
+        });
+        delete src.repeat;
+        delete src.mirror;
+        x.solids.splice(x.solids.indexOf(src) + 1, 0, ...copies);
+      },
+      `${n} copies are volumes of their own now.`,
+    );
   }
 
   /** Saves the selected buildings as a component of the project's library (Library → My types). */

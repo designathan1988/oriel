@@ -385,6 +385,7 @@ function solidPanel(ed: Editor3, b: Building3, s: Solid): string {
     ${s.repeat?.kind === 'helix' ? prow('Turn', 'rotate', [nk('reprise', 'Rise of each copy over the previous one', s.repeat.rise, axis('y')), nk('repturn', 'Turn of each copy (degrees)', s.repeat.turn, gicon('rotate'), '°', 5)], { title: 'Each copy rises and turns' }) : ''}
     ${s.repeat?.kind === 'ring' || s.repeat?.kind === 'helix' ? prow('Center', 'move', [nk('repcx', 'Center X of the turn (building frame)', s.repeat.cx, axis('x')), nk('repcz', 'Center Z of the turn', s.repeat.cz, axis('z'))], { title: 'Center of the turn' }) : ''}
     ${prow('Mirror', 'mirror', [selectCell('data-mirror', 'A live mirrored copy across the building axis', [['none', 'None'], ['x', 'Across X (x = 0)'], ['z', 'Across Z (z = 0)']], s.mirror ?? 'none')], { wide: true })}
+    ${(s.repeat && s.repeat.count > 1) || s.mirror ? `<div class="f3-btns n2"><button class="f3-btn" data-act="applymod" title="The copies become volumes of their own (Blender's Apply modifier)">${icon('check')}Apply</button></div>` : ''}
   </div>
   <div class="f3-sec"><h3>Edges</h3>
     ${prow('Bevel', 'bevel', [nk('bvtop', 'Bevel of the top edges', bv?.top ?? 0, gtext('Top'), '', 0.05), nk('bvbottom', 'Bevel of the base edges', bv?.bottom ?? 0, gtext('Base'), '', 0.05)])}
@@ -997,6 +998,7 @@ function bind(ed: Editor3, b: Building3, s: Solid | undefined): void {
       if (a === 'enter') ed.enter(b.id);
       else if (a === 'dup') ed.duplicate();
       else if (a === 'railaround') ed.railAround();
+      else if (a === 'applymod') ed.applyModifiers();
       else if (a === 'cornerwin') ed.cornerWindow();
       else if (a === 'del') ed.remove();
       else if (a === 'mirror') ed.command('mirror');
