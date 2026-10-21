@@ -31,6 +31,8 @@ export interface InteriorDoor {
   height: number;
   /** Side the leaf opens to: 1 (absent) toward the wall's left normal (−u.z, u.x) going from `a` to `b`, −1 the other. */
   swing?: 1 | -1;
+  /** false: a passage (the opening with no door leaf). */
+  leaf?: false;
 }
 
 /** `Interior` with the doors of its walls (the document schema does not type them yet). */
@@ -162,6 +164,75 @@ export function addInteriorWall(b: Building3, levelId: ID, a: Vec2, c: Vec2, thi
     first ??= id;
   }
   return first ?? '';
+}
+
+/**
+ * Extends an interior wall from one of its ends (Revit's and AutoCAD's Extend): along its line to the
+ * nearest wall it meets, or to the inner face of the building's walls, at most 30 m. The wall is drawn
+ * again from its other end (so the wall it reaches is split there and the rooms close), its doors kept
+ * where they were. Returns false when nothing is in the way.
+ */
+export function extendInteriorWall(b: Building3, levelId: ID, wallId: ID, end: 'a' | 'b', boundary: Vec2[][], uid: () => string): boolean {
+  const it = b.interiors[levelId] as InteriorWithDoors | undefined;
+  const w = it?.walls.find((x) => x.id === wallId);
+  if (!it || !w) return false;
+  const node = new Map(it.nodes.map((n) => [n.id, n.p]));
+  const E = node.get(end === 'a' ? w.a : w.b),
+    O = node.get(end === 'a' ? w.b : w.a);
+  if (!E || !O) return false;
+  const L = Math.hypot(E[0] - O[0], E[1] - O[1]);
+  if (L < 1e-6) return false;
+  const d: Vec2 = [(E[0] - O[0]) / L, (E[1] - O[1]) / L];
+  // The nearest hit ahead of the end: another wall's axis or a side of the boundary.
+  let best = 30;
+  const hit = (p: Vec2, q: Vec2) => {
+    const ex = q[0] - p[0],
+      ez = q[1] - p[1];
+    const den = d[0] * ez - d[1] * ex;
+    if (Math.abs(den) < 1e-9) return;
+    const s = ((p[0] - E[0]) * ez - (p[1] - E[1]) * ex) / den;
+    const r = ((p[0] - E[0]) * d[1] - (p[1] - E[1]) * d[0]) / den;
+    if (s > 0.02 && s < best && r >= -1e-6 && r <= 1 + 1e-6) best = s;
+  };
+  const endNode = end === 'a' ? w.a : w.b;
+  for (const o of it.walls) {
+    if (o.id === w.id || o.a === endNode || o.b === endNode) continue;
+    const p = node.get(o.a),
+      q = node.get(o.b);
+    if (p && q) hit(p, q);
+  }
+  for (const r of boundary) for (let i = 0; i < r.length; i++) hit(r[i]!, r[(i + 1) % r.length]!);
+  if (best >= 30) return false;
+  const to: Vec2 = [E[0] + d[0] * best, E[1] + d[1] * best];
+  // The doors on it, by where they are (they go back on the wall found there after the redraw).
+  const doors = interiorDoors(it).filter((x) => x.wall === w.id);
+  const keep = interiorDoors(it).filter((x) => x.wall !== w.id);
+  const nodeA = node.get(w.a)!;
+  const dirAB: Vec2 = end === 'b' ? d : [-d[0], -d[1]];
+  const at = doors.map((x) => ({ door: x, p: [nodeA[0] + dirAB[0] * x.u, nodeA[1] + dirAB[1] * x.u] as Vec2 }));
+  it.walls = it.walls.filter((x) => x.id !== w.id);
+  // The end node goes when no other wall uses it.
+  if (!it.walls.some((x) => x.a === endNode || x.b === endNode)) it.nodes = it.nodes.filter((n) => n.id !== endNode);
+  it.doors = keep;
+  const before = new Set(it.walls.map((x) => x.id));
+  addInteriorWall(b, levelId, O, to, w.thickness, uid);
+  const added = it.walls.filter((x) => !before.has(x.id));
+  const nm = new Map(it.nodes.map((n) => [n.id, n.p]));
+  for (const { door, p } of at)
+    for (const nw of added) {
+      const a = nm.get(nw.a)!,
+        c = nm.get(nw.b)!;
+      const len = Math.hypot(c[0] - a[0], c[1] - a[1]);
+      const u = ((p[0] - a[0]) * (c[0] - a[0]) + (p[1] - a[1]) * (c[1] - a[1])) / (len || 1);
+      const off = Math.abs((p[0] - a[0]) * (c[1] - a[1]) - (p[1] - a[1]) * (c[0] - a[0])) / (len || 1);
+      if (u >= 0 && u <= len && off < 0.01) {
+        // The new wall may run the other way: the swing side follows.
+        const same = (c[0] - a[0]) * dirAB[0] + (c[1] - a[1]) * dirAB[1] > 0;
+        it.doors.push({ ...door, wall: nw.id, u, ...(same ? {} : { swing: door.swing === -1 ? 1 : -1 }) });
+        break;
+      }
+    }
+  return true;
 }
 
 /** Copies the interior of a level (nodes, walls, rooms and doors) to other levels, all with new ids. */
@@ -455,6 +526,7 @@ export function interiorDoorFrames(b: Building3): { key: string; o: [number, num
     if (!it) continue;
     const node = new Map(it.nodes.map((n) => [n.id, n.p]));
     interiorDoors(it).forEach((d, i) => {
+      if (d.leaf === false) return;
       const w = it.walls.find((x) => x.id === d.wall);
       const a = w && node.get(w.a),
         c = w && node.get(w.b);

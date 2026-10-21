@@ -319,6 +319,8 @@ export function floorPlan(b: Building3, levelIndex: number, placements: readonly
       const a = add(c, ax.u, -d.width / 2),
         bb = add(c, ax.u, d.width / 2);
       gaps.push(rect(a, ax.u, ax.n, d.width, -ax.t / 2 - 0.01, ax.t / 2 + 0.01));
+      // A passage: the gap alone, no leaf and no swing.
+      if (d.leaf === false) continue;
       const n: Vec2 = d.swing === -1 ? [-ax.n[0], -ax.n[1]] : ax.n;
       const hinge = add(a, n, ax.t / 2);
       out.doors.push({ hinge, jamb: add(bb, n, ax.t / 2), leaf: add(hinge, n, d.width), width: d.width, a: add(a, n, ax.t / 2), b: add(bb, n, ax.t / 2), n, depth: ax.t });

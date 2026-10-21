@@ -4,7 +4,9 @@
 // walls, the rooms of the floor shown). Data: Building3.interiors (eval/interiorwalls.ts).
 import type { Editor3 } from '../editor/editor';
 import { ROOM_USES, ROOM_USE_NAMES as USE_NAMES, type Building3, type ID, type MaterialRef, type RoomUse } from '../model/schema';
-import { interiorDoors, roomArea, roomCeiling, roomPerimeter, type InteriorWithDoors } from '../eval/interiorwalls';
+import { extendInteriorWall, interiorDoors, roomArea, roomCeiling, roomPerimeter, type InteriorWithDoors } from '../eval/interiorwalls';
+import { offsetRing, oriented, sampleRing } from '../model/plan';
+import { uid } from '../model/defaults';
 import { floorPlan, sortedLevels } from '../eval/floorplan';
 
 /**
@@ -83,12 +85,12 @@ export function interiorPanel(ed: Editor3, b: Building3): string {
     <div class="f3-sec"><h3>Wall</h3>
       ${prow('Thickness', 'thickness', [cell('data-iw="thickness"', 'Wall thickness', w.thickness, gicon('thickness'))])}
       ${prow('Length', 'distance', [cell('data-iw="length"', 'Length (the end point moves)', len, gtext('L'), 'm', 0.1)])}
-      <div class="f3-btns n2"><button class="f3-btn" data-iwact="door">${icon('door')}Add door</button><button class="f3-btn danger" data-iwact="delete">${icon('trash')}Delete wall</button></div>
+      <div class="f3-btns n2"><button class="f3-btn" data-iwact="door">${icon('door')}Add door</button><button class="f3-btn" data-iwact="passage">${icon('opening')}Add passage</button><button class="f3-btn" data-iwact="extend-a" title="Extends the start of the wall to the next wall">${icon('extrude')}Extend start</button><button class="f3-btn" data-iwact="extend-b" title="Extends the end of the wall to the next wall">${icon('extrude')}Extend end</button><button class="f3-btn danger" data-iwact="delete">${icon('trash')}Delete wall</button></div>
     </div>
-    ${doors.map(({ d, i }, k) => `<div class="f3-sec"><h3>Door ${k + 1}</h3>
+    ${doors.map(({ d, i }, k) => `<div class="f3-sec"><h3>${d.leaf === false ? 'Passage' : 'Door'} ${k + 1}</h3>
       ${prow('Size', 'scale', [cell(`data-door="${i}" data-dk="width"`, 'Door width', d.width, gtext('W')), cell(`data-door="${i}" data-dk="height"`, 'Door height', d.height, gtext('H'))])}
       ${prow('Position', 'distance', [cell(`data-door="${i}" data-dk="u"`, 'Distance from the start of the wall to the middle of the door', d.u, gtext('↔'), 'm', 0.1)])}
-      <div class="f3-btns n2"><button class="f3-btn danger" data-doordel="${i}">${icon('trash')}Delete door</button></div></div>`).join('')}`;
+      <div class="f3-btns n2">${d.leaf === false ? `<button class="f3-btn" data-doorleaf="${i}">${icon('door')}Put a door</button>` : `<button class="f3-btn" data-doorleaf="${i}">${icon('opening')}Passage</button><button class="f3-btn" data-doorflip="${i}" title="Opens to the other side">${icon('swap')}Flip</button>`}<button class="f3-btn danger" data-doordel="${i}">${icon('trash')}Delete</button></div></div>`).join('')}`;
   }
   if (rs) {
     const room = b.interiors[rs.level]?.rooms.find((r) => r.id === rs.room);
@@ -201,6 +203,31 @@ export function bindInteriorPanel(ed: Editor3, b: Building3, side: HTMLElement):
         ed.iwallSel = null;
         return ed.select({ ...ed.sel });
       }
+      if (a === 'passage') {
+        const len = wallLength(b, ws.level, ws.wall);
+        return void ed.change(b.id, (x) => {
+          const it = itOf(x, ws.level);
+          it.doors = [...interiorDoors(it), { wall: ws.wall, u: len / 2, width: Math.min(1.2, Math.max(0.6, len - 0.3)), height: 2.1, leaf: false }];
+        }, 'Passage in the middle of the wall.');
+      }
+      if (a === 'extend-a' || a === 'extend-b') {
+        // Up to another wall or to the inside of the building's walls on this floor.
+        const lv = b.levels.find((l) => l.id === ws.level);
+        const boundary = b.solids
+          .filter((so) => so.op === 'add' && !so.hidden && lv && so.base <= lv.elevation + 0.05 && so.base + so.height > lv.elevation + 0.5)
+          .map((so) => {
+            const r = sampleRing(oriented(so.plan.outer, 1)).pts;
+            return offsetRing(r, r.map(() => so.shell ?? 0.25));
+          });
+        let ok = false;
+        ed.change(b.id, (x) => {
+          ok = extendInteriorWall(x, ws.level, ws.wall, a === 'extend-a' ? 'a' : 'b', boundary, uid);
+          return ok;
+        }, 'Wall extended to the next wall.');
+        if (!ok) return ed.toast('Nothing to reach along this wall (within 30 m).');
+        ed.iwallSel = null;
+        return ed.select({ ...ed.sel });
+      }
       if (a === 'door') {
         const len = wallLength(b, ws.level, ws.wall);
         ed.change(b.id, (x) => {
@@ -238,6 +265,28 @@ export function bindInteriorPanel(ed: Editor3, b: Building3, side: HTMLElement):
         const d = interiorDoors(itOf(x, ws.level))[Number(el.dataset.door)];
         if (d) d[el.dataset.dk as 'width' | 'height' | 'u'] = v;
       }, 'Door changed.');
+    }),
+  );
+  $$<HTMLButtonElement>('[data-doorleaf]').forEach((el) =>
+    el.addEventListener('click', () => {
+      if (!ws) return;
+      ed.change(b.id, (x) => {
+        const it = itOf(x, ws.level);
+        it.doors = interiorDoors(it).map((d, i) => {
+          if (i !== Number(el.dataset.doorleaf)) return d;
+          const { leaf, ...rest } = d;
+          return leaf === false ? rest : { ...rest, leaf: false as const };
+        });
+      }, 'Opening changed.');
+    }),
+  );
+  $$<HTMLButtonElement>('[data-doorflip]').forEach((el) =>
+    el.addEventListener('click', () => {
+      if (!ws) return;
+      ed.change(b.id, (x) => {
+        const it = itOf(x, ws.level);
+        it.doors = interiorDoors(it).map((d, i) => (i === Number(el.dataset.doorflip) ? { ...d, swing: d.swing === -1 ? 1 : -1 } : d));
+      }, 'Door flipped.');
     }),
   );
   $$<HTMLButtonElement>('[data-doordel]').forEach((el) =>
