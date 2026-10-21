@@ -371,6 +371,9 @@ export class Editor3 {
     const p = this.store.project;
     this.view.activeIds = new Set([this.context, this.sel.building, ...this.sel.others].filter((x): x is ID => !!x));
     this.view.sync(p, this.store.revision, this.preview);
+    // A hover highlight drawn before the model changed (the face under the cursor before a rotation or a
+    // move) would stay where the face was: it goes, and the next pointer move draws it again.
+    if (this.hoverKey) this.drawHover(null);
     // The name field follows the project (undo of a rename, another project put in place), unless typed in.
     if (document.activeElement !== this.shell.name && this.shell.name.value !== tr(p.name)) this.shell.name.value = tr(p.name);
     // Selection that vanished (undo, delete).
