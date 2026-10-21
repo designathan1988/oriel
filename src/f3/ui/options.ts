@@ -29,15 +29,24 @@ export function mountToolOptions(ed: Editor3): void {
 
   let last = '';
   const render = () => {
-    const placingFam = ed.tool === 'place' && ed.placing ? family(BUILTIN_TYPES.concat(ed.project.types).find((t) => t.id === ed.placing)?.family ?? '') : undefined;
-    const key = JSON.stringify([ed.tool, ed.placing, ed.drawMode, ed.wallThickness, ed.iwallThickness, ed.wallHeight, ed.slabThickness, ed.placeParams]);
+    // In the floor plan the box moves into the plan's bar and follows its Wall mode.
+    const plan = ed.shell.view.querySelector<HTMLElement>('.f3-plan:not([hidden])');
+    const slot = plan?.querySelector<HTMLElement>('[data-opts]') ?? null;
+    const home = slot ?? ed.shell.viewctl;
+    if (box.parentElement !== home) home.append(box);
+    const tool = plan ? (plan.dataset.mode === 'wall' ? 'walls' : '') : ed.tool;
+    const placingFam = tool === 'place' && ed.placing ? family(BUILTIN_TYPES.concat(ed.project.types).find((t) => t.id === ed.placing)?.family ?? '') : undefined;
+    const key = JSON.stringify([tool, !!plan, ed.placing, ed.drawMode, ed.wallThickness, ed.iwallThickness, ed.wallHeight, ed.wallLine, ed.slabThickness, ed.placeParams]);
     if (key === last) return;
     // Never redraw under the user's typing.
     if (box.contains(document.activeElement)) return;
     last = key;
     let html = '';
-    if (ed.tool === 'walls' || ed.tool === 'iwall') {
+    if (tool === 'walls' || tool === 'iwall') {
       html = num('wallT', '↔', tr('Wall thickness'), ed.wallThickness) + num('iwallT', '↔ⁱ', tr('Interior wall thickness'), ed.iwallThickness) + num('wallH', 'H', tr('Wall height'), ed.wallHeight);
+      // The location line: which part of the wall the clicks follow.
+      const ln = (v: string, ic: string, t: string) => `<button data-o="line:${v}" aria-pressed="${ed.wallLine === v}" title="${tr(t)}">${icon(ic)}</button>`;
+      html += `<div class="f3-seg2" role="group" aria-label="${tr('Location line')}">${ln('center', 'lineCenter', 'Clicks on the centre of the wall')}${ln('outside', 'lineOutside', 'Clicks on the outer face of the wall')}${ln('inside', 'lineInside', 'Clicks on the inner face of the wall')}</div>`;
     } else if (placingFam && (placingFam.id === 'door' || placingFam.id === 'window')) {
       const types = BUILTIN_TYPES.concat(ed.project.types).filter((t) => t.family === placingFam.id);
       const t = types.find((x) => x.id === ed.placing)!;
@@ -46,14 +55,14 @@ export function mountToolOptions(ed: Editor3): void {
       html = `<label class="f3-opt sel" title="${tr('Type')}">${icon(placingFam.id === 'door' ? 'door' : 'window')}<select data-o="type" aria-label="${tr('Type')}">${types.map((x) => `<option value="${x.id}"${x.id === t.id ? ' selected' : ''}>${tr(x.name)}</option>`).join('')}</select></label>`;
       html += num('p:width', 'L', tr('Width'), n('width')) + num('p:height', 'H', tr('Height'), n('height'));
       if (placingFam.id === 'window') html += num('p:sillH', '⊥', tr('Sill height'), n('sillH'));
-    } else if (ed.tool === 'slab') {
+    } else if (tool === 'slab') {
       html = num('slabT', '⊟', tr('Slab thickness'), ed.slabThickness, 'm', 0.01);
-    } else if (ed.tool === 'rect' || ed.tool === 'circle' || ed.tool === 'polygon' || ed.tool === 'spline' || ed.tool === 'arc') {
+    } else if (tool === 'rect' || tool === 'circle' || tool === 'polygon' || tool === 'spline' || tool === 'arc') {
       html = `<div class="f3-seg2" role="group" aria-label="${tr('Drawing')}"><button data-o="add" aria-pressed="${ed.drawMode === 'add'}" title="${tr('Add a volume')}">${icon('add')}</button><button data-o="sub" aria-pressed="${ed.drawMode === 'subtract'}" title="${tr('Subtract (a courtyard, a niche, an opening)')}">${icon('subtract')}</button></div>`;
     }
     box.innerHTML = html;
     box.hidden = !html;
-    sep.hidden = !html;
+    sep.hidden = !html || !!plan;
   };
 
   const apply = (inp: HTMLInputElement | HTMLSelectElement) => {
@@ -85,7 +94,8 @@ export function mountToolOptions(ed: Editor3): void {
   box.addEventListener('click', (e) => {
     const b = (e.target as HTMLElement).closest<HTMLButtonElement>('button[data-o]');
     if (!b) return;
-    if ((b.dataset.o === 'sub') !== (ed.drawMode === 'subtract')) ed.toggleDrawMode();
+    if (b.dataset.o!.startsWith('line:')) ed.wallLine = b.dataset.o!.slice(5) as typeof ed.wallLine;
+    else if ((b.dataset.o === 'sub') !== (ed.drawMode === 'subtract')) ed.toggleDrawMode();
     last = '';
     render();
   });

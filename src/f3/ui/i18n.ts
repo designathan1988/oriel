@@ -112,7 +112,7 @@ export class Dictionary {
 let active: Dictionary | null = null;
 
 /** Words that only an English text has: a shown text with one of them and no translation is a gap. */
-const ENGLISH = /\b(the|to|of|and|click|drag|type|wall|walls|floor|floors|enter|with|for|this|from|here|select|building|buildings|volume|inside|outside|first|then|points?|not|no longer|is|are)\b/i;
+const ENGLISH = /\b(the|to|of|and|click|drag|type|wall|walls|floor|floors|with|for|this|from|here|select|building|buildings|volume|inside|outside|first|then|points?|not|no longer|is|are)\b/i;
 
 /** Called with each shown text that has no translation (the development sentinel lists them). */
 export let missingTranslation: ((text: string) => void) | null = null;

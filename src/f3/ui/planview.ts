@@ -75,6 +75,7 @@ export function mountPlanView(ed: Editor3): PlanView {
         <button data-mode="wall" aria-pressed="false" title="Wall · W">Wall</button>
         <button data-mode="door" aria-pressed="false" title="Door · D">Door</button>
       </div>
+      <div class="popts" data-opts></div>
       <span class="sp"></span>
       <button class="f3-btn" data-check aria-pressed="false" title="Check the rooms against a building code: window area for light, ceiling height">${icon('star')}<span>Code check</span></button>
       <button class="f3-btn" data-fit title="Fit the drawing">${icon('focus')}<span>Fit</span></button>
@@ -249,6 +250,10 @@ export function mountPlanView(ed: Editor3): PlanView {
     if (on === open) return;
     open = on;
     el.hidden = !on;
+    if (!on) {
+      el.dataset.mode = '';
+      ed.emit();
+    }
     closeCard();
     if (on) {
       bid = pickBuilding();
@@ -525,8 +530,11 @@ export function mountPlanView(ed: Editor3): PlanView {
     from = null;
     el.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
     paper.dataset.mode = m;
+    // The tool options (ui/options.ts) come into this bar for the plan's Wall mode.
+    el.dataset.mode = m;
     hint();
     preview();
+    ed.emit();
   };
   const hintEl = el.querySelector<HTMLElement>('.hint')!;
   const hint = () => {

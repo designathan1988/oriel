@@ -2,6 +2,10 @@
 import { ICON_PATHS } from '../../ui/icons';
 
 const EXTRA: Record<string, string> = {
+  // Location line of the walls: the wall's two faces and where the clicks run (centre, outer, inner face).
+  lineCenter: 'M3 7h18 M3 17h18 M3 12h3 M9 12h6 M18 12h3',
+  lineOutside: 'M3 9h18 M3 17h18 M12 2v7 M9.5 6.5L12 9l2.5-2.5',
+  lineInside: 'M3 7h18 M3 15h18 M12 22v-7 M9.5 17.5L12 15l2.5 2.5',
   door: 'M6 21V3h12v18 M3 21h18 M14.5 12.5h.01',
   window: 'M4 4h16v16H4z M12 4v16 M4 12h16',
   room: 'M3 3h18v18H3z M3 13h7 M10 13v8 M14 3v6 M14 9h7',

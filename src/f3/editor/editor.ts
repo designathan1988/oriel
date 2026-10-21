@@ -205,6 +205,11 @@ export class Editor3 {
   wallThickness = 0.25;
   /** Height of new walls (the tool options in the top bar). */
   wallHeight = 3;
+  /**
+   * Where the clicked line runs in a closed run of walls (Revit's location line): the walls' centre, their
+   * outer face (drawing over a site plan's outline) or their inner face (drawing the rooms' sizes).
+   */
+  wallLine: 'center' | 'outside' | 'inside' = 'center';
   /** Thickness of new slabs. */
   slabThickness = 0.2;
   /** Sizes set in the top bar for the next door or window placed (over its type's own). */
@@ -5422,7 +5427,7 @@ export class Editor3 {
     this.wallsDone(pts, closed);
   }
 
-  private wallsDone(pts: Vec2[], closed: boolean): void {
+  private wallsDone(pts: Vec2[], closed: boolean, line = this.wallLine): void {
     const t = this.wallThickness;
     if (!closed) {
       const b = this.ownerAt(pts[0]![0], pts[0]![1]);
@@ -5433,9 +5438,11 @@ export class Editor3 {
       this.select({ building: b.id, item: it.id });
       return;
     }
-    // The clicked line is the walls' centre: the volume reaches the outer face, hollow by the thickness.
+    // The volume reaches the outer face, hollow by the thickness; the clicked line is its centre, its
+    // outer face or its inner face (the location line).
     const ccw = signedArea2(pts) > 0 ? pts : [...pts].reverse();
-    const outer = offsetRing(ccw, ccw.map(() => -t / 2));
+    const grow = line === 'outside' ? 0 : line === 'inside' ? t : t / 2;
+    const outer = grow ? offsetRing(ccw, ccw.map(() => -grow)) : ccw;
     if (!ringValid(outer, 1)) return this.toast('Those walls cross each other: draw them again.');
     const c: Vec2 = [outer.reduce((a, p) => a + p[0], 0) / outer.length, outer.reduce((a, p) => a + p[1], 0) / outer.length];
     const wh = this.wallHeight;
@@ -5692,7 +5699,7 @@ export class Editor3 {
       x1 = Math.max(a[0], c[0]) + t / 2,
       z0 = Math.min(a[1], c[1]) - t / 2,
       z1 = Math.max(a[1], c[1]) + t / 2;
-    this.wallsDone([[x0, z0], [x1, z0], [x1, z1], [x0, z1]], true);
+    this.wallsDone([[x0, z0], [x1, z0], [x1, z1], [x0, z1]], true, 'center');
     const b = this.store.building(this.context);
     const lv = b && this.workLevel(b);
     if (!b || !lv) return;
