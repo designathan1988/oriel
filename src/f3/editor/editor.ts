@@ -713,7 +713,7 @@ export class Editor3 {
     }
     // Interior walls tool: the nodes of the walls of the floor shown (drag) and each wall's middle
     // (Alt+click deletes the wall), in the building being edited.
-    const iwb = this.tool === 'iwall' ? (this.store.building(this.context) ?? b) : undefined;
+    const iwb = this.tool === 'iwall' || this.tool === 'walls' ? (this.store.building(this.context) ?? b) : undefined;
     if (iwb) {
       const lv = this.workLevel(iwb);
       const it = lv ? iwb.interiors[lv.id] : undefined;
@@ -893,11 +893,11 @@ export class Editor3 {
         // Above the highest point (roof included): visible from any angle, without crossing the model.
         const c = new THREE.Vector3((bb.min[0] + bb.max[0]) / 2, bb.max[1] + 0.6, (bb.min[2] + bb.max[2]) / 2).applyMatrix4(M);
         const R = Math.max(Math.hypot(bb.max[0] - bb.min[0], bb.max[2] - bb.min[2]) / 2 + 1.5, 4);
-        handles.push(...this.moveHandles(c, ax, az), this.rotateHandle(c, R));
+        handles.push(...this.gizmo(c, ax, az, R));
         handles.push(...this.sizeHandles(b, bb));
         // Green = move vertically (Rhino Gumball, TransformControls): the building leaves the ground and
         // snaps onto the top of another. Floors are not on the gizmo (contextual bar and panel).
-        handles.push({ kind: 'move-y', at: c.clone(), dir: new THREE.Vector3(0, 1, 0), color: HANDLE_COLORS.y, label: 'Move vertically (snaps to the ground and to the top of other buildings; Alt: free)' });
+        if (this.tool === 'move') handles.push({ kind: 'move-y', at: c.clone(), dir: new THREE.Vector3(0, 1, 0), color: HANDLE_COLORS.y, label: 'Move vertically (snaps to the ground and to the top of other buildings; Alt: free)' });
       }
     } else if (this.sel.item) {
       const it = this.activeItem();
@@ -907,7 +907,7 @@ export class Editor3 {
         const y = pl ? pl.frame[13]! : it.host.kind === 'free' ? it.host.p[1] : 0;
         const p = it.host.kind === 'free' ? it.host.p : [it.host.p[0], y, it.host.p[1]];
         const c = W([p[0]!, p[2]!], y + 0.05);
-        handles.push(...this.moveHandles(c, ax, az), this.rotateHandle(c, 2.5));
+        handles.push(...this.gizmo(c, ax, az, 2.5));
       }
       // Part attached to a face: width, height and sill handles on it.
       if (it && it.host.kind === 'face' && built) {
@@ -1021,11 +1021,10 @@ export class Editor3 {
       // Gizmo raised in pixels above the real top: the height square (on top) always stays below it.
       const over = W(ctr, sb ? sb.max[1] : r.top);
       if (!faceMode) {
-        handles.push(...this.moveHandles(over, ax, az).map((h) => ({ ...h, liftPx: 46 })));
-        handles.push({ kind: 'move-y', at: over.clone(), dir: new THREE.Vector3(0, 1, 0), liftPx: 46, color: HANDLE_COLORS.y, label: 'Move vertically: base elevation (snaps to tops, bases and floors; Alt: free)' });
+        const R0 = Math.max(...r.outer.pts.map((p) => Math.hypot(p[0] - ctr[0], p[1] - ctr[1]))) + 1.2;
+        handles.push(...this.gizmo(over, ax, az, R0).map((h) => (h.kind === 'rotate' ? h : { ...h, liftPx: 46 })));
+        if (this.tool === 'move') handles.push({ kind: 'move-y', at: over.clone(), dir: new THREE.Vector3(0, 1, 0), liftPx: 46, color: HANDLE_COLORS.y, label: 'Move vertically: base elevation (snaps to tops, bases and floors; Alt: free)' });
         handles.push({ kind: 'height', at: over.clone(), square: true, color: '#ffffff', label: 'Volume height: drag the top (floor by floor; Alt: free; type the value)' });
-        const R = Math.max(...r.outer.pts.map((p) => Math.hypot(p[0] - ctr[0], p[1] - ctr[1]))) + 1.2;
-        handles.push(this.rotateHandle(over, R));
         // Corners resize; each side has its own push/pull arrow (below).
         if (sb) handles.push(...this.sizeHandles(b, sb).filter((h) => h.sx && h.sz));
         // Made on a face: one depth arrow on its free face, measured from the wall (out adds, in cuts);
@@ -1244,6 +1243,17 @@ export class Editor3 {
       { kind: 'move-z', at: c, dir: az, color: HANDLE_COLORS.z, label: 'Move on the blue axis' },
       { kind: 'move-xz', at: c, plane: [ax.clone().normalize(), az.clone().normalize()], color: HANDLE_COLORS.plane, label: 'Move on the ground' },
     ];
+  }
+
+  /**
+   * What a selection carries to be moved: with Select, only the square to drag it on the ground (dragging
+   * the object itself moves it too) and its size handles; the axis arrows with Move, the ring with Rotate.
+   * Every kind of handle at once made a selected building unreadable.
+   */
+  private gizmo(c: THREE.Vector3, ax: THREE.Vector3, az: THREE.Vector3, R: number): Handle[] {
+    if (this.tool === 'rotate') return [this.rotateHandle(c, R)];
+    const mv = this.moveHandles(c, ax, az);
+    return this.tool === 'move' ? mv : mv.filter((h) => h.kind === 'move-xz');
   }
 
   private rotateHandle(c: THREE.Vector3, R: number): Handle {
