@@ -110,6 +110,12 @@ export interface Scene {
   layers?: Record<ID, boolean>;
 }
 
+export interface WallLayer {
+  name: string;
+  /** Thickness (m). */
+  thickness: number;
+}
+
 export interface Terrain {
   /** The ground height (m) at each point (world [x, z]); far from them it comes back to 0. */
   points: { id: ID; p: Vec2; y: number }[];
@@ -408,6 +414,8 @@ export interface Solid {
   twist?: number;
   /** Hollow shell (a modifier): walls, floor and top this thick, the inside empty (m). */
   shell?: number;
+  /** The layers of the walls of a hollow volume, outside in (model/walltypes.ts); `shell` is their sum. */
+  wallLayers?: WallLayer[];
   /** Live copies (a modifier, eval/modifiers.ts): in a row by (dx, dz), or around (cx, cz) of the building. */
   repeat?:
     | { kind: 'line'; count: number; dx: number; dz: number }

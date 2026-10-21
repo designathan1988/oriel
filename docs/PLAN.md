@@ -184,8 +184,11 @@ Done this session: Walls tool (building from walls with real thickness, free wal
 rectangle or click inside walls, with outer walls), room labels, floor finish per room, wall/door/room
 panels, Slab, Column and Beam tools, interior wall corners editable.
 Backlog (P1 first):
-- [x] P1 Walls: reference line (axis/inner/outer; tool options, 2026-10-21). [ ] Arcs, top tied to a level.
-- [ ] P1 Wall types with thickness and layers (poché by layer in section and plan).
+- [x] P1 Walls: reference line (axis/inner/outer; tool options, 2026-10-21); curved by the midpoint handle of a
+      side; height follows the floors (typed in floors, Floor ±).
+- [x] P1 Wall types with layers (model/walltypes.ts: ceramic and concrete block, concrete, drywall, insulated
+      double wall); thickness = their sum; layer lines in the floor plan (SVG, PDF, DXF A-WALL-PATT).
+      [ ] Layers in the section.
 - [x] P1 Curtain wall per face (families/curtainwall.ts: U/V grids at most a spacing apart, border and interior
       mullions, glass panels, opaque band at each floor; selected side → Curtain wall). [ ] Door panels.
 - [x] P1 Shafts and atria: a cutter drawn inside a building opens every slab it crosses, and the floor

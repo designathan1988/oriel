@@ -34,6 +34,7 @@ export function floorPlanSvgFile(fp: FloorPlan, title: string, decimal: string, 
 
 const LAYERS: [string, number][] = [
   ['A-WALL', 7],
+  ['A-WALL-PATT', 8],
   ['A-DOOR', 3],
   ['A-GLAZ', 5],
   ['A-AREA-IDEN', 2],
@@ -89,6 +90,7 @@ export function floorPlansToDxf(plans: { fp: FloorPlan; title: string; site?: Si
       for (const c of site.contours) cut(c[0], c[1], 'C-TOPO');
     }
     for (const r of fp.walls) dxf.addLWPolyline(r.map((q) => ({ point: P(q) })), { flags: LWPolylineFlags.Closed, layerName: 'A-WALL' });
+    for (const r of fp.layers ?? []) dxf.addLWPolyline(r.map((q) => ({ point: P(q) })), { flags: LWPolylineFlags.Closed, layerName: 'A-WALL-PATT' });
     for (const w of fp.windows) {
       // The glass line in the middle of the wall and the two faces of the opening.
       const m = (k: number): [Vec2, Vec2] => [

@@ -61,6 +61,8 @@ export function floorPlanSvg(fp: FloorPlan, o: PlanSvgOptions = {}): { svg: stri
   }
   // Cut walls: poche with a heavy outline.
   s.push(`<path d="${path(fp.walls)}" fill="#2b2a28" fill-rule="evenodd" stroke="#111" stroke-width="0.02" stroke-linejoin="miter"/>`);
+  // The boundaries between the layers of a wall type, light on the poché.
+  if (fp.layers?.length) s.push(`<path d="${path(fp.layers)}" fill="#9d978c" fill-rule="evenodd"/>`);
   // Windows: the two faces of the sill and the glass between them.
   for (const w of fp.windows) {
     const ia = [w.a[0] - w.n[0] * w.depth, w.a[1] - w.n[1] * w.depth] as Vec2,

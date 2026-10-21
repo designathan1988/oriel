@@ -29,6 +29,7 @@ import { openCreator } from './creator';
 import { withModifiers } from '../eval/modifiers';
 import { openPhoto } from './photo';
 import { decimal, tr } from './i18n';
+import { WALL_TYPES, layersThickness } from '../model/walltypes';
 
 const ROOFS: [RoofKind, string, string][] = [
   ['flat', 'Flat', 'flat'],
@@ -350,6 +351,7 @@ function solidPanel(ed: Editor3, b: Building3, s: Solid): string {
   return `<div class="f3-title"><input data-s="name" value="${esc(s.name)}" aria-label="Volume name"><span class="f3-kind">${s.op === 'add' ? 'Volume' : s.op === 'subtract' ? 'Cutter' : 'Intersect'}</span></div>
   ${facePart}
   ${s.shell && s.op === 'add' ? `<div class="f3-sec"><h3>Walls</h3>
+    ${prow('Type', 'layers', [selectCell('data-walltype', 'Wall type (its layers, outside in)', [['', 'Custom'], ...WALL_TYPES.map((t) => [t.id, t.name] as const)], WALL_TYPES.find((t) => JSON.stringify(t.layers) === JSON.stringify(s.wallLayers))?.id ?? '')], { wide: true })}
     ${prow('Walls', 'thickness', [nk('shell', 'Wall thickness', s.shell, gicon('thickness'), 'm', 0.05), nk('height', 'Wall height', s.height, gtext('H'))], { title: 'Thickness and height of the walls' })}
     ${finishSelect('wall', 'Finish', s.materials.wall)}</div>` : ''}
   <div class="f3-sec"><h3>Transform</h3>
@@ -910,6 +912,16 @@ function bind(ed: Editor3, b: Building3, s: Solid | undefined): void {
     row.querySelector('[data-bk="del"]')?.addEventListener('click', () => ed.changeSolid((x) => void (x.bands = x.bands!.filter((q) => q.id !== id)), 'Band removed.'));
   });
   $$<HTMLSelectElement>('[data-bvprofile]').forEach((el) => el.addEventListener('change', () => ed.modelOp('bevel', { profile: parse(el.value) })));
+  $$<HTMLSelectElement>('[data-walltype]').forEach((el) =>
+    el.addEventListener('change', () => {
+      const t = WALL_TYPES.find((w) => w.id === el.value);
+      if (!t) return;
+      ed.changeSolid((x) => {
+        x.wallLayers = structuredClone(t.layers);
+        x.shell = layersThickness(t.layers);
+      }, `Wall type: ${t.name}.`);
+    }),
+  );
   $$<HTMLButtonElement>('[data-escope]').forEach((el) =>
     el.addEventListener('click', () => {
       ed.elemScope = el.dataset.escope === 'sel' ? 'sel' : 'type';
@@ -1095,6 +1107,8 @@ function applyNumber(ed: Editor3, b: Building3, s: Solid | undefined, k: string,
     else if (k === 'base') x.base = v;
     else if (k === 'taper') x.taper = Math.max(0, v);
     else if (k === 'shell') {
+      // A thickness typed by hand: the wall is no longer of a type.
+      delete x.wallLayers;
       if (v > 0.01) x.shell = Math.min(5, v);
       else delete x.shell;
     } else if (k === 'twist') {

@@ -69,6 +69,8 @@ export interface FloorPlan {
   cutY: number;
   /** Cut walls (rings, even-odd: an outline and its holes). */
   walls: Vec2[][];
+  /** Boundaries between the layers of the cut walls (thin bands inside them, rings even-odd). */
+  layers: Vec2[][];
   windows: PlanWindow[];
   doors: PlanDoor[];
   rooms: PlanRoom[];
@@ -220,6 +222,7 @@ export function floorPlan(b: Building3, levelIndex: number, placements: readonly
     elevation,
     cutY,
     walls: [],
+    layers: [],
     windows: [],
     doors: [],
     rooms: [],
@@ -322,6 +325,18 @@ export function floorPlan(b: Building3, levelIndex: number, placements: readonly
     }
     if (gaps.length) walls = keep(walls.subtract(keep(new k.CrossSection(gaps, 'Positive'))));
     out.walls = polys(walls);
+    // The layers of a wall type: a 1 cm band at each boundary between two layers, kept inside the cut walls
+    // (so it stops at the openings like the walls do).
+    const bands: CrossSection[] = [];
+    for (const s of adds) {
+      if (!s.wallLayers || s.wallLayers.length < 2) continue;
+      let at = 0;
+      for (const l of s.wallLayers.slice(0, -1)) {
+        at += l.thickness;
+        bands.push(keep(section(s, -at + 0.005).subtract(section(s, -at - 0.005))));
+      }
+    }
+    if (bands.length) out.layers = polys(keep(keep(k.CrossSection.union(bands)).intersect(walls)));
 
     // Rooms: each piece of free floor, named after the room drawn inside it.
     // What each label keeps clear of: the furniture (cut-plane symbols; the dashed ones above are no obstacle).
