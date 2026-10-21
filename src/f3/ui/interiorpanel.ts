@@ -5,7 +5,24 @@
 import type { Editor3 } from '../editor/editor';
 import type { Building3, ID, MaterialRef } from '../model/schema';
 import { interiorDoors, roomArea, type InteriorWithDoors } from '../eval/interiorwalls';
+import { floorPlan, sortedLevels } from '../eval/floorplan';
+
+/**
+ * The area of each named room of a floor as the floor plan measures it (inside the faces of the walls,
+ * doors not counted): the plan, the sheets and this panel give the same number.
+ */
+function planAreas(ed: Editor3, b: Building3, levelId: ID): Map<ID, number> {
+  const i = sortedLevels(b).findIndex((l) => l.id === levelId);
+  if (i < 0) return new Map();
+  try {
+    const fp = floorPlan(b, i, ed.view.built.get(b.id)?.ev.placements ?? []);
+    return new Map(fp.rooms.filter((r) => r.id).map((r) => [r.id!, r.area]));
+  } catch {
+    return new Map();
+  }
+}
 import { icon } from './icons';
+import { decimal } from './i18n';
 import { colorCell, gicon, gtext, numCell, prow, selectCell } from './kit';
 import { evalExpr } from '../model/expr';
 import { FINISHES } from '../render/finishes';
@@ -31,7 +48,7 @@ function insideRows(ed: Editor3, fin: Partial<Record<'walls' | 'ceiling' | 'floo
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-const num = (v: number) => String(Math.round(v * 100) / 100);
+const num = (v: number) => decimal(Math.round(v * 100) / 100);
 const parse = (s: string) => evalExpr(s) ?? parseFloat(s.replace(',', '.'));
 const cell = (attr: string, name: string, value: number, glyph: string, unit = 'm', step = 0.05) => numCell({ attr, name, value, glyph, unit, step });
 
@@ -76,7 +93,7 @@ export function interiorPanel(ed: Editor3, b: Building3): string {
   if (rs) {
     const room = b.interiors[rs.level]?.rooms.find((r) => r.id === rs.room);
     if (!room) return '';
-    const area = room.polygon ? roomArea(room.polygon) : room.area ?? 0;
+    const area = planAreas(ed, b, rs.level).get(room.id) ?? (room.polygon ? roomArea(room.polygon) : room.area ?? 0);
     const cur = FLOORS.find(([, , m]) => room.finish && m.finish === room.finish.finish && m.color === room.finish.color)?.[0] ?? (room.finish ? 'custom' : 'none');
     let per = 0;
     if (room.polygon) for (let i = 0; i < room.polygon.length; i++) per += Math.hypot(room.polygon[(i + 1) % room.polygon.length]![0] - room.polygon[i]![0], room.polygon[(i + 1) % room.polygon.length]![1] - room.polygon[i]![1]);
@@ -89,16 +106,17 @@ export function interiorPanel(ed: Editor3, b: Building3): string {
     <div class="f3-sec"><h3>Information</h3><dl class="f3-info"><dt>Area</dt><dd>${num(area)} m²</dd><dt>Perimeter</dt><dd>${num(per)} m</dd><dt>Walls</dt><dd>${room.wallIds.length}</dd></dl>
       <div class="f3-btns n2"><button class="f3-btn danger" data-roomdel>${icon('trash')}Delete room</button></div></div>`;
   }
-  if (ed.tool !== 'iwall' && ed.tool !== 'room') return '';
+  if (ed.tool !== 'iwall' && ed.tool !== 'room' && ed.tool !== 'walls') return '';
   const lvId = [...b.levels].sort((p, q) => p.elevation - q.elevation)[Math.min(b.levels.length - 1, Math.max(0, ed.project.view?.cutLevel ?? 0))]?.id;
   const it = lvId ? b.interiors[lvId] : undefined;
   const rooms = it?.rooms ?? [];
-  const total = rooms.reduce((a, r) => a + (r.polygon ? roomArea(r.polygon) : r.area ?? 0), 0);
+  const areas = lvId ? planAreas(ed, b, lvId) : new Map<ID, number>();
+  const areaOf = (r: (typeof rooms)[number]) => areas.get(r.id) ?? (r.polygon ? roomArea(r.polygon) : r.area ?? 0);
+  const total = rooms.reduce((a, r) => a + areaOf(r), 0);
   return `<div class="f3-title"><span style="flex:1;font-weight:600">Interior</span><span class="f3-kind">${esc(b.name)}</span></div>
-  <div class="f3-sec"><h3>New walls</h3>${prow('Thickness', 'thickness', [cell('data-idef="thickness"', 'Thickness of the walls you draw next', ed.iwallThickness, gicon('thickness'))])}
-    <p class="f3-empty" style="padding:4px 0 0">Interior walls: click points on the floor (Enter ends) · Room: click inside walls or drag a rectangle · drag a corner dot to move it, click a wall dot to edit it.</p></div>
+  <div class="f3-sec"><h3>New walls</h3>${prow('Thickness', 'thickness', [cell('data-idef="thickness"', 'Thickness of the walls you draw next', ed.iwallThickness, gicon('thickness'))])}</div>
   <div class="f3-sec"><h3>Finishes of this floor</h3>${insideRows(ed, it?.finishes)}</div>
-  <div class="f3-sec"><h3>Rooms on this floor</h3>${rooms.length ? `<dl class="f3-info">${rooms.map((r) => `<dt><button class="f3-link" data-roompick="${r.id}">${esc(r.name)}</button></dt><dd>${num(r.polygon ? roomArea(r.polygon) : r.area ?? 0)} m²</dd>`).join('')}<dt><b>Total</b></dt><dd><b>${num(total)} m²</b></dd></dl>` : '<p class="f3-empty" style="padding:0">No room yet.</p>'}
+  <div class="f3-sec"><h3>Rooms on this floor</h3>${rooms.length ? `<dl class="f3-info">${rooms.map((r) => `<dt><button class="f3-link" data-roompick="${r.id}">${esc(r.name)}</button></dt><dd>${num(areaOf(r))} m²</dd>`).join('')}<dt><b>Total</b></dt><dd><b>${num(total)} m²</b></dd></dl>` : '<p class="f3-empty" style="padding:0">No room yet.</p>'}
     <div class="f3-btns n2"><button class="f3-btn" data-iwact="copyup">${icon('floors')}Copy walls up</button><button class="f3-btn" data-iwact="stair">${icon('floorUp')}Stair up</button></div></div>`;
 }
 
