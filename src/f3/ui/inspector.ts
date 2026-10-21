@@ -183,15 +183,6 @@ export function mountInspector(ed: Editor3): void {
     }
     if (!b) {
       side.innerHTML = emptyHelp(ed.project);
-      side.querySelectorAll<HTMLButtonElement>('[data-next]').forEach((x) =>
-        x.addEventListener('click', () => {
-          const n = x.dataset.next;
-          if (n === 'photo') openPhoto(ed);
-          else if (n === 'tour') ed.tourRequested?.();
-          else if (n === 'qty') ed.quantitiesRequested?.();
-          else if (n === 'export' && !ed.topCommand?.('export')) ed.command('export');
-        }),
-      );
       polish(side);
       return;
     }
@@ -226,17 +217,19 @@ function projectSummary(p: Project3): string {
   }
   const m2 = (v: number) => `${v.toLocaleString(undefined, { maximumFractionDigits: 0 })} m²`;
   const stat = (v: string, l: string) => `<div><b>${v}</b><span>${l}</span></div>`;
-  const next = (k: string, ic: string, l: string, t: string) => `<button class="f3-btn" data-next="${k}" title="${t}">${icon(ic)}${l}</button>`;
   return `<div class="f3-sec f3-summary"><h3>Project</h3>
-    <div class="f3-sumstats">${stat(String(p.buildings.length), 'buildings')}${stat(String(floors), 'floors (tallest)')}${stat(m2(footprint), 'footprint')}${stat(m2(gfa), 'floor area')}</div>
-    <h3>Next steps</h3>
-    <div class="f3-btns n1">${next('photo', 'camera', 'Photorealistic render', 'A picture of the view, path traced: sun, sky, glass and bounced light')}${next('tour', 'walk', 'Virtual tour to share', 'A site to walk through the project, with a link for the client')}${next('export', 'export', 'Drawings, BIM and 3D', 'Plans and section (PDF, DXF), IFC, GLB and more')}${next('qty', 'tape', 'Quantities and cost', 'Areas, materials and an estimate of the cost')}</div></div>`;
+    <div class="f3-sumstats">${stat(String(p.buildings.length), 'buildings')}${stat(String(floors), 'floors (tallest)')}${stat(m2(footprint), 'footprint')}${stat(m2(gfa), 'floor area')}</div></div>`;
 }
 
+/**
+ * Nothing selected: the project's numbers, or for an empty project the three ways to start. Renders,
+ * tours, drawings and quantities are in Export (one place); the shortcuts are under ? (one place).
+ */
 function emptyHelp(p: Project3): string {
-  const k = (keys: string, what: string) => `<span>${keys.split(' ').map((x) => `<kbd>${x}</kbd>`).join(' ')}</span><span>${what}</span>`;
-  return `${projectSummary(p)}<div class="f3-empty"><b>Nothing selected</b>
-  <div class="f3-keys">${k('R C L', 'Draw on the ground or on a slab')}${k('K', 'Library of blocks and components')}${k('V', 'Select; double click enters')}${k('P', 'Push faces (Ctrl extrudes)')}${k('Ctrl K', 'Search any command')}${k('?', 'All shortcuts')}</div></div>`;
+  if (p.buildings.length) return projectSummary(p);
+  const k = (keys: string, what: string) => `<span><kbd>${keys}</kbd></span><span>${what}</span>`;
+  return `<div class="f3-empty"><b>Start a project</b>
+  <div class="f3-keys">${k('W', 'Walls: click point to point, type the lengths')}${k('R', 'Rectangle: a volume to shape')}${k('K', 'Library: furniture, doors, windows, plants')}</div></div>`;
 }
 
 function buildingPanel(b: Building3, _inside = false, groups = '', project?: Project3): string {
@@ -335,6 +328,9 @@ function solidPanel(ed: Editor3, b: Building3, s: Solid): string {
   ] as const;
   return `<div class="f3-title"><input data-s="name" value="${esc(s.name)}" aria-label="Volume name"><span class="f3-kind">${s.op === 'add' ? 'Volume' : s.op === 'subtract' ? 'Cutter' : 'Intersect'}</span></div>
   ${facePart}
+  ${s.shell && s.op === 'add' ? `<div class="f3-sec"><h3>Walls</h3>
+    ${prow('Walls', 'thickness', [nk('shell', 'Wall thickness', s.shell, gicon('thickness'), 'm', 0.05), nk('height', 'Wall height', s.height, gtext('H'))], { title: 'Thickness and height of the walls' })}
+    ${finishSelect('wall', 'Finish', s.materials.wall)}</div>` : ''}
   <div class="f3-sec"><h3>Transform</h3>
     ${prow('Position', 'move', [nk('cx', 'Center X', c[0], axis('x')), nk('base', 'Base (Y): height of the bottom above the building', s.base, axis('y')), nk('cz', 'Center Z', c[1], axis('z'))])}
     ${prow('Rotate', 'rotate', [nk('spin', 'Rotate the volume by this angle', 0, gicon('rotate'), '°', 15, '0')])}

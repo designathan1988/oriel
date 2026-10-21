@@ -72,7 +72,7 @@ function draw(): void {
     panel.className = 'f3-sentinel';
     panel.setAttribute('role', 'alert');
     panel.style.cssText =
-      'position:fixed;left:12px;bottom:12px;z-index:100000;max-width:min(640px,calc(100vw - 24px));max-height:40vh;overflow:auto;' +
+      'position:fixed;left:76px;bottom:34px;z-index:100000;max-width:min(640px,calc(100vw - 24px));max-height:40vh;overflow:auto;' +
       'font:12px/1.4 ui-monospace,Consolas,monospace;color:#fff;border-radius:8px;box-shadow:0 4px 18px rgba(0,0,0,.35);padding:8px 10px';
     panel.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest('button');
@@ -84,6 +84,12 @@ function draw(): void {
     document.body.append(panel);
   }
   const errors = list.filter((p) => p.severity === 'error').length;
+  // Warnings only (untranslated texts, refused meshes): a small folded badge; errors open the list.
+  if (!errors && panel.dataset.folded === undefined) panel.dataset.folded = '1';
+  if (errors && panel.dataset.auto !== 'open') {
+    panel.dataset.folded = '';
+    panel.dataset.auto = 'open';
+  }
   panel.style.background = errors ? '#b3261e' : '#8a5a00';
   const head = `<div style="display:flex;gap:8px;align-items:center"><b style="flex:1">Sentinel: ${errors} error(s), ${list.length - errors} warning(s)</b>` +
     '<button data-fold style="font:inherit">Fold</button><button data-clear style="font:inherit">Clear</button></div>';

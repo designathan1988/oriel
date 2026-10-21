@@ -2967,9 +2967,9 @@ export class Editor3 {
   private renderTools(): void {
     type T = { id: string; ic: string; label: string; key: string; tip: string };
     const T = (id: string, ic: string, label: string, key: string, tip: string): T => ({ id, ic, label, key, tip });
-    // Groups of the toolbar, in the order a building is made. Each button carries its name; tools of
-    // the same kind share one button whose other tools open from it (press and hold, or a right
-    // click). Nothing is hidden by a mode and no tool appears twice.
+    // Groups of the toolbar, in the order a building is made: icons only, the name and key on hover.
+    // Tools of the same kind share one button whose other tools open from it (press and hold, or a
+    // right click). Nothing is hidden by a mode and no tool appears twice.
     const groups: { id: string; tools: T[] }[] = [
       { id: 'select', tools: [T('select', 'cursor', 'Select', 'V', 'Click to select; drag the arrows to move, rotate or size')] },
       { id: 'move', tools: [T('move', 'move', 'Move', 'M', 'Drag to move; type a distance'), T('rotate', 'rotate', 'Rotate', 'Q', 'Drag to rotate; type an angle'), T('scale', 'scale', 'Scale', 'S', 'Drag a corner to size; type a factor')] },
@@ -2980,7 +2980,7 @@ export class Editor3 {
       { id: 'slab', tools: [T('slab', 'flat', 'Slab', 'Shift+F', 'Click the corners of a slab on the floor shown'), T('column', 'pillar', 'Column', 'Shift+K', 'Click on the floor shown'), T('beam', 'row', 'Beam', 'Shift+B', 'Click its two ends')] },
       { id: 'stair', tools: [T('stair', 'floorUp', 'Stair', 'Shift+I', 'Click the foot, then where it ends')] },
       { id: 'shape', tools: [T('rect', 'rect', 'Rectangle', 'R', 'A volume: two corners, or type 10x8'), T('circle', 'circle', 'Circle', 'C', 'A round volume: centre, then the radius'), T('polygon', 'polygon', 'Polygon', 'L', 'A volume: click its corners'), T('arc', 'arc', 'Arc', 'Shift+C', 'The two ends, then a point of the arc'), T('spline', 'path', 'Curve', 'Shift+P', 'A smooth outline through the points')] },
-      { id: 'push', tools: [T('push', 'push', 'Push/Pull', 'P', 'Drag a face in or out; type the distance'), T('extrude', 'extrude', 'Extrude', 'E', 'A new volume from a face'), T('cut', 'knife', 'Cut', 'U', 'Split a face or a volume')] },
+      { id: 'push', tools: [T('push', 'push', 'Push', 'P', 'Drag a face in or out; type the distance'), T('extrude', 'extrude', 'Extrude', 'E', 'A new volume from a face'), T('cut', 'knife', 'Cut', 'U', 'Split a face or a volume')] },
       { id: 'site', tools: [T('lot', 'lot', 'Lot', 'Shift+L', 'Drag the lot on the ground; its setbacks show where to build'), T('street', 'street', 'Street', 'Shift+S', 'Click the points of its centre line')] },
       { id: 'catalog', tools: [T('catalog', 'catalog', 'Library', 'K', 'Furniture, doors, windows, plants and blocks')] },
       { id: 'paint', tools: [T('paint', 'paint', 'Paint', 'B', 'Click a surface with the chosen material (Alt: pick one)')] },
@@ -2993,7 +2993,7 @@ export class Editor3 {
       const cur = g.tools.find(pressed) ?? g.tools.find((t) => t.id === this.toolPick.get(g.id)) ?? g.tools[0]!;
       const many = g.tools.length > 1;
       const on = g.tools.some(pressed);
-      return `<button class="f3-tool${many ? ' grp' : ''}" data-tool="${cur.id}" data-group="${g.id}" title="${tr(cur.label)} (${cur.key}) · ${tr(cur.tip)}" aria-label="${tr(cur.label)}" aria-pressed="${on}">${icon(cur.ic)}<span>${tr(cur.label)}</span></button>`;
+      return `<button class="f3-tool${many ? ' grp' : ''}" data-tool="${cur.id}" data-group="${g.id}" title="${tr(cur.label)} (${cur.key})" aria-label="${tr(cur.label)}" aria-pressed="${on}">${icon(cur.ic)}</button>`;
     };
     const sep = new Set(['move', 'walls', 'shape', 'site', 'catalog']);
     this.shell.tools.innerHTML = groups.map((g) => `${sep.has(g.id) ? '<hr>' : ''}${cell(g)}`).join('');
@@ -3230,7 +3230,7 @@ export class Editor3 {
     if (v.cutLevel !== undefined) return;
     v.cutLevel = 0;
     this.store.commit(null, '', false);
-    this.toast('Floor cut open: the walls you draw divide it. Esc ends; the eye button shows the whole building again.');
+    this.toast('Floor cut open: the walls you draw divide it. Esc ends; the floor switcher (All floors) shows the whole building again.');
   }
 
   /** A typed length for the interior wall being drawn: from its last point towards the cursor. */
@@ -5373,7 +5373,7 @@ export class Editor3 {
     if (!this.store.commit([b.id], 'Building from walls.')) return;
     this.context = b.id;
     this.select({ building: b.id, solids: [s.id] });
-    this.toast(`Building from walls ${fmt(t)} m thick. Type the height (or "3f" for floors) and Enter; add doors and windows with the Opening tool (O).`);
+    this.toast(`Building from walls ${fmt(t)} m thick. Type the height (or "3f" for floors) and Enter; then click a wall with Door (D) or Window (J).`);
     const bid = b.id,
       sid = s.id;
     this.setMeasure('Height', (txt) => {

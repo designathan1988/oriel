@@ -11,7 +11,7 @@ export const CSS = `
 .f3{--canvas:#d9d6cc;--panel:#1d1f23f2;--panel-solid:#1d1f23;--raise:#26292e;--field:#2b2e34;--field-h:#33373e;--line:#33363c;--line-2:#3d4148;
   --ink:#e9eaec;--muted:#a3a8b0;--faint:#737881;--accent:#f07a32;--accent-2:#f07a3229;--accent-ink:#ffb48a;--sel:#5b9cff;--sel-2:#5b9cff26;--danger:#ff7b72;
   --r:10px;--shadow:0 8px 28px #0000004d,0 1px 0 #ffffff0a inset;
-  position:absolute;inset:0;display:grid;grid-template-rows:40px minmax(0,1fr) 26px;grid-template-columns:64px auto minmax(0,1fr) auto;grid-template-areas:"top top top top" "tools cat view aside" "status status status status";
+  position:absolute;inset:0;display:grid;grid-template-rows:40px minmax(0,1fr) 26px;grid-template-columns:44px auto minmax(0,1fr) auto;grid-template-areas:"top top top top" "tools cat view aside" "status status status status";
   font:12px/1.35 Inter,"Segoe UI",system-ui,-apple-system,sans-serif;color:var(--ink);background:var(--panel-solid);user-select:none;overflow:hidden;letter-spacing:.005em}
 .f3[data-theme=light]{--canvas:#d9d6cc;--panel:#f7f6f3f2;--panel-solid:#f7f6f3;--raise:#ebe9e4;--field:#ffffff;--field-h:#f0eee9;--line:#dcd9d2;--line-2:#cfcbc3;
   --ink:#1e2024;--muted:#555b63;--faint:#858a92;--accent:#e86a1e;--accent-2:#e86a1e24;--accent-ink:#a2470f;--sel:#2f7bf0;--sel-2:#2f7bf024;--danger:#c93a31;--shadow:0 8px 24px #0000001f,0 1px 0 #ffffff inset}
@@ -71,13 +71,12 @@ export const CSS = `
 .f3-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;outline:none}
 .f3-island{position:absolute;z-index:6;background:var(--panel);border:1px solid #00000059;border-radius:var(--r);box-shadow:var(--shadow);backdrop-filter:blur(10px)}
 .f3-tools{grid-area:tools;position:relative;z-index:6;display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 0;background:var(--panel-solid);border-right:1px solid #000;overflow-y:auto;overflow-x:hidden}
-.f3-tool{width:58px;height:44px;flex:none;border:0;border-radius:8px;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;position:relative;color:var(--muted);padding:0 2px}
-.f3-tool span{font-size:10px;line-height:1.1;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:0}
+.f3-tool{width:34px;height:34px;flex:none;border:0;border-radius:8px;background:transparent;display:grid;place-items:center;position:relative;color:var(--muted)}
 .f3-tool svg{width:18px;height:18px}
 .f3-tool:hover{background:var(--raise);color:var(--ink)}
 .f3-tool[aria-pressed=true]{background:var(--accent-2);color:var(--accent-ink);box-shadow:inset 0 0 0 1px var(--accent)}
 .f3-tool.grp::after{content:"";position:absolute;right:4px;bottom:4px;border:2.5px solid transparent;border-right-color:currentColor;border-bottom-color:currentColor;opacity:.55}
-.f3-tools hr{width:36px;border:0;border-top:1px solid var(--line);margin:4px auto;flex:none}
+.f3-tools hr{width:22px;border:0;border-top:1px solid var(--line);margin:4px auto;flex:none}
 .f3-flyout{position:absolute;z-index:40;display:flex;flex-direction:column;gap:1px;padding:4px;min-width:170px;background:var(--panel-solid);border:1px solid var(--line-2);border-radius:10px;box-shadow:var(--shadow)}
 .f3-flyout button{display:flex;align-items:center;gap:10px;height:32px;padding:0 10px;border:0;border-radius:7px;background:transparent;color:var(--ink);text-align:left}
 .f3-flyout button span{flex:1}
@@ -297,7 +296,7 @@ export const CSS = `
 .f3-prow{display:grid;grid-template-columns:88px minmax(0,1fr);align-items:center;gap:6px;min-height:26px}
 .f3-prow+.f3-prow,.f3-prow+.f3-row,.f3-row+.f3-prow{margin-top:4px}
 .f3-prow>.lab{display:flex;align-items:center;gap:5px;min-width:0;font-size:11px;color:var(--muted)}
-.f3-prow>.lab>span{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;line-height:1.15;hyphens:auto;overflow-wrap:break-word}
+.f3-prow>.lab>span{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;line-height:1.15;hyphens:manual;overflow-wrap:normal;word-break:normal}
 .f3-prow>.lab>svg{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;color:var(--faint)}
 .f3-cells{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;min-width:0}
 .f3-cells>*{grid-column:span 3}

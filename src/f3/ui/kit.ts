@@ -62,9 +62,10 @@ export function prow(label: string, ic: string | null, cells: string[], opts: { 
   return `<div class="f3-prow"><span class="lab" title="${escA(opts.title ?? label)}">${ic ? icon(ic) : ''}<span>${label}</span></span><div class="f3-cells n${n}">${cells.join('')}</div></div>`;
 }
 
-// v2: nothing starts collapsed (a hidden tool is not a tool); the user collapses.
-const CLOSED_KEY = 'forma3_closed_sections_v2';
-const DEFAULT_CLOSED = new Set<string>();
+// v3: the sections few edits need start closed (the panel shows size, roof, materials and facade first,
+// like Revit's and SketchUp's short property lists); what the user opens or closes is remembered.
+const CLOSED_KEY = 'forma3_closed_sections_v3';
+const DEFAULT_CLOSED = new Set<string>(['Transform', 'Shape', 'Loft', 'Repeat and mirror', 'Edges', 'Bands and cornice', 'Revolved shape', 'Array']);
 
 function loadClosed(): Set<string> {
   try {

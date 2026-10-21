@@ -28,7 +28,8 @@ export function report(severity: Severity, source: string, message: string): voi
     same.count++;
     return;
   }
-  if (list.length >= MAX) return;
+  // A cap per source: a flood of one kind (untranslated texts) never hides the others.
+  if (list.filter((x) => x.source === source).length >= MAX) return;
   const p: Problem = { severity, source, message, count: 1 };
   list.push(p);
   for (const fn of listeners) fn(p);
