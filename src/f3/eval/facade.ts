@@ -5,6 +5,8 @@
 // same frame. No three.
 import type { Building3, ComponentType, FacadeRule, Item, LevelPick, Project3, Solid, Vec2, Vec3 } from '../model/schema';
 import { keyParts, pickLevels, solidLevels } from '../model/levelpick';
+import { topRing } from '../model/ops';
+import { offsetRing } from '../model/plan';
 export { pickLevels, solidLevels };
 import type { Family, Opening, Params } from '../families/family';
 import { resolveParams } from '../families/family';
@@ -445,7 +447,13 @@ export function itemPlacements(b: Building3, regions: Map<string, EdgeRegion>, t
         out.push({ family: t.family, params, frame: f, opening: null, tag: { family: t.family.id, item: it.id, key: String(i) }, length: w });
       });
     } else {
-      const pts = h0.points;
+      // A path tied to a volume's top edge (Railing around) follows that edge as it is now.
+      const host = h0.around ? b.solids.find((s) => s.id === h0.around) : undefined;
+      let pts = h0.points;
+      if (host) {
+        const ring = offsetRing(topRing(host), topRing(host).map(() => 0.08));
+        if (ring.length > 2) pts = [...ring, ring[0]!].map((q) => [q[0], host.base + host.height, q[1]] as Vec3);
+      }
       if (pts.length < 2) continue;
       let L = 0;
       for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i]![0] - pts[i - 1]![0], pts[i]![2] - pts[i - 1]![2]);

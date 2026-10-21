@@ -197,7 +197,7 @@ Backlog (P1 first):
 - [x] P1 Pitch per side on hip, gable, mansard and gambrel roofs (weighted straight skeleton; selected side
       → Roof pitch; EdgeSpec.pitch).
 - [x] P1 Railings: on stairs (the stair family's rails), around a selected top (terrace, slab edge: panel and
-      bar → Railing around), drawn on a flat top at its height. [ ] Edge host kept by a relation.
+      bar → Railing around), drawn on a flat top at its height. Tied to its volume (path host `around`): follows the top edge as it changes.
 - [x] P1 Rooms: use, ceiling height (a lowered ceiling board when below the slab), perimeter and volume;
       room schedule CSV with totals by use (io/schedule.ts); quantities and areas CSV already there.
 - [x] P1 Terrain from points (modified Shepard, back to 0 within 40 m; Shift+T), pads under buildings and

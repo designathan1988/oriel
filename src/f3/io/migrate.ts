@@ -651,6 +651,7 @@ function checkItem(e: Errors, where: string, it: Item, p: Project3, solids: Map<
     if (!vec(h.p, 3) || !fin(h.rot)) e.add(w, 'invalid free position.');
   } else if (h.kind === 'path') {
     if (!Array.isArray(h.points) || h.points.length < 2 || !h.points.every((q) => vec(q, 3))) e.add(w, 'invalid path (at least 2 points).');
+    if (h.around !== undefined && !str(h.around)) e.add(w, 'invalid path host volume.');
   } else if (h.kind === 'roof') {
     if (!solids.has(h.solid)) e.add(w, 'on a missing solid.');
     if (!vec(h.p, 2) || !fin(h.rot)) e.add(w, 'invalid position on the roof.');

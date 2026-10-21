@@ -6885,7 +6885,7 @@ export class Editor3 {
     if (!ringValid(ring, 1)) return this.toast('That top is too small for a railing.');
     const y = s.base + s.height;
     const points = [...ring, ring[0]!].map((p) => [p[0], y, p[1]] as Vec3);
-    const it: Item = { id: uid(), type: 'railing-bars', params: {}, host: { kind: 'path', points } };
+    const it: Item = { id: uid(), type: 'railing-bars', params: {}, host: { kind: 'path', points, around: s.id } };
     this.change(b.id, (x) => void x.items.push(it), 'Railing around the edge.');
     this.select({ building: b.id, item: it.id });
   }

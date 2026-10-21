@@ -462,7 +462,13 @@ export type ItemHost =
   /** Free in the building: local position and Y rotation. */
   | { kind: 'free'; p: Vec3; rot: number }
   /** Along a path (fences, walls, railings, straight stairs). */
-  | { kind: 'path'; points: Vec3[]; closed?: boolean }
+  | {
+      kind: 'path';
+      points: Vec3[];
+      closed?: boolean;
+      /** Runs around the top edge of this volume (a railing on a terrace): follows it when it changes. */
+      around?: ID;
+    }
   /** On the roof or the roof slab of a solid. */
   | { kind: 'roof'; solid: ID; p: Vec2; rot: number };
 
