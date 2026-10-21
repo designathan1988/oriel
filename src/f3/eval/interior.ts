@@ -5,7 +5,7 @@
 // carry their own faces (floor, ceiling, inner wall), so the view can hide the
 // exterior walls, roofs, floors or ceilings without redoing the booleans. No three.
 import type { Building3, Solid } from '../model/schema';
-import { kernel, type Manifold, type Scope } from '../kernel/kernel';
+import { kernel, usable, type Manifold, type Scope } from '../kernel/kernel';
 import { solidRings } from './body';
 import { ringsAt } from './parapet';
 import { heightPrism, MeshBuilder } from './mesh';
@@ -87,7 +87,7 @@ function extrudeSection(k: ReturnType<typeof kernel>, cs: InstanceType<ReturnTyp
     face[t] = ny / len > 0.5 ? ids.top : ny / len < -0.5 ? ids.bottom : ids.side;
   }
   const out = keep(k.Manifold.ofMesh(new k.Mesh({ numProp: 3, vertProperties: pos, triVerts: new Uint32Array(T), faceID: face })));
-  return out.status() === 'NoError' && !out.isEmpty() ? out : null;
+  return usable(out) ? out : null;
 }
 
 /** One void solid with every floor of every visible adding volume; null when nothing fits. */

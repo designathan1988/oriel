@@ -9,9 +9,11 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "node scripts/check.mjs",
+    "check:full": "node scripts/check.mjs --full",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "smoke": "node scripts/pw.mjs --project=smoke",
     "visual": "node scripts/pw.mjs --project=visual",
     "visual:accept": "node scripts/pw.mjs --project=visual --update-snapshots",
     "flows": "node scripts/pw.mjs --project=flows",
@@ -25,6 +27,7 @@
     "@gltf-transform/core": "4.5.1",
     "@gltf-transform/extensions": "4.5.1",
     "@gltf-transform/functions": "4.5.1",
+    "@sentry/browser": "10.76.2",
     "@supabase/supabase-js": "2.118.0",
     "@tarikjabiri/dxf": "2.9.0",
     "dxf": "5.3.1",
@@ -43,9 +46,10 @@
     "@playwright/test": "1.64.0",
     "@types/node": "24.0.0",
     "@types/three": "0.170.0",
-    "typescript": "5.9.3",
+    "fast-check": "4.10.2",
+    "typescript": "7.0.2",
     "vite": "8.3.4",
-    "vitest": "5.0.3",
+    "vitest": "5.0.5",
     "web-ifc": "0.0.78"
   }
 }

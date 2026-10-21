@@ -32,6 +32,14 @@ export default defineConfig({
     launchOptions: { args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] },
   },
   projects: [
+    // The smoke check of every change: the real GPU (the installed Chrome, Direct3D 11 through ANGLE:
+    // about 10 s for every scene), state asserted instead of pixels, so no SwiftShader and no exact images.
+    {
+      name: 'smoke',
+      testMatch: 'smoke.spec.ts',
+      timeout: 90_000,
+      use: { channel: 'chrome', launchOptions: { args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] } },
+    },
     { name: 'visual', testMatch: 'visual.spec.ts', timeout: 30_000 },
     { name: 'flows', testMatch: 'f3.spec.ts', timeout: 60_000 },
     // The published tour, made and walked through: one long test (two exports of the model).

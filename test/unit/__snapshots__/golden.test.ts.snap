@@ -1,0 +1,114 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`golden: what every fixed scene evaluates to > close 1`] = `
+{
+  "House with tower": "938 triangles · 94 meshes · 125 instanced · 24 placed · 832ba9579e3d",
+}
+`;
+
+exports[`golden: what every fixed scene evaluates to > cutaway 1`] = `
+{
+  "Courtyard block": "3882 triangles · 924 meshes · 776 instanced · 100 placed · fe0d5e44984a",
+}
+`;
+
+exports[`golden: what every fixed scene evaluates to > exploded 1`] = `
+{
+  "Curved building": "4696 triangles · 232 meshes · 412 instanced · 80 placed · 55c168cca05d",
+}
+`;
+
+exports[`golden: what every fixed scene evaluates to > finishes 1`] = `
+{
+  "Brick (photo)": "88 triangles · 0 meshes · 0 instanced · 0 placed · cf693ef038a9",
+  "Ceramic tile": "84 triangles · 0 meshes · 0 instanced · 0 placed · 9dda150141ae",
+  "Clay roof tile": "90 triangles · 0 meshes · 0 instanced · 0 placed · be8dcba34540",
+  "Concrete (photo)": "90 triangles · 0 meshes · 0 instanced · 0 placed · d0ef3868202b",
+  "Corrugated metal": "90 triangles · 0 meshes · 0 instanced · 0 placed · 2d17b77cdf83",
+  "Corrugated metal (photo)": "92 triangles · 0 meshes · 0 instanced · 0 placed · a5ee0bef3eeb",
+  "Dressed stone": "90 triangles · 0 meshes · 0 instanced · 0 placed · 72cff8624da2",
+  "Exposed concrete": "90 triangles · 0 meshes · 0 instanced · 0 placed · 26c1b0ef8cac",
+  "Face brick": "84 triangles · 0 meshes · 0 instanced · 0 placed · f02f352917cf",
+  "Glass": "90 triangles · 0 meshes · 0 instanced · 0 placed · e6d5e0a1b56e",
+  "Glazed ceramic": "90 triangles · 0 meshes · 0 instanced · 0 placed · 2d99fcac81de",
+  "Interlocking paving": "90 triangles · 0 meshes · 0 instanced · 0 placed · 6788955a7000",
+  "Membrane": "90 triangles · 0 meshes · 0 instanced · 0 placed · 60bc3aa88dbb",
+  "Painted steel": "84 triangles · 0 meshes · 0 instanced · 0 placed · b972fbee8bbd",
+  "Plaster": "90 triangles · 0 meshes · 0 instanced · 0 placed · a3cf73bc2f01",
+  "Plaster (photo)": "90 triangles · 0 meshes · 0 instanced · 0 placed · 85b27d63c790",
+  "Roof tile (photo)": "92 triangles · 0 meshes · 0 instanced · 0 placed · dfb7e25dfec6",
+  "Seamed panel": "94 triangles · 0 meshes · 0 instanced · 0 placed · 834c49cc714b",
+  "Slate": "90 triangles · 0 meshes · 0 instanced · 0 placed · 9207a7d8fd6e",
+  "Slate (photo)": "92 triangles · 0 meshes · 0 instanced · 0 placed · 017be9135225",
+  "Smooth paint": "84 triangles · 0 meshes · 0 instanced · 0 placed · 5e467b7dd765",
+  "Stone (photo)": "84 triangles · 0 meshes · 0 instanced · 0 placed · 9ff5f10cb1d7",
+  "Wood (boards)": "92 triangles · 0 meshes · 0 instanced · 0 placed · 02dce8a71f27",
+  "Wood (photo)": "92 triangles · 0 meshes · 0 instanced · 0 placed · 82d3febd97b1",
+}
+`;
+
+exports[`golden: what every fixed scene evaluates to > furniture 1`] = `
+{
+  "Furniture": "0 triangles · 207 meshes · 54 instanced · 18 placed · 152f182b44d6",
+}
+`;
+
+exports[`golden: what every fixed scene evaluates to > garden 1`] = `
+{
+  "Garden": "0 triangles · 47 meshes · 12 instanced · 22 placed · a816a58b6713",
+}
+`;
+
+exports[`golden: what every fixed scene evaluates to > night 1`] = `
+{
+  "Arcade": "3912 triangles · 0 meshes · 0 instanced · 0 placed · 51ca2794b3b2",
+  "Barn": "186 triangles · 4 meshes · 48 instanced · 4 placed · b2ed9db899e4",
+  "Bungalow": "548 triangles · 64 meshes · 80 instanced · 16 placed · 3daef6b81d1c",
+  "Courtyard block": "3882 triangles · 924 meshes · 776 instanced · 100 placed · 9a5fc0f10a8e",
+  "Curved building": "4696 triangles · 232 meshes · 412 instanced · 80 placed · b3a782e04cde",
+  "Factory": "662 triangles · 54 meshes · 216 instanced · 18 placed · 9bd5a2a2781b",
+  "House with tower": "938 triangles · 94 meshes · 125 instanced · 24 placed · f71d128ec4e6",
+  "L mansard": "946 triangles · 104 meshes · 1300 instanced · 26 placed · 7eb14b7e6d45",
+  "Rotunda": "4040 triangles · 32 meshes · 64 instanced · 8 placed · f215c1a918ff",
+  "Tapered tower": "1560 triangles · 102 meshes · 102 instanced · 34 placed · 3a6ba0d53833",
+  "Vaulted shed": "1456 triangles · 0 meshes · 0 instanced · 0 placed · e94d5ea5d6ab",
+}
+`;
+
+exports[`golden: what every fixed scene evaluates to > samples 1`] = `
+{
+  "Arcade": "3912 triangles · 0 meshes · 0 instanced · 0 placed · b95dd1580c13",
+  "Barn": "186 triangles · 4 meshes · 48 instanced · 4 placed · 92734cbf3d00",
+  "Bungalow": "548 triangles · 64 meshes · 80 instanced · 16 placed · b221ceec7021",
+  "Courtyard block": "3882 triangles · 924 meshes · 776 instanced · 100 placed · 9244502a3ad7",
+  "Curved building": "4696 triangles · 232 meshes · 412 instanced · 80 placed · 08b35c6344d9",
+  "Factory": "662 triangles · 54 meshes · 216 instanced · 18 placed · 17612ebeaa1e",
+  "House with tower": "938 triangles · 94 meshes · 125 instanced · 24 placed · 826c1fe79484",
+  "L mansard": "946 triangles · 104 meshes · 1300 instanced · 26 placed · 2f8fe12fff9e",
+  "Rotunda": "4040 triangles · 32 meshes · 64 instanced · 8 placed · d5a6d524bfb4",
+  "Tapered tower": "1560 triangles · 102 meshes · 102 instanced · 34 placed · c2783b58bf79",
+  "Vaulted shed": "1456 triangles · 0 meshes · 0 instanced · 0 placed · 737bd55ba7c3",
+}
+`;
+
+exports[`golden: what every fixed scene evaluates to > selected 1`] = `
+{
+  "Arcade": "3912 triangles · 0 meshes · 0 instanced · 0 placed · 87f2cb50480b",
+  "Barn": "186 triangles · 4 meshes · 48 instanced · 4 placed · bfdd045f6a7a",
+  "Bungalow": "548 triangles · 64 meshes · 80 instanced · 16 placed · 00eeec8e2cf8",
+  "Courtyard block": "3882 triangles · 924 meshes · 776 instanced · 100 placed · a5551e359eaf",
+  "Curved building": "4696 triangles · 232 meshes · 412 instanced · 80 placed · 3f71692c1b75",
+  "Factory": "662 triangles · 54 meshes · 216 instanced · 18 placed · c361b5cd10ff",
+  "House with tower": "938 triangles · 94 meshes · 125 instanced · 24 placed · 3f1971af929f",
+  "L mansard": "946 triangles · 104 meshes · 1300 instanced · 26 placed · e208e30451dd",
+  "Rotunda": "4040 triangles · 32 meshes · 64 instanced · 8 placed · 4d303cb15cde",
+  "Tapered tower": "1560 triangles · 102 meshes · 102 instanced · 34 placed · 355326768216",
+  "Vaulted shed": "1456 triangles · 0 meshes · 0 instanced · 0 placed · b589f6b9ba74",
+}
+`;
+
+exports[`golden: what every fixed scene evaluates to > tower 1`] = `
+{
+  "Tower": "23448 triangles · 3200 meshes · 4000 instanced · 800 placed · 48204f55dd79",
+}
+`;

@@ -3,7 +3,7 @@
 // floor voids (hollow mode) → final mesh with the source face of each
 // triangle. Pure (no three); runs in a worker or in Node.
 import type { Building3, Solid, Vec2 } from '../model/schema';
-import { kernel, Scope, type Manifold } from '../kernel/kernel';
+import { kernel, Scope, usable, type Manifold } from '../kernel/kernel';
 import { bodyMesh, coveredEdges, solidRings, type SolidRings } from './body';
 import { FaceTable, type FaceInfo } from './faces';
 import { roofMesh } from './roofs';
@@ -69,16 +69,16 @@ export function solidManifold(s: Solid, table: FaceTable, scope: Scope, noParape
   const k = kernel();
   if (s.revolve) {
     const m = scope.keep(revolveMesh(s, table).toManifold(k));
-    return m.status() === 'NoError' && !m.isEmpty() ? m : null;
+    return usable(m) ? m : null;
   }
   if (s.loft) {
     const m = scope.keep(loftMesh(s, table).toManifold(k));
-    return m.status() === 'NoError' && !m.isEmpty() ? m : null;
+    return usable(m) ? m : null;
   }
   const rings = solidRings(s, covered);
   if (rings.outer.pts.length < 3 || s.height <= 0.01) return null;
   let body = scope.keep(bodyMesh(s, rings, table).toManifold(k));
-  if (body.status() !== 'NoError' || body.isEmpty()) return null;
+  if (!usable(body)) return null;
   const bands = bandsManifold(s, rings, table, scope);
   if (bands.length) body = scope.keep(k.Manifold.union([body, ...bands]));
   // A subtractive solid with a curved roof becomes an arched cut (arcades, porticoes).
@@ -87,7 +87,7 @@ export function solidManifold(s: Solid, table: FaceTable, scope: Scope, noParape
   const roof = noRoof || ((s.op === 'subtract' || noParapet) && flatRoof(s)) ? null : roofMesh(s, rings, table);
   if (!roof) return body;
   const parts = roof.parts.filter((p) => !p.empty).map((p) => scope.keep(p.toManifold(k)));
-  const good = parts.filter((p) => p.status() === 'NoError' && !p.isEmpty());
+  const good = parts.filter((p) => usable(p));
   return good.length ? scope.keep(k.Manifold.union([body, ...good])) : body;
 }
 
@@ -211,7 +211,7 @@ function plinthManifold(s: Solid, table: FaceTable, scope: Scope): Manifold | nu
   const mb = new MeshBuilder();
   heightPrism(mb, out, rings.holes.map((h) => offsetRing(h.pts, h.pts.map(() => -0.04))), [], () => s.base + Math.min(s.plinth, s.height * 0.4), s.base - 0.02, { top: () => pid, bottom: pid, side: () => pid });
   const pm = scope.keep(mb.toManifold(k));
-  return pm.status() === 'NoError' && !pm.isEmpty() ? pm : null;
+  return usable(pm) ? pm : null;
 }
 
 export function evaluateBuilding(b0: Building3, opts: EvalOptions = {}, project?: Pick<Project3, 'types'>): Evaluated {
@@ -264,7 +264,7 @@ export function evaluateBuilding(b0: Building3, opts: EvalOptions = {}, project?
     const roofAt = new Map<number, Manifold>();
     for (const g of roofGroups(b, hidden)) {
       const r = roofMesh(g.roofSolid, solidRings(g.roofSolid), table);
-      const parts = r ? r.parts.filter((q) => !q.empty).map((q) => scope.keep(q.toManifold(k))).filter((q) => q.status() === 'NoError' && !q.isEmpty()) : [];
+      const parts = r ? r.parts.filter((q) => !q.empty).map((q) => scope.keep(q.toManifold(k))).filter((q) => usable(q)) : [];
       // The skeleton failed on the joined outline: each volume keeps its own roof (as before).
       if (!parts.length) continue;
       const m = parts.length > 1 ? scope.keep(k.Manifold.union(parts)) : parts[0]!;
@@ -382,7 +382,7 @@ export function evaluateBuilding(b0: Building3, opts: EvalOptions = {}, project?
         if (iw) {
           try {
             const m = scope.keep(iw.toManifold(k));
-            if (m.status() === 'NoError' && !m.isEmpty()) acc = scope.keep(acc.add(m));
+            if (usable(m)) acc = scope.keep(acc.add(m));
             else warnings.push('Interior walls ignored (their plan is not a closed solid).');
           } catch {
             warnings.push('Interior walls ignored (their plan is not a closed solid).');
@@ -592,7 +592,7 @@ function cutterLayers(pieces: MeshBuilder[], k: ReturnType<typeof kernel>, scope
     while (used.has(l)) l++;
     layerOf[i] = l;
   }
-  const ok = (m: Manifold) => m.status() === 'NoError' && !m.isEmpty();
+  const ok = (m: Manifold) => usable(m);
   // Manifold refuses an open mesh with an exception: such a cutter is dropped (it cuts nothing).
   const solid = (mb: MeshBuilder): Manifold | null => {
     try {

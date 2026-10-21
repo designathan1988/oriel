@@ -81,7 +81,7 @@ function main(mode) {
   let reason = failed?.reason;
   if (what === 'warn') {
     // Run once more: a red check can be passing (a page reloaded by another conversation's edit).
-    const r = spawnSync(process.execPath, ['scripts/check.mjs'], { cwd: ROOT, encoding: 'utf8', timeout: 580_000, maxBuffer: 64 << 20 });
+    const r = spawnSync(process.execPath, ['scripts/check.mjs'], { cwd: ROOT, encoding: 'utf8', timeout: 140_000, maxBuffer: 64 << 20 });
     if (r.status === 0) {
       rmSync(mark, { force: true });
       rmSync(fail, { force: true });
@@ -91,7 +91,7 @@ function main(mode) {
     return 0;
   }
   if (what === 'run') {
-    const r = spawnSync(process.execPath, ['scripts/check.mjs'], { cwd: ROOT, encoding: 'utf8', timeout: 580_000, maxBuffer: 64 << 20 });
+    const r = spawnSync(process.execPath, ['scripts/check.mjs'], { cwd: ROOT, encoding: 'utf8', timeout: 140_000, maxBuffer: 64 << 20 });
     if (r.status === 0) {
       rmSync(mark, { force: true });
       rmSync(fail, { force: true });

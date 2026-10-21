@@ -1,0 +1,5 @@
+#!/bin/sh
+# The check of the change being committed (scripts/check.mjs): types, the unit tests the change
+# reaches, the static rules and the smoke check on the real GPU. Seconds; a failure stops the commit
+# and says which step and why.
+exec node scripts/check.mjs

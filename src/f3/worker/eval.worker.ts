@@ -2,6 +2,7 @@
 // with its own Manifold. The result goes back with the shell arrays transferred; placements carry
 // their family by ID (a family has functions, which cannot cross threads).
 import { loadKernel } from '../kernel/kernel';
+import { drainProblems, report } from '../kernel/problems';
 import { evaluateBuilding, type EvalOptions } from '../eval/evaluate';
 import type { Building3, ComponentType } from '../model/schema';
 
@@ -30,8 +31,11 @@ self.onmessage = async (e: MessageEvent<EvalRequest | { init: string }>) => {
     const sh = ev.shell;
     // One entry per buffer (a buffer listed twice throws).
     const transfer = [...new Set([sh.positions.buffer, sh.indices.buffer, sh.faceOf.buffer, ...(sh.floorOf ? [sh.floorOf.buffer] : [])])] as ArrayBuffer[];
-    (self as unknown as Worker).postMessage({ id, ev: { ...ev, placements } }, transfer);
+    // What the kernel reported while evaluating goes back with the result (the page shows it).
+    (self as unknown as Worker).postMessage({ id, ev: { ...ev, placements }, problems: drainProblems() }, transfer);
   } catch (err) {
-    (self as unknown as Worker).postMessage({ id, error: String((err as Error)?.stack ?? err) });
+    const error = String((err as Error)?.stack ?? err);
+    report('error', 'worker', error);
+    (self as unknown as Worker).postMessage({ id, error, problems: drainProblems() });
   }
 };

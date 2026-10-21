@@ -3,6 +3,7 @@
 // Every Manifold and CrossSection created needs .delete(): use `scope`.
 import Module from 'manifold-3d';
 import type { CrossSection, Manifold, ManifoldToplevel } from 'manifold-3d';
+import { caller, report } from './problems';
 
 export type Kernel = ManifoldToplevel;
 export type { Manifold, CrossSection };
@@ -29,6 +30,17 @@ export function kernel(): Kernel {
 }
 
 export const kernelReady = (): boolean => ready !== null;
+
+/**
+ * A result that can be used: no error and not empty. An error is reported to the sentinel with the
+ * place that made the mesh (a mesh Manifold refused is a bug of the code that built it, even when the
+ * evaluation goes on without that part); an empty result is a normal outcome and is not reported.
+ */
+export function usable(m: Manifold): boolean {
+  const s = m.status();
+  if (s !== 'NoError') report('warning', 'kernel', `Manifold refused a mesh (${s}) made at ${caller()}`);
+  return s === 'NoError' && !m.isEmpty();
+}
 
 /**
  * Manifold objects made since the count was last zeroed (every one passes through a Scope): the work

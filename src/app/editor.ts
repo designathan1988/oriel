@@ -35,6 +35,11 @@ import { loadAutosave, saveFile, openFileWithNotes, download, fileName } from '.
 import { exportGLB, exportOBJ, exportGameJSON, exportGamePackage, exportUSDZ } from '../f3/io/export';
 
 startI18n();
+// Development build: the app checks itself while it is used (src/app/sentinel.ts; not in production).
+const sentinel = import.meta.env.DEV ? await import('./sentinel') : null;
+sentinel?.installSentinel();
+// Production build with a DSN: errors customers hit are reported (src/app/monitoring.ts).
+if (import.meta.env.PROD && import.meta.env.VITE_SENTRY_DSN) (await import('./monitoring')).startMonitoring(import.meta.env.VITE_SENTRY_DSN);
 await loadKernel(wasmUrl);
 let initial: Project3 | undefined;
 // The project being edited: its id in the project store (IndexedDB), remembered for the next visit.
@@ -157,6 +162,7 @@ function tourPublish(): TourPublish {
   };
 }
 (globalThis as { forma3?: Editor3 }).forma3 = editor;
+sentinel?.watchEditor(editor);
 if (startNote) editor.toast(startNote);
 
 // Autosave into the project store; localStorage only where IndexedDB is missing.

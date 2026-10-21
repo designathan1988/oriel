@@ -3,7 +3,7 @@
 // tops (Manifold CrossSection), so no low wall is left at the seam between a
 // volume and its extruded annex.
 import type { Solid, Vec2 } from '../model/schema';
-import { kernel, type Manifold, type Scope } from '../kernel/kernel';
+import { kernel, usable, type Manifold, type Scope } from '../kernel/kernel';
 import { solidRings, type SolidRings } from './body';
 import { FaceTable } from './faces';
 import { MeshBuilder } from './mesh';
@@ -38,7 +38,7 @@ function tagged(m: Manifold, faceId: number, scope: Scope): Manifold | null {
   }
   if (mb.empty) return null;
   const out = scope.keep(mb.toManifold(k));
-  return out.status() === 'NoError' && !out.isEmpty() ? out : null;
+  return usable(out) ? out : null;
 }
 
 /**

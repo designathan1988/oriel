@@ -7,9 +7,10 @@ import type { Building3, ComponentType } from '../model/schema';
 import type { EvalOptions, Evaluated } from './evaluate';
 import { family } from '../families/index';
 import type { Placement } from './facade';
+import { adoptProblems, report, type Problem } from '../kernel/problems';
 
 type Job = { building: Building3; opts: Omit<EvalOptions, 'hidden' | 'timings'>; hidden: string[]; types: ComponentType[]; ok: (e: Evaluated) => void; fail: (e: Error) => void };
-type Reply = { id: number; ev?: Omit<Evaluated, 'placements'> & { placements: (Omit<Placement, 'family'> & { family: string })[] }; error?: string };
+type Reply = { id: number; ev?: Omit<Evaluated, 'placements'> & { placements: (Omit<Placement, 'family'> & { family: string })[] }; error?: string; problems?: Problem[] };
 
 export class EvalPool {
   private workers: Worker[] = [];
@@ -32,6 +33,9 @@ export class EvalPool {
               for (let i = 0; i < size; i++) {
                 const w = new EvalWorker();
                 w.addEventListener('message', (e: MessageEvent<Reply>) => this.done(w, e.data));
+                // A worker that dies (an error outside the message handler, a failed start) is said, not silent.
+                w.addEventListener('error', (e) => report('error', 'worker', e.message || 'evaluation worker failed'));
+                w.addEventListener('messageerror', () => report('error', 'worker', 'a reply of the evaluation worker could not be read'));
                 w.postMessage({ init: wasm });
                 this.workers.push(w);
               }
@@ -75,6 +79,7 @@ export class EvalPool {
   private done(w: Worker, data: Reply): void {
     const j = this.busy.get(w);
     this.busy.delete(w);
+    adoptProblems(data.problems);
     if (j) {
       if (data.ev) {
         const placements = data.ev.placements.map((p) => ({ ...p, family: family(p.family)! })) as Placement[];

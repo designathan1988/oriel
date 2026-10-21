@@ -61,5 +61,9 @@ export default defineConfig({
     root: at('.'),
     include: ['test/unit/**/*.test.ts'],
     environment: 'node',
+    // `vitest run --changed` (npm run check) picks the tests by the files each one really loaded on its
+    // last run, dynamic imports included, instead of the static import graph. Files read with `fs` are
+    // not seen: test/unit/arch.test.ts reads all of src that way, so the check always runs it as well.
+    experimental: { recordDependencies: true },
   },
 });
