@@ -3346,5 +3346,11 @@
 "{0} m · {1}° · Esc ends": "{0} m · {1}° · Esc termina",
 "Length (5 or 5<30°)": "Comprimento (5 ou 5<30°)",
 "Room closed.": "Cômodo fechado.",
-"Esc ends": "Esc termina"
+"Esc ends": "Esc termina",
+"Start at the end of this wall": "Começar na ponta desta parede",
+"Start on this wall": "Começar nesta parede",
+"{0} m · Click: end at this wall": "{0} m · Clique: terminar na ponta desta parede",
+"{0} m · Click: end on this wall": "{0} m · Clique: terminar nesta parede",
+"Click: end at this wall": "Clique: terminar na ponta desta parede",
+"Click: end on this wall": "Clique: terminar nesta parede"
 }

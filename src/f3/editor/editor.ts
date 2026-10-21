@@ -243,6 +243,7 @@ export class Editor3 {
       hideDim: () => void (this.shell.dim.hidden = true),
       segment: (a, b) => constructMod.wallSegment(this, a, b),
       unsegment: () => constructMod.wallUnsegment(this),
+      targets: () => constructMod.wallTargets(this),
       done: (pts, closed) => constructMod.wallChainDone(this, pts, closed),
     });
     this.slabTool = new WallsTool({
@@ -1860,7 +1861,8 @@ export class Editor3 {
       if (!w) continue;
       const l = toLocal(b, [w.x, w.z]);
       for (const so of b.solids) {
-        if (so.op !== 'add' || so.hidden) continue;
+        // A wall drawn on its own is not a floor to divide (its line is where new walls join it).
+        if (so.op !== 'add' || so.hidden || so.wallAxis) continue;
         const ring = sampleRing(so.plan.outer).pts;
         if (inside(l, ring)) return b;
       }

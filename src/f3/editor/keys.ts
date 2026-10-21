@@ -28,6 +28,8 @@ export function bindKeys(ed: Editor3): void {
     } else if (e.key === 'Escape') {
       vcb.value = '';
       ed.view.renderer.domElement.focus();
+      if (ed.tool === 'walls' && ed.wallsTool.busy) ed.wallsTool.enter();
+      else if (ed.tool === 'slab' && ed.slabTool.busy) ed.slabTool.cancel();
     }
     e.stopPropagation();
   });

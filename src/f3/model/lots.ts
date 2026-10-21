@@ -151,7 +151,8 @@ function topOf(b: Building3): number {
 
 /** Area (m²) of the volumes covering each level of a building. */
 function levelAreas(b: Building3): { level: string; area: number }[] {
-  const add = b.solids.filter(isAdd);
+  // A wall drawn on its own is no floor (its footprint is wall, not floor area).
+  const add = b.solids.filter((s) => isAdd(s) && !s.wallAxis);
   // A cutter through a floor (a shaft, an atrium, a courtyard) takes its outline out of that floor's area.
   const cut = b.solids.filter((s) => s.op === 'subtract' && !s.hidden);
   return b.levels.map((lv) => {

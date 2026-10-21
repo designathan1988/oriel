@@ -33,14 +33,33 @@ export interface WallsHost {
   segment?(a: Vec2, b: Vec2): void;
   /** The last piece made by `segment` is taken back (Ctrl+Z, Backspace while drawing). */
   unsegment?(): void;
+  /** Walls already there (world plan): their ends and centre lines; the cursor sticks to them. */
+  targets?(): WallTarget[];
 }
 
 const NAME = 'walls-draft';
+const MARK = 'walls-snap';
+
+/** A wall already drawn that a new one may start or end on: its centre line (world plan). */
+export interface WallTarget {
+  a: Vec2;
+  b: Vec2;
+  /** The building it belongs to and whether it is an interior wall of a floor. */
+  bid: string;
+  interior: boolean;
+}
+
+/** What the cursor stuck to: a wall end, or a point along a wall. */
+export interface WallHit {
+  target: WallTarget;
+  end: boolean;
+}
 /** On-screen angle (radians) within which a segment locks on an axis or on the previous edge's direction. */
 const AXIS_LOCK = (12 * Math.PI) / 180;
 /** Distance (m) within which a locked segment ends in line with an earlier corner. */
 const ALIGN = 0.6;
 const MAT = new THREE.LineBasicMaterial({ color: '#e2702a', depthTest: false });
+const MARK_MAT = new THREE.MeshBasicMaterial({ color: '#00b7ff', depthTest: false, side: THREE.DoubleSide });
 /** Screen distance (px) within which the cursor sticks to a point already clicked. */
 const STICK_PX = 20;
 
@@ -84,6 +103,8 @@ export function lockSegment(from: Vec2, to: Vec2, angleStep: number, lengthStep:
 
 export class WallsTool {
   private pts: Vec2[] = [];
+  /** The wall the last point found stuck to (null: free, or one of the chain's own points). */
+  private hit: WallHit | null = null;
   /** Where the next point would go (the cursor, locked): the direction of a typed length. */
   private hover: Vec2 | null = null;
 
@@ -105,11 +126,53 @@ export class WallsTool {
     return null;
   }
 
+  /** The end of a wall or the nearest point of its centre line within STICK_PX of the cursor. */
+  private onWall(e: { clientX: number; clientY: number }, p: Vec2): { p: Vec2; hit: WallHit } | null {
+    const ts = this.h.targets?.() ?? [];
+    if (!ts.length) return null;
+    const r = this.h.view.renderer.domElement.getBoundingClientRect();
+    const y = this.h.y?.() ?? 0;
+    const px = (q: Vec2) => {
+      const s = this.h.view.toScreen(new THREE.Vector3(q[0], y, q[1]));
+      return Math.hypot(s.x + r.left - e.clientX, s.y + r.top - e.clientY);
+    };
+    let best: { p: Vec2; hit: WallHit; d: number } | null = null;
+    for (const t of ts)
+      for (const q of [t.a, t.b]) {
+        const d = px(q);
+        if (d < STICK_PX && (!best || d < best.d)) best = { p: [q[0], q[1]], hit: { target: t, end: true }, d };
+      }
+    if (best) return best;
+    for (const t of ts) {
+      const dx = t.b[0] - t.a[0],
+        dz = t.b[1] - t.a[1];
+      const l2 = dx * dx + dz * dz;
+      if (l2 < 1e-9) continue;
+      const u = Math.max(0, Math.min(1, ((p[0] - t.a[0]) * dx + (p[1] - t.a[1]) * dz) / l2));
+      const q: Vec2 = [t.a[0] + dx * u, t.a[1] + dz * u];
+      const d = px(q);
+      if (d < STICK_PX * 0.75 && (!best || d < best.d)) best = { p: q, hit: { target: t, end: false }, d };
+    }
+    return best;
+  }
+
+  /** Where a click would put the point, and the wall it sticks to (before the chain starts too). */
+  probe(e: { clientX: number; clientY: number; altKey?: boolean }): { p: Vec2; hit: WallHit | null } | null {
+    const p = this.at(e);
+    return p ? { p, hit: this.hit } : null;
+  }
+
   private at(e: { clientX: number; clientY: number; altKey?: boolean }): Vec2 | null {
+    this.hit = null;
     const p = this.h.view.onPlane(e, this.h.y?.() ?? 0);
     if (!p) return null;
     const st = this.stuck(e);
     if (st) return [st[0], st[1]];
+    const w = this.onWall(e, [p.x, p.z]);
+    if (w) {
+      this.hit = w.hit;
+      return w.p;
+    }
     const last = this.pts[this.pts.length - 1];
     if (!last || e.altKey) return this.h.snap([p.x, p.z]);
     if (this.h.snapOn && !this.h.snapOn()) return [p.x, p.z];
@@ -183,9 +246,12 @@ export class WallsTool {
     if (!p) return;
     // Snapped onto the start (in line with it on both axes, or within 30 cm): closes, as the line shows.
     if (this.atFirst(p)) return this.finish(true);
+    // Onto a wall already there (not at the start of this chain): the wall joins it and the chain ends.
+    const onOther = !!this.hit && this.pts.length > 0;
     const last = this.pts[this.pts.length - 1];
     if (last && (e.detail >= 2 || Math.hypot(p[0] - last[0], p[1] - last[1]) < 0.15)) return this.finish(false);
     this.add(p);
+    if (onOther) this.finish(false);
   }
 
   /** A new point of the chain: with a live host the piece of wall up to it is made at once. */
@@ -210,10 +276,13 @@ export class WallsTool {
     const p = this.at(e);
     if (!p) return;
     this.hover = p;
+    this.mark(this.hit || this.stuck(e) ? p : null);
+    if (!this.pts.length && this.hit) return this.h.showDim(this.hit.end ? 'Start at the end of this wall' : 'Start on this wall', e);
     const last = this.pts[this.pts.length - 1];
     if (!last) return this.h.showDim(this.h.words?.start ?? `Click the start of the wall (${this.h.thickness()} m thick; type another thickness)`, e);
     const closing = this.onFirst(e) || this.atFirst(p);
     this.draw(closing ? [...this.pts, this.pts[0]!] : [...this.pts, p]);
+    if (!closing && this.hit) return this.h.showDim(`${decimal(Math.round(Math.hypot(p[0] - last[0], p[1] - last[1]) * 100) / 100)} m · ${this.hit.end ? 'Click: end at this wall' : 'Click: end on this wall'}`, e);
     const len = Math.round(Math.hypot(p[0] - last[0], p[1] - last[1]) * 100) / 100;
     this.h.showDim(closing ? (this.h.words?.close ?? 'Click: close into a building') : `${decimal(len)} m · ${decimal(planAngle(last, p))}° · ${this.h.words?.open ?? 'Esc ends'}`, e);
   }
@@ -266,7 +335,25 @@ export class WallsTool {
     if (pts.length >= (closed ? 3 : 2)) this.h.done(pts, closed);
   }
 
+  /** A ring on the point the cursor stuck to (a wall end, a point of a wall, a point of the chain). */
+  private mark(p: Vec2 | null): void {
+    const old = this.h.overlay.getObjectByName(MARK);
+    if (old) {
+      this.h.overlay.remove(old);
+      (old as THREE.Mesh).geometry.dispose();
+    }
+    if (!p) return;
+    const y = (this.h.y?.() ?? 0) + 0.06;
+    const s = this.h.view.worldPerPixel(new THREE.Vector3(p[0], y, p[1]));
+    const m = new THREE.Mesh(new THREE.RingGeometry(5 * s, 8 * s, 24).rotateX(-Math.PI / 2), MARK_MAT);
+    m.position.set(p[0], y, p[1]);
+    m.name = MARK;
+    m.renderOrder = 11;
+    this.h.overlay.add(m);
+  }
+
   cancel(): void {
+    this.mark(null);
     this.pts = [];
     this.hover = null;
     const o = this.h.overlay.getObjectByName(NAME);

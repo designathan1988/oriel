@@ -12,6 +12,8 @@ import { fillLevels } from '../model/quick';
 import { column, grow } from './elements';
 import { type Drag, fmt, parseLength, parseFloors } from './support';
 import type { Editor3 } from './editor';
+import type { WallHit, WallTarget } from './tools/walls';
+import { buildingHidden, buildingLocked } from '../model/layers';
 
 /**
  * The wall chain being drawn (Walls tool): outside a building every piece is a wall volume of a building
@@ -21,15 +23,64 @@ export interface WallChain {
   bid: ID | null;
   levelId: ID | null;
   interior: boolean;
+  /** The building was made by this chain (a closed chain may become one hollow volume). */
+  own: boolean;
 }
 
-/** Starts a chain at the first click: inside a building it divides the floor shown. */
-export function startWallChain(ed: Editor3, e: { clientX: number; clientY: number }): void {
+/**
+ * The walls a new one may start or end on (world plan): the walls drawn by this tool, the centre line of
+ * hollow buildings (walls of their own, closed) and the interior walls of the floor shown.
+ */
+export function wallTargets(ed: Editor3): WallTarget[] {
+  const out: WallTarget[] = [];
+  const p = ed.project;
+  for (const b of p.buildings) {
+    if (buildingHidden(p, b) || buildingLocked(p, b)) continue;
+    const w = (q: Vec2) => toWorld(b, q);
+    for (const s of b.solids) {
+      if (s.hidden || s.op !== 'add') continue;
+      if (s.wallAxis) out.push({ a: w(s.wallAxis[0]), b: w(s.wallAxis[1]), bid: b.id, interior: false });
+      else if (s.shell && !s.loft && !s.revolve) {
+        const r = sampleRing(s.plan.outer).pts;
+        const ccw = signedArea2(r) > 0 ? r : [...r].reverse();
+        const mid = offsetRing(ccw, ccw.map(() => s.shell! / 2));
+        mid.forEach((q, i) => out.push({ a: w(q), b: w(mid[(i + 1) % mid.length]!), bid: b.id, interior: false }));
+      }
+    }
+    const lv = ed.workLevel(b);
+    const it = lv && b.interiors[lv.id];
+    if (it && p.view?.cutLevel !== undefined) {
+      const node = new Map(it.nodes.map((n) => [n.id, n.p]));
+      for (const wl of it.walls) {
+        const a = node.get(wl.a),
+          c = node.get(wl.b);
+        if (a && c) out.push({ a: w(a), b: w(c), bid: b.id, interior: true });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Starts a chain at the first click. On a wall already there it goes on with that building (an interior
+ * wall: that floor); inside a closed building it divides the floor shown; elsewhere it makes a new one.
+ */
+export function startWallChain(ed: Editor3, e: { clientX: number; clientY: number }, hit: WallHit | null = null): void {
+  if (hit) {
+    const b = ed.store.building(hit.target.bid);
+    if (b) {
+      if (hit.target.interior) {
+        ed.openFloorFor(b);
+        ed.wallChain = { bid: b.id, levelId: ed.workLevel(b)?.id ?? null, interior: true, own: false };
+      } else ed.wallChain = { bid: b.id, levelId: null, interior: false, own: false };
+      return;
+    }
+  }
   const inside = ed.buildingUnderWall(e);
   if (inside) {
     ed.openFloorFor(inside);
-    ed.wallChain = { bid: inside.id, levelId: ed.workLevel(inside)?.id ?? null, interior: true };
-  } else ed.wallChain = { bid: null, levelId: null, interior: false };
+    ed.wallChain = { bid: inside.id, levelId: ed.workLevel(inside)?.id ?? null, interior: true, own: false };
+  } else ed.wallChain = { bid: null, levelId: null, interior: false, own: true };
 }
 
 /** Height of the chain's drawing plane (world y): the floor shown inside a building, else the ground. */
@@ -79,6 +130,7 @@ export function wallSegment(ed: Editor3, a: Vec2, bw: Vec2): void {
   ];
   const s = newSolid({ name: tr('Wall'), plan: { outer: planVertices(signedArea2(ring) > 0 ? ring : [...ring].reverse()), holes: [] }, height: ed.wallHeight, roof: roofSpec('flat', { parapet: 0 }) });
   s.plinth = 0;
+  s.wallAxis = [la, lb];
   if (fresh) {
     b.solids.push(s);
     ed.store.project.buildings.push(b);
@@ -108,11 +160,18 @@ export function wallChainDone(ed: Editor3, pts: Vec2[], closed: boolean): void {
     ed.toast(closed ? 'Room closed.' : 'Wall chain ended: click to start another.');
     return;
   }
-  if (closed && pts.length >= 3) {
+  const own = c.own && (!c.bid || (ed.store.building(c.bid)?.solids.every((s) => !!s.wallAxis) ?? true));
+  if (closed && pts.length >= 3 && own) {
     // The pieces are replaced by one volume hollow by the wall thickness (a building with its rooms).
     if (c.bid) ed.store.project.buildings = ed.store.project.buildings.filter((x) => x.id !== c.bid);
     ed.wallsDone(pts, true);
     return;
+  }
+  // Closed onto walls that were already there: the last piece closes it, the walls stay walls.
+  if (closed && pts.length >= 3) {
+    ed.wallChain = c;
+    wallSegment(ed, pts[pts.length - 1]!, pts[0]!);
+    ed.wallChain = null;
   }
   if (c.bid && ed.store.building(c.bid)) {
     ed.select({ building: c.bid });

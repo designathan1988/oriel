@@ -610,6 +610,7 @@ function checkSolid(e: Errors, where: string, s: Solid, p: Project3, ruleIds: Se
   if (!fin(s.taper) || s.taper < 0) e.add(w, 'invalid taper.');
   if (s.twist !== undefined && (!fin(s.twist) || Math.abs(s.twist) > 360)) e.add(w, 'invalid twist.');
   if (s.shell !== undefined && (!fin(s.shell) || s.shell <= 0 || s.shell > 5)) e.add(w, 'invalid shell thickness.');
+  if (s.wallAxis !== undefined && !(Array.isArray(s.wallAxis) && s.wallAxis.length === 2 && s.wallAxis.every((q: unknown) => Array.isArray(q) && q.length === 2 && q.every((c) => fin(c))))) e.add(w, 'invalid wall axis.');
   if (s.phase !== undefined && s.phase !== 'existing' && s.phase !== 'demolished') e.add(w, 'invalid phase.');
   if (s.wallLayers !== undefined && (!Array.isArray(s.wallLayers) || s.wallLayers.length > 12 || !s.wallLayers.every((l) => isObj(l) && str(l.name, 60) && fin(l.thickness) && l.thickness > 0 && l.thickness < 2))) e.add(w, 'invalid wall layers.');
   if (s.mirror !== undefined && s.mirror !== 'x' && s.mirror !== 'z') e.add(w, 'invalid mirror.');

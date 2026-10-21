@@ -126,6 +126,8 @@ export function bindCanvas(ed: Editor3): void {
       const click = orbit.right && Math.hypot(e.clientX - orbit.x0, e.clientY - orbit.y0) < 5;
       orbit = null;
       ed.view.showPivot(null);
+      // While drawing walls or a slab, a right click ends the line (AutoCAD, ArchiCAD: the menu's Done).
+      if (click && ed.tool === 'walls' && ed.wallsTool.busy) return void ed.wallsTool.enter();
       if (click) ed.openContext(e);
       return;
     }
@@ -289,7 +291,7 @@ export function onDown(ed: Editor3, e: PointerEvent): void {
     if (!ed.wallsTool.busy) {
       const h = ed.handles.hit(e);
       if (h?.iwall) return ed.beginIwallHandle(h, e);
-      startWallChain(ed, e);
+      startWallChain(ed, e, ed.wallsTool.probe(e)?.hit ?? null);
     }
     return ed.wallsTool.down(e);
   }
@@ -465,7 +467,7 @@ export function onMove(ed: Editor3, e: PointerEvent): void {
   if (ed.tool === 'iwall') return ed.iwallAt(e, false);
   if (ed.tool === 'stair') return ed.stair.move(e);
   if (ed.tool === 'walls') {
-    if (!ed.wallsTool.busy && ed.buildingUnderWall(e)) return void ed.showDim(ed.iwallHint(), e);
+    if (!ed.wallsTool.busy && !ed.wallsTool.probe(e)?.hit && ed.buildingUnderWall(e)) return void ed.showDim(ed.iwallHint(), e);
     return ed.wallsTool.move(e);
   }
   if (ed.tool === 'slab') return ed.slabTool.move(e);
