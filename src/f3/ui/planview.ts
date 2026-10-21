@@ -580,11 +580,22 @@ export function mountPlanView(ed: Editor3): PlanView {
     wallSel = null;
   };
 
-  let drag: { x: number; y: number; vb: [number, number, number, number]; moved: boolean; target: Element | null } | null = null;
+  let drag: { x: number; y: number; vb: [number, number, number, number]; moved: boolean; target: Element | null; wall?: { id: ID; at: Vec2; off: number } } | null = null;
+  /** The selected interior wall and its room shown in the properties panel (the 3D panel, one place). */
+  const tellSelection = () => {
+    const b = building(),
+      lv = levelId();
+    ed.iwallSel = b && lv && wallSel ? { level: lv, wall: wallSel } : null;
+    if (b && (wallSel || room)) ed.context = b.id;
+    ed.emit();
+  };
   paper.addEventListener('pointerdown', (e) => {
     if (!vb || e.button > 1 || (e.target as Element).closest('.card')) return;
     // The target is kept now: under pointer capture, the release targets the paper.
     drag = { x: e.clientX, y: e.clientY, vb: [...vb], moved: false, target: e.target as Element };
+    // A press on the selected wall drags it (its corners take the connected walls along).
+    const at = mode === 'select' && wallSel ? toModel(e.clientX, e.clientY) : null;
+    if (at && wallAt(at)?.id === wallSel) drag.wall = { id: wallSel, at, off: 0 };
     paper.setPointerCapture(e.pointerId);
   });
   paper.addEventListener('pointermove', (e) => {
@@ -603,6 +614,21 @@ export function mountPlanView(ed: Editor3): PlanView {
       dy = e.clientY - drag.y;
     if (!drag.moved && Math.hypot(dx, dy) < 4) return;
     drag.moved = true;
+    if (drag.wall) {
+      // Across the wall only (Revit, ArchiCAD: a wall dragged keeps its direction), on a 5 cm step.
+      const at = toModel(e.clientX, e.clientY);
+      const w = segs().find((x) => x.id === drag!.wall!.id);
+      if (!at || !w) return;
+      const L = Math.hypot(w.c[0] - w.a[0], w.c[1] - w.a[1]) || 1;
+      const n: Vec2 = [-(w.c[1] - w.a[1]) / L, (w.c[0] - w.a[0]) / L];
+      const off = Math.round((((at[0] - drag.wall.at[0]) * n[0] + (at[1] - drag.wall.at[1]) * n[1]) / 0.05)) * 0.05;
+      drag.wall.off = off;
+      preview();
+      const svg2 = paper.querySelector('svg');
+      const g = svg2?.querySelector('.pv');
+      if (g) g.insertAdjacentHTML('beforeend', `<path d="M${w.a[0] + n[0] * off},${w.a[1] + n[1] * off}L${w.c[0] + n[0] * off},${w.c[1] + n[1] * off}" stroke="#d97757" stroke-width="${w.t}" stroke-opacity="0.6"/><text x="${(w.a[0] + w.c[0]) / 2 + n[0] * off}" y="${(w.a[1] + w.c[1]) / 2 + n[1] * off - 0.3}" font-size="${13 * mpp()}" fill="#b2502a">${Math.abs(off).toFixed(2).replace('.', decimal)} m</text>`);
+      return;
+    }
     paper.classList.add('drag');
     // Metres per pixel of the fitted drawing (meet: the larger ratio).
     const r = svg.getBoundingClientRect();
@@ -614,6 +640,25 @@ export function mountPlanView(ed: Editor3): PlanView {
     const d = drag;
     drag = null;
     paper.classList.remove('drag');
+    if (d?.wall && d.moved && Math.abs(d.wall.off) > 1e-6) {
+      const b = building(),
+        lv = levelId();
+      const wid = d.wall.id,
+        off = d.wall.off;
+      if (b && lv)
+        ed.change(b.id, (x) => {
+          const it = x.interiors[lv];
+          const w = it?.walls.find((q) => q.id === wid);
+          if (!it || !w) return false;
+          const A = it.nodes.find((q) => q.id === w.a),
+            C = it.nodes.find((q) => q.id === w.b);
+          if (!A || !C) return false;
+          const L = Math.hypot(C.p[0] - A.p[0], C.p[1] - A.p[1]) || 1;
+          const n: Vec2 = [-(C.p[1] - A.p[1]) / L, (C.p[0] - A.p[0]) / L];
+          for (const q of [A, C]) q.p = [Math.round((q.p[0] + n[0] * off) * 1e4) / 1e4, Math.round((q.p[1] + n[1] * off) * 1e4) / 1e4];
+        }, `${tr('Wall moved')} ${Math.abs(off).toFixed(2).replace('.', decimal)} m`);
+      return;
+    }
     if (!d || d.moved) return;
     const at = toModel(e.clientX, e.clientY);
     if (!at) return;
@@ -624,9 +669,11 @@ export function mountPlanView(ed: Editor3): PlanView {
       wallSel = w.id;
       room = null;
       closeCard();
+      tellSelection();
       return render();
     }
     wallSel = null;
+    tellSelection();
     const t = d.target?.closest?.('.rm') as SVGElement | null;
     if (!t) {
       room = null;
