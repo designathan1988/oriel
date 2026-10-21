@@ -507,8 +507,9 @@ export function createLookContext(): RenderContext {
       let m = extra.get(id);
       if (m) return m;
       m = base.material(key);
-      // Adjusted by the user: a material of its own (the base one is shared by the same colour and gloss).
-      if (extraKey(key)) {
+      // Adjusted by the user, or with pattern parameters of its own (its own textures): a material of its
+      // own (the base one is shared by the same colour and gloss, and would take the last textures set).
+      if (extraKey(key) || key.params) {
         m = m.clone();
         adjustedMats.push(m);
       }

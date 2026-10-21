@@ -194,6 +194,8 @@ export const PROC: Record<string, ProcDef> = {
     tile: () => [3, 3],
   },
 };
+// Every finish takes a weathering mask (dirt and run-off streaks over its pattern), off by default.
+for (const d of Object.values(PROC)) d.params.push({ key: 'weather', label: 'Weathering', min: 0, max: 1, step: 0.05, value: 0 });
 
 export function procParams(finish: string, given?: Record<string, number>): Record<string, number> {
   const d = PROC[finish];
@@ -471,6 +473,14 @@ void main() {
   else if (uKind == 9) s = corrugated(uv);
   else if (uKind == 10) s = seamPanel(uv);
   else s = membrane(uv);
+  // Weathering mask: blotches of dirt and streaks running down (v runs up the face), darker and rougher.
+  if (uB.w > 0.001) {
+    float blot = fbm(uv, vec2(3.0, 3.0));
+    float run = fbm(vec2(uv.x, uv.y * 0.15), vec2(9.0, 1.0));
+    float m = smoothstep(0.45, 0.85, blot * 0.5 + run * 0.6) * uB.w;
+    s.lum *= 1.0 - 0.35 * m;
+    s.rough = mix(s.rough, 1.0, 0.6 * m);
+  }
   if (uTarget == 0) outColor = vec4(clamp(s.lum * 0.8, 0.0, 1.0), clamp(s.mask, 0.0, 1.0), clamp(s.rough, 0.04, 1.0), 1.0);
   else outColor = vec4(clamp(s.h, 0.0, 1.0), 0.0, 0.0, 1.0);
 }
@@ -544,6 +554,13 @@ export function setProcRenderer(r: THREE.WebGLRenderer, aniso: number): void {
 
 /** Generator uniforms for a finish with parameters. */
 function uniformsFor(finish: string, p: Record<string, number>): { kind: number; a: number[]; b: number[] } {
+  const u = uniformsOf(finish, p);
+  // The weathering mask rides in the last slot (free in every kind).
+  u.b[3] = p.weather ?? 0;
+  return u;
+}
+
+function uniformsOf(finish: string, p: Record<string, number>): { kind: number; a: number[]; b: number[] } {
   const d = PROC[finish]!;
   const v = (k: string) => p[k] ?? 0;
   switch (d.kind) {

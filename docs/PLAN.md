@@ -290,7 +290,7 @@ only), Müller 2006 CGA, CityEngine docs, Houdini Labs, TestFit, Forma):
 
 ### Stage 7: materials
 - [x] Project material library (save, name, reuse, change everywhere); pattern editor (base, joint, pattern
-      parameters). [ ] Masks; sphere thumbnails.
+      parameters). [x] Weathering mask on every pattern (stains and run-off, its own parameter); sphere thumbnails.
 
 ### Stage 8: interior
 - [x] Interior walls drawn per floor, interior doors, slab openings (a stair opens the slab it reaches),
