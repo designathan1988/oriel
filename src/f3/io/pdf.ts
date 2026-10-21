@@ -10,6 +10,7 @@ import { BRAND } from '../model/brand';
 import type { Building3, Project3 } from '../model/schema';
 import { planSvg } from './plansvg';
 import { sectionSvg } from './sectionsvg';
+import { ELEVATION_NAMES, elevationSvg } from './elevationsvg';
 import { evaluateBuilding } from '../eval/evaluate';
 import { floorPlan, sortedLevels, type FloorPlan } from '../eval/floorplan';
 import { floorPlanSvg } from '../eval/floorplansvg';
@@ -77,6 +78,8 @@ export async function drawingsPdf(p: Project3, opts: DrawingSetOptions | number 
   for (const f of plans) {
     sheets.push({ title: `${t('Floor plan')} · ${t(f.level)} · ${f.building}`, svg: { text: floorPlanSvg(f.plan, { decimal: dec, t }).svg, perMetre: 1 } });
   }
+  // The four elevations (facades), then the section.
+  if (plans.length) for (const side of ['front', 'right', 'back', 'left'] as const) sheets.push({ title: t(ELEVATION_NAMES[side]), svg: { text: elevationSvg(p, side, dec, t), perMetre: 1 } });
   sheets.push({ title: t('Section'), svg: { text: sectionSvg(p, o.sectionAt, dec, t), perMetre: 1 } });
   // The area table: each floor with its built and free area, then its rooms.
   if (plans.length) {
