@@ -10,6 +10,10 @@ import { project } from '../f3/model/defaults';
 import { sampleBuildings } from '../f3/model/samples';
 import type { Project3 } from '../f3/model/schema';
 import { autoVersions, openVersions } from './versions';
+import { openStart, type ProjectHost } from './projects';
+import { available as storeAvailable, currentProjectId, getProject, newProjectId, putProject, setCurrentProjectId } from '../f3/io/projects';
+import { migrateForma3 } from '../f3/io/migrate';
+import { startI18n } from '../f3/ui/i18n';
 import { mountInspector } from '../f3/ui/inspector';
 import { mountPrefs } from '../f3/ui/prefs';
 import { mountWorkspaces } from '../f3/ui/workspaces';
@@ -24,19 +28,34 @@ import { mountInteriorView } from '../f3/ui/interior';
 import { loadAutosave, saveFile, openFileWithNotes, download, fileName } from '../f3/io/persist';
 import { exportGLB, exportOBJ, exportGameJSON, exportGamePackage, exportUSDZ } from '../f3/io/export';
 
+startI18n();
 await loadKernel(wasmUrl);
 let initial: Project3 | undefined;
+// The project being edited: its id in the project store (IndexedDB), remembered for the next visit.
+let currentId: string | null = currentProjectId();
+let firstVisit = false;
 // What to say on open: saved project repaired or failed to open (the copy is kept).
 let startNote = '';
 try {
-  const r = loadAutosave();
-  initial = r.project ?? undefined;
-  if (r.error) startNote = `The saved project did not open (${r.error}) A copy was kept in the browser; the samples were opened.`;
-  else if (r.notes.length) startNote = `Project opened with ${r.notes.length} fix(es): ${r.notes.slice(0, 2).join(' ')}`;
+  const stored = currentId && storeAvailable() ? await getProject(currentId) : undefined;
+  if (stored) {
+    const m = migrateForma3(JSON.parse(stored.json) as Project3);
+    initial = m.project;
+    if (m.notes.length) startNote = `Project opened with ${m.notes.length} fix(es): ${m.notes.slice(0, 2).join(' ')}`;
+  } else {
+    // Before the project store: the single autosave in localStorage becomes the first stored project.
+    const r = loadAutosave();
+    initial = r.project ?? undefined;
+    if (r.error) startNote = `The saved project did not open (${r.error}) A copy was kept in the browser; the samples were opened.`;
+    else if (r.notes.length) startNote = `Project opened with ${r.notes.length} fix(es): ${r.notes.slice(0, 2).join(' ')}`;
+    if (initial) currentId = newProjectId();
+    else firstVisit = true;
+  }
 } catch {
   initial = undefined;
 }
 initial ??= project({ name: 'Samples', buildings: sampleBuildings() });
+currentId ??= newProjectId();
 const editor = new Editor3(document.getElementById('app')!, { project: initial });
 mountInspector(editor);
 mountPrefs(editor);
@@ -51,6 +70,28 @@ mountInteriorView(editor);
 mountWorkspaces(editor);
 (globalThis as { forma3?: Editor3 }).forma3 = editor;
 if (startNote) editor.toast(startNote);
+
+// Autosave into the project store; localStorage only where IndexedDB is missing.
+editor.persist = async (json) => {
+  if (!storeAvailable()) return localStorage.setItem('forma3_project', json);
+  await putProject(currentId!, editor.project, json);
+  setCurrentProjectId(currentId!);
+};
+if (!firstVisit && storeAvailable()) void Promise.resolve(editor.persist(editor.store.json())).catch(() => undefined);
+const projects: ProjectHost = {
+  currentId: () => currentId!,
+  open(p, id, message) {
+    currentId = id ?? newProjectId();
+    setCurrentProjectId(currentId);
+    editor.store.replace(p, message, true);
+    editor.shell.name.value = p.name;
+    editor.enter(null);
+    editor.view.frame();
+    editor.toast(message);
+    void editor.persist(editor.store.json());
+  },
+};
+if (firstVisit && !(globalThis as { __orielNoStart?: boolean }).__orielNoStart) openStart(editor, projects, true);
 
 const root = editor.shell.root;
 const fileInput = root.querySelector<HTMLInputElement>('[data-file="project"]')!;
@@ -87,40 +128,45 @@ function exportMenu(anchor: HTMLElement): void {
   m.className = 'f3-menu';
   m.dataset.menuOf = 'export';
   m.setAttribute('role', 'menu');
-  const items: [string, string, () => Promise<void> | void][] = [
-    ['3D model (GLB)', '.glb', async () => download(await exportGLB(editor.project), fileName(editor.project.name, 'glb'), 'model/gltf-binary')],
-    ['3D model, compact (GLB, meshopt + WebP)', '.glb', async () => {
-      const { optimizeGlb } = await import('../f3/io/glbopt');
-      download(await optimizeGlb(new Uint8Array(await exportGLB(editor.project)), { maxTexture: 1024, meshopt: true }) as BlobPart, fileName(editor.project.name + '-compact', 'glb'), 'model/gltf-binary');
-    }],
-    ['BIM model (IFC4)', '.ifc', async () => {
-      const { exportIFC } = await import('../f3/io/ifc');
-      download(exportIFC(editor.project), fileName(editor.project.name, 'ifc'), 'application/x-step');
-    }],
-    ['For AR on iPhone/iPad (USDZ)', '.usdz', async () => download((await exportUSDZ(editor.project)) as BlobPart, fileName(editor.project.name, 'usdz'), 'model/vnd.usdz+zip')],
-    ['Geometry (OBJ)', '.obj', async () => download(await exportOBJ(editor.project), fileName(editor.project.name, 'obj'), 'text/plain')],
-    ['For the game (models, ZIP)', '.zip', async () => download(await exportGamePackage(editor.project) as BlobPart, fileName(editor.project.name + '-game', 'zip'), 'application/zip')],
-    ['For the game (JSON)', '.json', () => download(exportGameJSON(editor.project), fileName(editor.project.name + '-game', 'json'), 'application/json')],
-    ['View image (PNG)', '.png', () => {
-      editor.view.look.render();
-      editor.view.renderer.domElement.toBlob((b) => b && download(b, fileName(editor.project.name, 'png'), 'image/png'));
-    }],
-    ['Plan drawing (SVG)', '.svg', () => download(planSvg(editor.project), fileName(editor.project.name + '-plan', 'svg'), 'image/svg+xml')],
-    ['Section drawing (SVG)', '.svg', () => {
-      // Through the selected building, else through the middle of them all.
-      const b = editor.store.building(editor.sel.building ?? editor.context);
-      download(sectionSvg(editor.project, b ? b.position[1] : undefined), fileName(editor.project.name + '-section', 'svg'), 'image/svg+xml');
-    }],
+  // Grouped by what people deliver: drawings first, then BIM and 3D, the project file, game engines last.
+  const items: [string, string, (() => Promise<void> | void) | null][] = [
+    ['Drawings', '', null],
     ['Plan and section at scale (PDF)', '.pdf', async () => {
       const b = editor.store.building(editor.sel.building ?? editor.context);
       const { drawingsPdf } = await import('../f3/io/pdf');
       download(await drawingsPdf(editor.project, b ? b.position[1] : undefined), fileName(editor.project.name + '-drawings', 'pdf'), 'application/pdf');
     }],
     ['Plan for CAD (DXF)', '.dxf', () => download(planToCadDxf(editor.project), fileName(editor.project.name + '-plan', 'dxf'), 'application/dxf')],
+    ['Plan drawing (SVG)', '.svg', () => download(planSvg(editor.project), fileName(editor.project.name + '-plan', 'svg'), 'image/svg+xml')],
+    ['Section drawing (SVG)', '.svg', () => {
+      // Through the selected building, else through the middle of them all.
+      const b = editor.store.building(editor.sel.building ?? editor.context);
+      download(sectionSvg(editor.project, b ? b.position[1] : undefined), fileName(editor.project.name + '-section', 'svg'), 'image/svg+xml');
+    }],
     ['Areas (CSV)', '.csv', () => download(['building;footprint m2;gross floor area m2;volume m3', ...areasTable(editor.project).map((r) => [r.building, r.footprint, r.gfa, r.volume].join(';'))].join('\n'), fileName(editor.project.name + '-areas', 'csv'), 'text/csv')],
+    ['BIM and 3D', '', null],
+    ['BIM model (IFC4)', '.ifc', async () => {
+      const { exportIFC } = await import('../f3/io/ifc');
+      download(exportIFC(editor.project), fileName(editor.project.name, 'ifc'), 'application/x-step');
+    }],
+    ['3D model (GLB)', '.glb', async () => download(await exportGLB(editor.project), fileName(editor.project.name, 'glb'), 'model/gltf-binary')],
+    ['3D model, compact (GLB, meshopt + WebP)', '.glb', async () => {
+      const { optimizeGlb } = await import('../f3/io/glbopt');
+      download(await optimizeGlb(new Uint8Array(await exportGLB(editor.project)), { maxTexture: 1024, meshopt: true }) as BlobPart, fileName(editor.project.name + '-compact', 'glb'), 'model/gltf-binary');
+    }],
+    ['Geometry (OBJ)', '.obj', async () => download(await exportOBJ(editor.project), fileName(editor.project.name, 'obj'), 'text/plain')],
+    ['For AR on iPhone/iPad (USDZ)', '.usdz', async () => download((await exportUSDZ(editor.project)) as BlobPart, fileName(editor.project.name, 'usdz'), 'model/vnd.usdz+zip')],
+    ['View image (PNG)', '.png', () => {
+      editor.view.look.render();
+      editor.view.renderer.domElement.toBlob((b) => b && download(b, fileName(editor.project.name, 'png'), 'image/png'));
+    }],
+    ['Project', '', null],
     ['Editable project (JSON)', '.json', () => saveFile(editor.project)],
+    ['Game engines', '', null],
+    ['Game engine package (models, ZIP)', '.zip', async () => download(await exportGamePackage(editor.project) as BlobPart, fileName(editor.project.name + '-game', 'zip'), 'application/zip')],
+    ['Game engine data (JSON)', '.json', () => download(exportGameJSON(editor.project), fileName(editor.project.name + '-game', 'json'), 'application/json')],
   ];
-  m.innerHTML = items.map(([l, ext], i) => `<button data-i="${i}">${l}<small>${ext}</small></button>`).join('');
+  m.innerHTML = items.map(([l, ext, run], i) => (run ? `<button data-i="${i}">${l}<small>${ext}</small></button>` : `<div class="f3-menu-h">${l}</div>`)).join('');
   root.appendChild(m);
   const r = anchor.getBoundingClientRect(),
     rr = root.getBoundingClientRect();
@@ -131,7 +177,7 @@ function exportMenu(anchor: HTMLElement): void {
       m.remove();
       try {
         editor.toast('Exporting…');
-        await items[Number(b.dataset.i)]![2]();
+        await items[Number(b.dataset.i)]![2]!();
         editor.toast('Exported.');
       } catch (e) {
         editor.toast(`Failed: ${(e as Error).message}`);
@@ -153,12 +199,8 @@ function exportMenu(anchor: HTMLElement): void {
 
 editor.topCommand = (cmd) => {
   const btn = root.querySelector<HTMLElement>(`[data-cmd="${cmd}"]`)!;
-  if (cmd === 'new') {
-    editor.store.replace(project(), 'New project.');
-    editor.shell.name.value = 'Untitled project';
-    editor.enter(null);
-    editor.view.frame();
-    editor.toast('New project. Ctrl+Z goes back to the previous one.');
+  if (cmd === 'new' || cmd === 'templates' || cmd === 'projects') {
+    openStart(editor, projects);
     return true;
   }
   if (cmd === 'open') {
@@ -176,12 +218,6 @@ editor.topCommand = (cmd) => {
   }
   if (cmd === 'versions') {
     openVersions(editor);
-    return true;
-  }
-  if (cmd === 'templates') {
-    editor.store.replace(project({ name: 'Samples', buildings: sampleBuildings() }), 'Samples loaded.');
-    editor.view.frame();
-    editor.toast('Samples loaded. Ctrl+Z goes back.');
     return true;
   }
   return false;

@@ -1,7 +1,7 @@
 // Static rules of the code (read from the files, nothing runs): the layers, where three.js may be
 // imported, a pure evaluation, no dead file and no test that waits on the clock. They hold today;
 // a change that breaks one fails here in milliseconds, before any test opens a browser.
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -36,6 +36,8 @@ function specifiers(src: string): string[] {
 function resolveLocal(from: string, spec: string): string | null {
   if (!spec.startsWith('.')) return null;
   const base = resolve(dirname(from), spec.replace(/\?.*$/, ''));
+  // Data (the interface dictionaries) is not code: it only has to exist.
+  if (/\.json$/.test(base) && existsSync(base)) return null;
   for (const p of [base, `${base}.ts`, join(base, 'index.ts')]) if (TEXT.has(p)) return p;
   throw new Error(`${rel(from)}: import '${spec}' resolves to no file`);
 }

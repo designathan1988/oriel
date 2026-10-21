@@ -177,8 +177,10 @@ export class Store {
   }
 
   /** Replaces the whole project (open file, new). */
-  replace(p: Project3, message = ''): void {
-    this.undoStack.push(this.last);
+  /** Replaces the project. `fresh`: another project opened (its own history starts empty). */
+  replace(p: Project3, message = '', fresh = false): void {
+    if (fresh) this.undoStack = [];
+    else this.undoStack.push(this.last);
     this.redoStack = [];
     this.project = p;
     this.resolved.clear();

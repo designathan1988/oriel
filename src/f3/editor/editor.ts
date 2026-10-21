@@ -18,6 +18,7 @@ import { OpeningTool } from './tools/opening';
 import { SiteTools } from './tools/site';
 import { StairTool } from './tools/stair';
 import { WallsTool } from './tools/walls';
+import { tr } from '../ui/i18n';
 import { PolylineTool, pointsAlong } from './tools/polyline';
 import { lotAt, lotOverlaps, replantStreetTrees, setbackWarnings, streetAt } from '../model/site';
 import { WalkMode } from './tools/walk';
@@ -459,16 +460,19 @@ export class Editor3 {
     clearTimeout(this.saveTimer);
     const sv = this.shell.top.querySelector('.f3-saved');
     if (sv) sv.textContent = 'Saving…';
-    this.saveTimer = window.setTimeout(() => {
+    this.saveTimer = window.setTimeout(async () => {
       try {
-        localStorage.setItem('forma3_project', this.store.json());
+        await this.persist(this.store.json());
         const sv = this.shell.top.querySelector('.f3-saved');
-        if (sv) sv.textContent = 'Saved in this browser';
+        if (sv) sv.textContent = 'Saved';
       } catch {
-        this.toast('Could not save in this browser (no space).');
+        this.toast('Could not save in this browser (no space): save to a file (Ctrl+S).');
       }
     }, 400);
   }
+
+  /** Where the autosave goes (the app sets the project store; by default the browser's localStorage). */
+  persist: (json: string) => Promise<void> | void = (json) => localStorage.setItem('forma3_project', json);
 
   /** Reason of an edit the store just undid: it stays on screen over the success message that follows it. */
   private blockedNote: string | null = null;
@@ -5171,8 +5175,8 @@ export class Editor3 {
     const outer = offsetRing(ccw, ccw.map(() => -t / 2));
     if (!ringValid(outer, 1)) return this.toast('Those walls cross each other: draw them again.');
     const c: Vec2 = [outer.reduce((a, p) => a + p[0], 0) / outer.length, outer.reduce((a, p) => a + p[1], 0) / outer.length];
-    const b = newBuilding({ name: `Building ${this.project.buildings.length + 1}`, position: c, levels: levelsFor(1, 3, 3) });
-    const s = newSolid({ name: 'Walls', plan: { outer: planVertices(outer.map((p) => [p[0] - c[0], p[1] - c[1]] as Vec2)), holes: [] }, height: 3, roof: roofSpec('flat', { parapet: 0.3 }) });
+    const b = newBuilding({ name: tr(`Building ${this.project.buildings.length + 1}`), position: c, levels: levelsFor(1, 3, 3) });
+    const s = newSolid({ name: tr('Walls'), plan: { outer: planVertices(outer.map((p) => [p[0] - c[0], p[1] - c[1]] as Vec2)), holes: [] }, height: 3, roof: roofSpec('flat', { parapet: 0.3 }) });
     s.shell = t;
     b.solids.push(s);
     this.store.project.buildings.push(b);
@@ -5305,7 +5309,7 @@ export class Editor3 {
     const n = Object.values(b.interiors).reduce((k, it) => k + it.rooms.length, 0) + 1;
     if (moved && Math.abs(p[0] - a[0]) > 0.6 && Math.abs(p[1] - a[1]) > 0.6) {
       let rid = '';
-      this.change(b.id, (x) => void (rid = addRoomRect(x, lv.id, a, p, this.iwallThickness, `Room ${n}`, uid)), `Room ${n}: ${fmt(Math.abs((p[0] - a[0]) * (p[1] - a[1])))} m² with its four walls.`);
+      this.change(b.id, (x) => void (rid = addRoomRect(x, lv.id, a, p, this.iwallThickness, tr(`Room ${n}`), uid)), `Room ${n}: ${fmt(Math.abs((p[0] - a[0]) * (p[1] - a[1])))} m² with its four walls.`);
       this.roomSel = { level: lv.id, room: rid };
       this.iwallSel = null;
       this.emit();
@@ -5327,7 +5331,7 @@ export class Editor3 {
     if (!loop) return this.toast('The walls do not close around this point: draw the missing wall, or drag a rectangle.');
     const id = uid();
     const area = Math.round(roomArea(loop.polygon) * 100) / 100;
-    this.change(b.id, (x) => void interiorOf(x, lv.id).rooms.push({ id, name: `Room ${n}`, wallIds: loop.wallIds, polygon: loop.polygon, area }), `Room ${n}: ${fmt(area)} m².`);
+    this.change(b.id, (x) => void interiorOf(x, lv.id).rooms.push({ id, name: tr(`Room ${n}`), wallIds: loop.wallIds, polygon: loop.polygon, area }), `Room ${n}: ${fmt(area)} m².`);
     this.roomSel = { level: lv.id, room: id };
     this.iwallSel = null;
     this.emit();
@@ -5642,7 +5646,7 @@ export class Editor3 {
     }
     if (!b) {
       if (this.drawMode === 'subtract') return this.toast('To subtract, draw on a building (or inside it while editing).');
-      b = newBuilding({ name: `Building ${this.project.buildings.length + 1}`, position: [a.x, a.z], levels: levelsFor(1) , ...(activeLayer(this.project) ? { layer: activeLayer(this.project) } : {}) });
+      b = newBuilding({ name: tr(`Building ${this.project.buildings.length + 1}`), position: [a.x, a.z], levels: levelsFor(1) , ...(activeLayer(this.project) ? { layer: activeLayer(this.project) } : {}) });
       this.store.project.buildings.push(b);
       created = true;
     }
@@ -5810,7 +5814,7 @@ export class Editor3 {
     let b = pl.b;
     if (!b) {
       if (pl.at.op === 'subtract') return this.toast('To subtract, drop the block on a building.');
-      b = newBuilding({ name: `Building ${this.project.buildings.length + 1}`, position: [pl.at.origin[0], pl.at.origin[1] + def.d / 2], levels: levelsFor(Math.max(1, def.levels)) , ...(activeLayer(this.project) ? { layer: activeLayer(this.project) } : {}) });
+      b = newBuilding({ name: tr(`Building ${this.project.buildings.length + 1}`), position: [pl.at.origin[0], pl.at.origin[1] + def.d / 2], levels: levelsFor(Math.max(1, def.levels)) , ...(activeLayer(this.project) ? { layer: activeLayer(this.project) } : {}) });
       const s0 = blockSolid(def, { ...pl.at, origin: [0, -def.d / 2] });
       b.solids.push(s0);
       this.store.project.buildings.push(b);

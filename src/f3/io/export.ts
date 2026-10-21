@@ -8,6 +8,7 @@
 //  - OBJ: OBJExporter only reads the base geometry of an InstancedMesh, so the
 //    instances are always merged; meshes with several materials are split
 //    by material (one `o`/`usemtl` each).
+import { BRAND } from '../model/brand';
 import * as THREE from 'three';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
@@ -273,7 +274,7 @@ export async function exportOBJ(project: Project3, opts: Omit<ExportOptions, 'ex
       parent.remove(m);
     }
     es.scene.updateMatrixWorld(true);
-    return `# FORMA 3 — ${project.name}\n# meters, Y up\n` + new OBJExporter().parse(es.scene);
+    return `# ${BRAND} — ${project.name}\n# meters, Y up\n` + new OBJExporter().parse(es.scene);
   } finally {
     for (const g of split) g.dispose();
     es.dispose();

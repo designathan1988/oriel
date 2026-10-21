@@ -5,6 +5,7 @@
 // in its storey. Geometry as IfcTriangulatedFaceSet (tessellation), coloured by the finish of the
 // volume or the part. Coordinates: IFC is Z up (X east, Y north): the scene's (x, y, z) → (x, −z, y).
 // Read back with web-ifc in the tests (test/unit/f3-ifc.test.ts). Needs the loaded kernel.
+import { BRAND } from '../model/brand';
 import type { Project3, Solid } from '../model/schema';
 import { evaluateBuilding } from '../eval/evaluate';
 import { primitiveTris } from '../eval/interior';
@@ -229,7 +230,7 @@ export function exportIFC(p: Project3): string {
     'ISO-10303-21;',
     'HEADER;',
     "FILE_DESCRIPTION(('ViewDefinition [ReferenceView]'),'2;1');",
-    `FILE_NAME(${str(p.name + '.ifc')},${str(stamp)},(''),(''),'FORMA','FORMA 3','');`,
+    `FILE_NAME(${str(p.name + '.ifc')},${str(stamp)},(''),(''),'${BRAND}','${BRAND}','');`,
     "FILE_SCHEMA(('IFC4'));",
     'ENDSEC;',
     'DATA;',

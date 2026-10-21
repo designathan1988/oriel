@@ -57,7 +57,7 @@ export function migrateForma3(raw: unknown): Migration {
   const v2 = loadProject(raw);
   const out = fromForma2(v2);
   const errors = validateForma3(out.project);
-  if (errors.length) throw new Error(`Conversion to FORMA 3 failed: ${errors.slice(0, 3).join(' ')}`);
+  if (errors.length) throw new Error(`Conversion failed: ${errors.slice(0, 3).join(' ')}`);
   return out;
 }
 
@@ -488,7 +488,7 @@ export function fromForma2(p: Project): Migration {
     buildings,
     types: [],
     styles: structuredClone(p.styles),
-    meta: { createdWith: 'FORMA 3', migratedFrom: p.meta.migratedFrom === 1 ? 1 : 2 },
+    meta: { createdWith: 'Oriel', migratedFrom: p.meta.migratedFrom === 1 ? 1 : 2 },
   };
   return { project, notes: [...notes] };
 }

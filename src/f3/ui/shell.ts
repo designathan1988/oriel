@@ -4,6 +4,7 @@
 // library docked next to them, panel on the right (resizable) and a status
 // bar at the bottom. Over the view there are only the breadcrumb, the view island,
 // the contextual bar next to the selection and the warnings. Graphite theme, 16 px icons.
+import { BRAND } from '../model/brand';
 import { icon } from './icons';
 
 export const CSS = `
@@ -421,6 +422,24 @@ export const CSS = `
 .f3-versions li div{display:grid;gap:2px;min-width:0}.f3-versions li input{border:0;background:none;color:var(--ink);font-weight:600;min-width:0;padding:2px 0}
 .f3-versions li small{color:var(--muted);font-size:11px}.f3-versions li.empty{color:var(--muted);display:block;border-style:dashed}
 .f3-versions .note{color:var(--faint);font-size:11px;margin:0}
+.f3-modal>.f3-start{width:min(920px,94vw);max-width:none;display:grid;gap:14px;padding:20px 22px}
+.f3-start header{display:flex;align-items:center;justify-content:space-between}.f3-start h2{margin:0;font-size:18px}
+.f3-start .f3-x{background:none;border:0;color:var(--muted);font-size:20px;cursor:pointer}
+.f3-start .cols{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:22px}
+.f3-start h3{margin:0 0 8px;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.f3-start .tpls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.f3-start .tpl{display:grid;grid-template-columns:28px minmax(0,1fr);grid-template-rows:auto auto;column-gap:10px;row-gap:2px;align-items:center;text-align:left;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--field);color:var(--ink);cursor:pointer}
+.f3-start .tpl:hover,.f3-start .tpl:focus-visible{border-color:var(--accent);outline:none}
+.f3-start .tpl svg{grid-row:1/3;width:24px;height:24px;fill:none;stroke:var(--accent);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.f3-start .tpl b{font-size:13px;font-weight:600}.f3-start .tpl small{color:var(--muted);font-size:11.5px;line-height:1.3}
+.f3-start .list{list-style:none;margin:0;padding:0;display:grid;gap:4px;max-height:52vh;overflow:auto}
+.f3-start li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center;padding:6px 8px;border:1px solid var(--line);border-radius:8px}
+.f3-start li.cur{border-color:var(--accent)}
+.f3-start li div{display:grid;gap:2px;min-width:0}.f3-start li input{border:0;background:none;color:var(--ink);font-weight:600;min-width:0;padding:2px 0}
+.f3-start li small{color:var(--muted);font-size:11px}.f3-start li.empty{color:var(--muted);display:block;border-style:dashed}
+.f3-start .f3-btn.armed{color:#fff;background:var(--danger,#c2321f);border-color:transparent;width:auto;padding:0 8px}
+.f3-start .note{color:var(--faint);font-size:11.5px;margin:0}
+@media (max-width:760px){.f3-start .cols,.f3-start .tpls{grid-template-columns:minmax(0,1fr)}}
 .f3-modal>.f3-creator{width:min(1100px,96vw);max-width:none;max-height:86vh;display:flex;flex-direction:column;padding:12px 14px}
 .f3-creator header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}.f3-creator h2{margin:0;font-size:15px}
 .f3-creator .f3-x{background:none;border:0;color:var(--muted);font-size:20px;cursor:pointer}
@@ -453,6 +472,7 @@ export const CSS = `
 .f3-menu button:hover{background:var(--raise)}
 .f3-menu small,.f3-menu kbd{margin-left:auto;color:var(--faint)}
 .f3-menu hr{border:0;border-top:1px solid var(--line);margin:4px 2px}
+.f3-menu .f3-menu-h{font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);padding:8px 9px 3px}
 .f3-pal{width:min(560px,92vw);padding:0 !important;overflow:hidden !important;display:flex;flex-direction:column}
 .f3-pal input{border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);font:14px Inter,"Segoe UI",system-ui,sans-serif;padding:14px 16px;outline:none}
 .f3-pal ul{list-style:none;margin:0;padding:4px;overflow:auto;max-height:52vh}
@@ -499,7 +519,7 @@ export function createShell3(container: HTMLElement): Shell3 {
   root.className = 'f3';
   root.innerHTML = `
   <header class="f3-top">
-    <button class="f3-brand" aria-haspopup="menu" aria-expanded="false" title="Project: new, open, save, templates"><i></i>FORMA</button>
+    <button class="f3-brand" aria-haspopup="menu" aria-expanded="false" title="Project: new, open, save, projects"><i></i>${BRAND}</button>
     <input class="f3-name" aria-label="Project name" value="Untitled project">
     <span class="f3-saved"></span>
     <button class="f3-tb" data-cmd="undo" title="Undo · Ctrl+Z" aria-label="Undo">${icon('undo')}</button>
@@ -508,13 +528,13 @@ export function createShell3(container: HTMLElement): Shell3 {
     <button class="f3-search" data-cmd="palette" title="Search tools, commands and components">${icon('search')}<span>Search commands</span><kbd>Ctrl K</kbd></button>
     <span class="f3-sp"></span>
     <button class="f3-tb" data-cmd="help" title="Shortcuts · ?" aria-label="Shortcuts">${icon('help')}</button>
-    <button class="f3-tb primary" data-cmd="export" title="Export GLB, OBJ, game, image">${icon('export')}<span>Export</span></button>
+    <button class="f3-tb primary" data-cmd="export" title="Export drawings (PDF, DXF), BIM (IFC), 3D and image">${icon('export')}<span>Export</span></button>
     <div class="f3-menu" data-menu-of="project" role="menu" hidden>
-      <button data-cmd="new" role="menuitem">${icon('folder')}New project</button>
+      <button data-cmd="new" role="menuitem">${icon('folder')}New project…</button>
+      <button data-cmd="projects" role="menuitem">${icon('template')}Projects…</button>
       <button data-cmd="open" role="menuitem">${icon('open')}Open…</button>
       <button data-cmd="save" role="menuitem">${icon('save')}Save<kbd>Ctrl S</kbd></button>
       <button data-cmd="versions" role="menuitem">${icon('layers')}Versions…</button>
-      <hr><button data-cmd="templates" role="menuitem">${icon('template')}Templates</button>
     </div>
   </header>
   <nav class="f3-tools" aria-label="Tools"></nav>

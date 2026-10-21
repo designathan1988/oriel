@@ -82,7 +82,7 @@ export function building(input: Partial<Building3> = {}): Building3 {
 }
 
 export function project(input: Partial<Project3> = {}): Project3 {
-  return { schema: SCHEMA3, name: 'Untitled project', lots: [], buildings: [], types: [], styles: [], meta: { createdWith: 'FORMA 3' }, ...input };
+  return { schema: SCHEMA3, name: 'Untitled project', lots: [], buildings: [], types: [], styles: [], meta: { createdWith: 'Oriel' }, ...input };
 }
 
 /** Facade rule (distributes a type over the sides and levels). */

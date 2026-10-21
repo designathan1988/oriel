@@ -27,6 +27,10 @@ export interface WallsHost {
 }
 
 const NAME = 'walls-draft';
+/** On-screen angle (radians) within which a segment locks on an axis or on the previous edge's direction. */
+const AXIS_LOCK = (12 * Math.PI) / 180;
+/** Distance (m) within which a locked segment ends in line with an earlier corner. */
+const ALIGN = 0.6;
 const MAT = new THREE.LineBasicMaterial({ color: '#e2702a', depthTest: false });
 
 /**
@@ -63,7 +67,53 @@ export class WallsTool {
     if (!p) return null;
     const last = this.pts[this.pts.length - 1];
     if (!last || e.altKey) return this.h.snap([p.x, p.z]);
-    return lockSegment(last, [p.x, p.z], this.h.angleStep?.() ?? 0, this.h.lengthStep?.() ?? 0);
+    const step = this.h.lengthStep?.() ?? 0;
+    // Axis inference judged on screen (SketchUp: a line drawn close to the red or green axis as seen
+    // locks on it; magenta: parallel or perpendicular to the previous edge). In a perspective view a
+    // line that looks straight across the screen is far from the axis in the plan: on screen it is close.
+    const y = this.h.y?.() ?? 0;
+    const prev = this.pts[this.pts.length - 2];
+    const dirs: Vec2[] = [[1, 0], [0, 1]];
+    if (prev) {
+      const dx = last[0] - prev[0],
+        dz = last[1] - prev[1],
+        l = Math.hypot(dx, dz);
+      if (l > 1e-6) dirs.push([dx / l, dz / l], [-dz / l, dx / l]);
+    }
+    const r = this.h.view.renderer.domElement.getBoundingClientRect();
+    const L = this.h.view.toScreen(new THREE.Vector3(last[0], y, last[1]));
+    const cx = e.clientX - r.left - L.x,
+      cy = e.clientY - r.top - L.y;
+    if (Math.hypot(cx, cy) > 8) {
+      let best: { d: Vec2; off: number } | null = null;
+      for (const d of dirs) {
+        const S = this.h.view.toScreen(new THREE.Vector3(last[0] + d[0], y, last[1] + d[1]));
+        const sx = S.x - L.x,
+          sy = S.y - L.y;
+        const sl = Math.hypot(sx, sy);
+        if (sl < 1e-6) continue;
+        // Angle between the cursor and the axis on screen, either way along the axis.
+        const off = Math.abs(Math.asin(Math.max(-1, Math.min(1, (sx * cy - sy * cx) / (sl * Math.hypot(cx, cy))))));
+        if (off < AXIS_LOCK && (!best || off < best.off)) best = { d, off };
+      }
+      if (best) {
+        const d = best.d;
+        let t = (p.x - last[0]) * d[0] + (p.z - last[1]) * d[1];
+        if (step > 0) t = Math.sign(t || 1) * Math.max(step, Math.round(Math.abs(t) / step) * step);
+        // In line with an earlier corner (the first one above all: the outline then closes square).
+        const raw = (p.x - last[0]) * d[0] + (p.z - last[1]) * d[1];
+        for (const c of this.pts.slice(0, -1)) {
+          const tc = (c[0] - last[0]) * d[0] + (c[1] - last[1]) * d[1];
+          if (Math.abs(tc) > 1e-6 && Math.abs(tc - raw) < ALIGN) {
+            t = tc;
+            break;
+          }
+        }
+        const q = (v: number) => Math.round(v * 1e6) / 1e6;
+        return [q(last[0] + d[0] * t), q(last[1] + d[1] * t)];
+      }
+    }
+    return lockSegment(last, [p.x, p.z], this.h.angleStep?.() ?? 0, step);
   }
 
   /** Near the first point on screen (closing the outline). */

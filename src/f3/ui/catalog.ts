@@ -1,6 +1,7 @@
 // Component catalog: categories, search, favorites, real thumbnails
 // (rendered from the family itself) and drag onto the wall/ground. Clicking
 // a card starts placing; the project types appear under "My types".
+import { BRAND } from '../model/brand';
 import type { Editor3 } from '../editor/editor';
 import type { ComponentType } from '../model/schema';
 import { BUILTIN_TYPES, family } from '../families/index';
@@ -191,7 +192,7 @@ export function mountCatalog(ed: Editor3): { open(): void } {
     const items = list();
     // Cladding and facade: besides the areas, the own-image card.
     // My types: share them as a file, bring types from another project, or make a new one.
-    const mine = tab === 'mine' && !query ? `<div class="f3-card" data-mine="new" title="New component: any family, every parameter"><div class="f3-blockico">${icon('add')}</div><span>New…</span></div><div class="f3-card" data-mine="import" title="Bring the types of a file exported from FORMA"><div class="f3-blockico">${icon('open')}</div><span>Import…</span></div>${items.length ? `<div class="f3-card" data-mine="export" title="Save these types as a file (for another project or a colleague)"><div class="f3-blockico">${icon('export')}</div><span>Export</span></div>` : ''}` : '';
+    const mine = tab === 'mine' && !query ? `<div class="f3-card" data-mine="new" title="New component: any family, every parameter"><div class="f3-blockico">${icon('add')}</div><span>New…</span></div><div class="f3-card" data-mine="import" title="Bring the types of a file exported from ${BRAND}"><div class="f3-blockico">${icon('open')}</div><span>Import…</span></div>${items.length ? `<div class="f3-card" data-mine="export" title="Save these types as a file (for another project or a colleague)"><div class="f3-blockico">${icon('export')}</div><span>Export</span></div>` : ''}` : '';
     const upload = tab === 'facade' && !query ? `<div class="f3-card" data-upload title="Choose an image from the computer and place it on a wall (poster, graffiti, logo, mural)"><div class="f3-blockico">${icon('open')}</div><span>Image…</span></div>` : '';
     if (!items.length && !upload && !mine) {
       cards.innerHTML = `<p class="f3-empty" style="padding:6px 4px">${tab === 'fav' && !query ? 'Mark ★ on the components you use most.' : tab === 'recent' && !query ? 'The components you place appear here.' : 'Nothing found.'}</p>`;

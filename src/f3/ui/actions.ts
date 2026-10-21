@@ -320,7 +320,7 @@ export function mountActions(ed: Editor3): void {
     const list = actionsFor(ed);
     const head: MenuItem[] = [];
     if (ed.context) head.push({ label: 'Leave the building', icon: 'exit', run: () => ed.exitContext() });
-    head.push({ label: 'Frame', icon: 'focus', run: () => ed.frameSelection() });
+    head.push({ label: 'Frame selection', icon: 'focus', run: () => ed.frameSelection() });
     popMenu(ed, x, y, [...grouped(list).map(([title, as]) => ({ title, items: as.map((a) => ({ label: a.label, icon: a.icon, run: () => a.run(), danger: a.danger, on: a.on, title: a.title })) })), { title: 'View', items: head }]);
   };
 }

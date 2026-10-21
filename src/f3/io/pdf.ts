@@ -2,6 +2,7 @@
 // and the section (plansvg.ts, sectionsvg.ts, both drawn in metres) each on an A3 landscape sheet, at the
 // largest standard scale that fits (1:50 … 1:2000), with a title line (project, drawing, scale, date).
 // Browser only (svg2pdf needs a real DOM); loaded on demand from the export menu.
+import { BRAND } from '../model/brand';
 import type { Project3 } from '../model/schema';
 import { planSvg } from './plansvg';
 import { sectionSvg } from './sectionsvg';
@@ -62,7 +63,7 @@ export async function drawingsPdf(p: Project3, sectionAt?: number): Promise<Blob
       doc.setTextColor(30);
       const ty = (PAGE.h - MARGIN - 3) * PT_PER_MM;
       doc.text(`${p.name} — ${name}`, MARGIN * PT_PER_MM, ty);
-      doc.text(`Scale 1:${scale} (A3)   ${date}   FORMA`, (PAGE.w - MARGIN) * PT_PER_MM, ty, { align: 'right' });
+      doc.text(`Scale 1:${scale} (A3)   ${date}   ${BRAND}`, (PAGE.w - MARGIN) * PT_PER_MM, ty, { align: 'right' });
     }
   } finally {
     host.remove();

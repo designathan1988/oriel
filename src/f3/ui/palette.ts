@@ -6,6 +6,7 @@ import { BLOCKS } from '../model/blocks';
 import { BUILTIN_TYPES, family } from '../families/index';
 import { CATEGORY_NAMES } from '../families/family';
 import { icon } from './icons';
+import { tr } from './i18n';
 import { actionsFor, transformActions } from './actions';
 
 interface Cmd {
@@ -78,7 +79,7 @@ export function mountPalette(ed: Editor3): void {
       { label: 'Duplicate selection', group: 'Edit', ic: 'copy', key: 'Ctrl D', run: () => ed.duplicate() },
       { label: 'Delete selection', group: 'Edit', ic: 'trash', key: 'Del', run: () => ed.remove() },
       { label: 'Mirror volume', group: 'Edit', ic: 'mirror', run: () => ed.command('mirror') },
-      { label: 'Frame', group: 'View', ic: 'focus', key: 'F', run: () => ed.frameSelection() },
+      { label: 'Frame selection', group: 'View', ic: 'focus', key: 'F', run: () => ed.frameSelection() },
       { label: 'Select all', group: 'Select', ic: 'catalog', key: 'Ctrl A', run: () => ed.selectAll() },
       mode('vertex', 'Vertex mode', 'modeVertex', '1'),
       mode('edge', 'Edge mode', 'modeEdge', '2'),
@@ -140,7 +141,7 @@ export function mountPalette(ed: Editor3): void {
     const draw = () => {
       const q = norm(input.value.trim());
       const words = q.split(/\s+/).filter(Boolean);
-      shown = all.filter((c) => words.every((w) => norm(`${c.label} ${c.group}`).includes(w))).slice(0, 60);
+      shown = all.filter((c) => words.every((w) => norm(`${c.label} ${c.group} ${tr(c.label)} ${tr(c.group)}`).includes(w))).slice(0, 60);
       cur = Math.min(cur, Math.max(0, shown.length - 1));
       ul.innerHTML = shown.length
         ? shown.map((c, i) => `<li role="option" data-i="${i}" aria-selected="${i === cur}">${icon(c.ic)}<span>${c.label}</span><em>${c.group}</em>${c.key ? `<small><kbd>${c.key}</kbd></small>` : ''}</li>`).join('')
@@ -181,10 +182,10 @@ export function mountPalette(ed: Editor3): void {
   ed.helpRequested = () => {
     const m = document.createElement('div');
     m.className = 'f3-modal';
-    const k = (keys: string, what: string) => `<span>${keys.split(' ').map((x) => `<kbd>${x}</kbd>`).join(' ')}</span><span>${what}</span>`;
+    const k = (keys: string, what: string) => `<span>${tr(keys).split(' ').map((x) => `<kbd>${x}</kbd>`).join(' ')}</span><span>${what}</span>`;
     m.innerHTML = `<div class="f3-help" role="dialog" aria-label="Shortcuts"><h2>Shortcuts</h2><div class="cols">
       <div class="f3-keys" style="margin:0"><h3>Tools</h3>${k('V', 'Select (everything on the selection)')}${k('M', 'Move')}${k('Q', 'Rotate')}${k('S', 'Scale and size')}${k('P', 'Push face')}${k('E', 'Extrude face')}${k('R', 'Rectangle')}${k('C', 'Circle')}${k('L', 'Polygon')}${k('X', 'Add / subtract')}${k('K', 'Library')}${k('B', 'Paint (Alt: eyedropper)')}${k('T', 'Tape and dimensions')}</div>
-      <div class="f3-keys" style="margin:0"><h3>Commands</h3>${k('Ctrl K', 'Search commands')}${k('Ctrl Z', 'Undo')}${k('Ctrl Y', 'Redo')}${k('Ctrl D', 'Duplicate')}${k('Del', 'Delete')}${k('F', 'Frame')}${k('G', 'Snap')}${k('Esc', 'Leave / cancel')}${k('10x8', 'Measure (type and Enter)')}${k('5x 5/', 'Repeat / divide copies')}</div>
+      <div class="f3-keys" style="margin:0"><h3>Commands</h3>${k('Ctrl K', 'Search commands')}${k('Ctrl Z', 'Undo')}${k('Ctrl Y', 'Redo')}${k('Ctrl D', 'Duplicate')}${k('Del', 'Delete')}${k('F', 'Frame selection')}${k('G', 'Snap')}${k('Esc', 'Leave / cancel')}${k('10x8', 'Measure (type and Enter)')}${k('5x 5/', 'Repeat / divide copies')}</div>
       <div class="f3-keys" style="margin:0"><h3>Selection</h3>${k('Ctrl click', 'Add to the selection')}${k('Shift click', 'Toggle (add or remove)')}${k('Ctrl Shift click', 'Remove from the selection')}${k('Alt click', 'Row span up to here')}${k('Drag →', 'Box: only what is fully inside')}${k('Drag ←', 'Box: everything it touches')}${k('Ctrl A', 'Select all (in the context)')}${k('Ctrl I', 'Invert the selection')}${k('Shift G', 'Select similar')}${k('H', 'Hide the selection')}${k('Shift H', 'Isolate (hide the rest)')}${k('Alt H', 'Show all')}${k('Ctrl drag', 'Copy what is selected')}${k('← → ↑ ↓', 'Walk the selection on the facade')}${k('Right button', 'Menu with the object actions')}</div>
     </div><p class="f3-empty" style="padding:12px 0 0">Middle button pans, Shift + middle orbits around the point under the cursor, the wheel zooms on it. Right button: a click opens the menu, dragging orbits. Double click enters a building.</p></div>`;
     root.appendChild(m);
