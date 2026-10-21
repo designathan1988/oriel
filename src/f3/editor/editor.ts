@@ -8,6 +8,7 @@ import type { Building3, ID, Item, MaterialRef, Project3, Solid, Vec2, Vec3 } fr
 import { building as newBuilding, circlePlan, facadeRule, levelsFor, planVertices, project as newProject, roofSpec, solid as newSolid, uid } from '../model/defaults';
 import { bendEdge, cloneBuilding, inside, locateVertex, cloneSolid, dirToLocal, edgeNormal, findSolid, mirrorSolid, moveVertex, planCenter, planValid as planValidOps, pushEdge, removeVertex, rotateSolid, splitEdge, toLocal, topRing, toWorld, topAt, translateSolid } from '../model/ops';
 import { solidRings } from '../eval/body';
+import { stairClashes } from '../eval/clashes';
 import { adoptOffsetSides, sideCurve, stackOnTop, edgeLength, extrudeSide, hostedFrame, insetSide, insetTop, offsetCopy, offsetSolid, setSideDepth, setSolidSize, splitAtHeight, splitByLine, splitSideAt } from '../model/modeling';
 import { activeLayer, buildingHidden, buildingLocked, ensureLayers, explodeGap, itemHidden, itemLocked, solidHidden, solidLocked, viewOf } from '../model/layers';
 import { boxPicks, combine, marqueeRect, selMode } from './selection';
@@ -455,6 +456,7 @@ export class Editor3 {
       if (!own) this.warnings.push(...lotOverlaps(p));
     }
     if (!this.context && p.buildings.length > 1) this.warnings.push(...buildingOverlaps(p));
+    for (const b of p.buildings) if (!this.context || b.id === this.context) this.warnings.push(...stairClashes(b));
     this.drawSelection();
     this.refreshTop();
     this.renderCrumb();

@@ -98,7 +98,8 @@ export class Dictionary {
         // The values inside are translated too when they are known words ("Building", "Roof").
         out = p.to.replace(/\{(\d+)\}/g, (_, n: string) => {
           const v = m[Number(n) + 1] ?? '';
-          return this.exact.get(v) ?? v;
+          // A name made from a pattern ("Floor 1") is translated by its pattern; a value never holds itself.
+          return this.exact.get(v) ?? (v !== key && /[A-Za-z]/.test(v) ? this.translate(v) : null) ?? v;
         });
         break;
       }

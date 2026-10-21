@@ -42,6 +42,8 @@
 "A site to walk through the project, with a link for the client": "Um site para caminhar pelo projeto, com link para o cliente",
 "A slab with a railing on this floor": "Uma laje com guarda-corpo neste pavimento",
 "A smooth outline through the points": "Um contorno suave pelos pontos",
+"A stair crosses an interior wall on {0}.": "Uma escada atravessa uma parede interna em {0}.",
+"A stair runs into the outer wall on {0}.": "Uma escada entra na parede externa em {0}.",
 "A straight stair from the floor shown to the one above (it opens the slab)": "Uma escada reta do pavimento exibido até o de cima (abre a laje)",
 "A type of its own for this occurrence only": "Um tipo próprio só para esta ocorrência",
 "A volume coming out of the wall": "Um volume saindo da parede",
