@@ -298,6 +298,7 @@ export class Editor3 {
       snap: (p) => (this.infer.enabled ? [Math.round(p[0] / this.infer.grid) * this.infer.grid, Math.round(p[1] / this.infer.grid) * this.infer.grid] : p),
       showDim: (t, e) => this.showDim(t, e),
       hideDim: () => void (this.shell.dim.hidden = true),
+      toast: (t) => this.toast(t),
     });
     this.stair = new StairTool({
       view: this.view,

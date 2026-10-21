@@ -5,8 +5,10 @@
 import * as THREE from 'three';
 import type { ID, Project3, Street, Vec2 } from '../../model/schema';
 import type { View } from '../view';
-import { frontTowardStreet, rectLotFrom } from '../../model/site';
+import { DEFAULT_SETBACKS, frontTowardStreet } from '../../model/site';
+import { signedArea2 } from '../../model/plan';
 import { uid } from '../../model/defaults';
+import { tr } from '../../ui/i18n';
 
 /** What the tools need from the editor. */
 export interface SiteHost {
@@ -19,6 +21,7 @@ export interface SiteHost {
   snap(p: Vec2): Vec2;
   showDim(text: string, e: { clientX: number; clientY: number }): void;
   hideDim(): void;
+  toast(text: string): void;
 }
 
 const fmt = (n: number) => String(Math.round(n * 10) / 10);
@@ -26,6 +29,8 @@ const DRAFT = 'site-draft';
 
 export class SiteTools {
   private lotFrom: Vec2 | null = null;
+  /** Direction of the lot's sides: along the nearest street (within 40 m), else the world axes. */
+  private lotDir: Vec2 = [1, 0];
   private dragged = false;
   private street: Vec2[] = [];
 
@@ -47,17 +52,52 @@ export class SiteTools {
     // The second click of a click-click rectangle.
     if (this.lotFrom && !this.dragged) return this.finishLot(p);
     this.lotFrom = p;
+    this.lotDir = this.streetDir(p);
     this.dragged = false;
+  }
+
+  /** The direction of the street segment nearest to `p` (within 40 m), else +x. */
+  private streetDir(p: Vec2): Vec2 {
+    let best: Vec2 = [1, 0],
+      bestD = 40;
+    for (const st of this.h.project().streets ?? [])
+      for (let i = 0; i + 1 < st.points.length; i++) {
+        const a = st.points[i]!,
+          b = st.points[i + 1]!;
+        const dx = b[0] - a[0],
+          dz = b[1] - a[1];
+        const L = Math.hypot(dx, dz);
+        if (L < 0.01) continue;
+        const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / (L * L)));
+        const d = Math.hypot(a[0] + dx * t - p[0], a[1] + dz * t - p[1]);
+        if (d < bestD) {
+          bestD = d;
+          best = [dx / L, dz / L];
+        }
+      }
+    // The sides closest to the world axes (a street drawn left to right or right to left gives the same lot).
+    return Math.abs(best[0]) >= Math.abs(best[1]) ? (best[0] < 0 ? [-best[0], -best[1]] : best) : best[1] < 0 ? [best[1], -best[0]] : [-best[1], best[0]];
+  }
+
+  /** The lot's rectangle from its first corner to `p`: its sides along `lotDir`; width and depth. */
+  private lotRect(p: Vec2): { ring: Vec2[]; w: number; d: number } {
+    const a = this.lotFrom!,
+      t = this.lotDir,
+      n: Vec2 = [-t[1], t[0]];
+    const u = (p[0] - a[0]) * t[0] + (p[1] - a[1]) * t[1],
+      v = (p[0] - a[0]) * n[0] + (p[1] - a[1]) * n[1];
+    const at = (x: number, y: number): Vec2 => [a[0] + t[0] * x + n[0] * y, a[1] + t[1] * x + n[1] * y];
+    const ring = [a, at(u, 0), at(u, v), at(0, v)];
+    return { ring: signedArea2(ring) >= 0 ? ring : ring.reverse(), w: Math.abs(u), d: Math.abs(v) };
   }
 
   lotMove(e: PointerEvent, pressed: boolean): void {
     const p = this.ground(e);
     if (!p) return;
     if (!this.lotFrom) return this.h.showDim('Drag a rectangle on the ground (or click two corners)', e);
-    const w = Math.abs(p[0] - this.lotFrom[0]),
-      d = Math.abs(p[1] - this.lotFrom[1]);
+    const { ring, w, d } = this.lotRect(p);
     if (pressed && Math.max(w, d) > 0.5) this.dragged = true;
-    this.draw([this.lotFrom, [p[0], this.lotFrom[1]], p, [this.lotFrom[0], p[1]]], true);
+    this.draw(ring, true);
     this.h.showDim(`${fmt(w)} × ${fmt(d)} m · ${fmt(w * d)} m²`, e);
   }
 
@@ -68,13 +108,13 @@ export class SiteTools {
   }
 
   private finishLot(p: Vec2): void {
-    const a = this.lotFrom!;
+    const { ring, w, d } = this.lotRect(p);
     this.cancel();
-    if (Math.abs(p[0] - a[0]) < 2 || Math.abs(p[1] - a[1]) < 2) return;
+    if (w < 2 || d < 2) return this.h.toast('A lot is at least 2 × 2 m.');
     const n = this.h.project().lots.length + 1;
     // Its front faces the nearest street (the setbacks and the ready buildings follow it).
-    const lot = frontTowardStreet(rectLotFrom(a, p, uid(), `Lot ${n}`), this.h.project().streets ?? []);
-    this.h.changeSite((pr) => void pr.lots.push(lot), `Lot ${n}: ${fmt(Math.abs(p[0] - a[0]))} × ${fmt(Math.abs(p[1] - a[1]))} m. Its panel builds on it.`);
+    const lot = frontTowardStreet({ id: uid(), name: tr(`Lot ${n}`), polygon: ring, frontEdges: [0], rules: { setbacks: { ...DEFAULT_SETBACKS }, enforcement: 'warn' } }, this.h.project().streets ?? []);
+    this.h.changeSite((pr) => void pr.lots.push(lot), `Lot ${n}: ${fmt(w)} × ${fmt(d)} m.`);
     this.h.pickSite({ lot: lot.id });
   }
 
@@ -102,8 +142,8 @@ export class SiteTools {
     this.cancel();
     if (pts.length < 2) return;
     const n = (this.h.project().streets?.length ?? 0) + 1;
-    const st: Street = { id: uid(), name: `Street ${n}`, points: pts, width: 7, sidewalk: 2.5 };
-    this.h.changeSite((pr) => void (pr.streets ??= []).push(st), `Street ${n}: 7 m of asphalt and 2.5 m sidewalks. Its panel lays lots and trees along it.`);
+    const st: Street = { id: uid(), name: tr(`Street ${n}`), points: pts, width: 7, sidewalk: 2.5 };
+    this.h.changeSite((pr) => void (pr.streets ??= []).push(st), `Street ${n}: 7 m of asphalt and 2.5 m sidewalks.`);
     this.h.pickSite({ street: st.id });
   }
 
