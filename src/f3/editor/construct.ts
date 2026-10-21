@@ -45,7 +45,7 @@ export function wallTargets(ed: Editor3): WallTarget[] {
         const r = sampleRing(s.plan.outer).pts;
         const ccw = signedArea2(r) > 0 ? r : [...r].reverse();
         const mid = offsetRing(ccw, ccw.map(() => s.shell! / 2));
-        mid.forEach((q, i) => out.push({ a: w(q), b: w(mid[(i + 1) % mid.length]!), bid: b.id, interior: false }));
+        mid.forEach((q, i) => out.push({ a: w(q), b: w(mid[(i + 1) % mid.length]!), bid: b.id, interior: false, enclosing: true }));
       }
     }
     const lv = ed.workLevel(b);
@@ -167,7 +167,8 @@ export function startWallChain(ed: Editor3, e: { clientX: number; clientY: numbe
   if (hit) {
     const b = ed.store.building(hit.target.bid);
     if (b) {
-      if (hit.target.interior) {
+      // On an interior wall, or on the wall of a closed building: a wall that divides that floor.
+      if (hit.target.interior || hit.target.enclosing) {
         ed.openFloorFor(b);
         ed.wallChain = { bid: b.id, levelId: ed.workLevel(b)?.id ?? null, interior: true, own: false };
       } else ed.wallChain = { bid: b.id, levelId: null, interior: false, own: false };

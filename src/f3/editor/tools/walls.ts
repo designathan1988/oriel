@@ -47,6 +47,8 @@ export interface WallTarget {
   /** The building it belongs to and whether it is an interior wall of a floor. */
   bid: string;
   interior: boolean;
+  /** The wall of a closed building (a hollow volume): walls drawn from it divide that building's floor. */
+  enclosing?: boolean;
 }
 
 /** What the cursor stuck to: a wall end, or a point along a wall. */
