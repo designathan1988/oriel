@@ -29,6 +29,8 @@ export interface Project3 {
   selectionSets?: SelectionSet[];
   /** Streets: a center line with the asphalt width and a sidewalk on each side (world plan). */
   streets?: Street[];
+  /** Saved views (SketchUp's scenes, Revit's saved 3D views): camera, time, interior view and layers. */
+  scenes?: Scene[];
   /** The ground's shape: heights set at points (Revit's topography from points), flat under the buildings. */
   terrain?: Terrain;
   /** Project material library: named materials to reuse (and to change everywhere at once). */
@@ -88,6 +90,17 @@ export interface ProjectMaterial {
   id: ID;
   name: string;
   ref: MaterialRef;
+}
+
+export interface Scene {
+  id: ID;
+  name: string;
+  /** Orbit camera: what it looks at, how far, its angles (radians) and the projection. */
+  camera: { target: Vec3; distance: number; phi: number; theta: number; parallel: boolean };
+  /** The view state kept with it (time of day, interior view, floor cut, exploded floors). */
+  view: Pick<ViewState, 'time' | 'hiddenBody' | 'cutLevel' | 'onlyLevel' | 'explode'>;
+  /** Visibility of each layer when it was saved. */
+  layers?: Record<ID, boolean>;
 }
 
 export interface Terrain {

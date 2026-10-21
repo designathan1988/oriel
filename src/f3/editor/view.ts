@@ -1012,6 +1012,38 @@ export class View {
     this.anim = requestAnimationFrame(step);
   }
 
+  /** The orbit camera as it is (a saved scene keeps it). */
+  cameraState(): { target: [number, number, number]; distance: number; phi: number; theta: number; parallel: boolean } {
+    return { target: [this.target.x, this.target.y, this.target.z], distance: this.distance, phi: this.phi, theta: this.theta, parallel: this.parallel };
+  }
+
+  /** Flies the orbit camera to a saved state in `ms` (target, distance and angles together). */
+  flyTo(c: { target: [number, number, number]; distance: number; phi: number; theta: number; parallel: boolean }, ms = 600): void {
+    this.stopAnim();
+    this.setParallel(c.parallel);
+    const t0 = this.target.clone(),
+      t1 = new THREE.Vector3(...c.target);
+    const d0 = this.distance,
+      p0 = this.phi,
+      th0 = this.theta;
+    let dt = c.theta - th0;
+    dt = Math.atan2(Math.sin(dt), Math.cos(dt));
+    const start = performance.now();
+    const step = (now: number) => {
+      const k = Math.min(1, (now - start) / ms);
+      const e = k < 0.5 ? 4 * k * k * k : 1 - (-2 * k + 2) ** 3 / 2;
+      this.target.lerpVectors(t0, t1, e);
+      // The distance eases in its logarithm: a fly from far to near feels even.
+      this.distance = Math.exp(Math.log(d0) + (Math.log(c.distance) - Math.log(d0)) * e);
+      this.phi = p0 + (c.phi - p0) * e;
+      this.theta = th0 + dt * e;
+      this.updateCamera();
+      if (k < 1) this.anim = requestAnimationFrame(step);
+      else this.anim = 0;
+    };
+    this.anim = requestAnimationFrame(step);
+  }
+
   /** Frames every building (the view cube Home). */
   frameAll(): void {
     const all = new THREE.Box3().setFromObject(this.root);

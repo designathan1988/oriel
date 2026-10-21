@@ -772,6 +772,14 @@ export function validateForma3(raw: unknown): string[] {
         else if (st.treesBuilding !== undefined && !str(st.treesBuilding)) e.add(w, 'invalid trees building.');
       }
   }
+  if (p.scenes !== undefined) {
+    if (!Array.isArray(p.scenes) || p.scenes.length > 100) e.add('Project', 'invalid scenes (at most 100).');
+    else
+      for (const sc of p.scenes) {
+        const c = isObj(sc) ? (sc.camera as unknown as Record<string, unknown>) : null;
+        if (!isObj(sc) || !str(sc.id) || !str(sc.name, 60) || !isObj(c) || !vec(c.target, 3) || !fin(c.distance) || !fin(c.phi) || !fin(c.theta) || typeof c.parallel !== 'boolean' || !isObj(sc.view)) e.add('Project', 'invalid scene.');
+      }
+  }
   if (p.terrain !== undefined) {
     const t = p.terrain as unknown as Record<string, unknown>;
     if (!isObj(t) || !Array.isArray(t.points) || t.points.length > 2000) e.add('Project', 'invalid terrain (at most 2000 points).');

@@ -196,7 +196,8 @@ Backlog (P1 first):
       exports (2026-10-21). [ ] From contours; sculpt.
 - [x] P1 Elevations (SVG/PDF, painter with creases); floor plans with interior walls, doors, rooms. [x] Elevations in DXF with hidden lines removed by a depth buffer (io/elevationdxf.ts).
 - [ ] P1 Persistent associative dimensions and labels saved in the project.
-- [ ] P1 Building instances (identical houses on lots); saved scenes (camera, time, layers, view).
+- [x] P1 Saved scenes (camera, time, interior view, floor cut, layers; view bar → Scenes, ui/scenes.ts).
+- [ ] P1 Building instances (identical houses on lots).
 - [ ] P2 Corner window; curved interior walls; trim/extend; openings in interior walls; door swing in plan.
 - [ ] P2 Roof by profile, openings in roofs; stair landings/winders; ramp tool; elevator core.
 - [ ] P2 Grid axes with labels; automatic beams between columns; section box; guide lines; loft by

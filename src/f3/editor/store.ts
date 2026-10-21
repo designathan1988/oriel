@@ -267,9 +267,10 @@ export class Store {
   }
 }
 
-/** The project without its view state (camera-like settings that never count as an edit). */
+/** The project without its view state (camera-like settings and the saved scenes, never an edit of the model). */
 function withoutView(json: string): string {
   const p = unpack<Project3>(json);
   delete p.view;
+  delete p.scenes;
   return pack(p);
 }
