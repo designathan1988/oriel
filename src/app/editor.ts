@@ -22,6 +22,7 @@ import { mountLayers } from '../f3/ui/layers';
 import { mountPalette } from '../f3/ui/palette';
 import { mountPlanView } from '../f3/ui/planview';
 import { mountToolTips } from '../f3/ui/tooltips';
+import { openQuantities } from '../f3/ui/quantities';
 import { mountTime } from '../f3/ui/time';
 import { mountActions } from '../f3/ui/actions';
 import { mountLastOp } from '../f3/ui/lastop';
@@ -72,6 +73,7 @@ mountInteriorView(editor);
 mountWorkspaces(editor);
 mountPlanView(editor);
 mountToolTips(editor);
+editor.quantitiesRequested = () => openQuantities(editor);
 (globalThis as { forma3?: Editor3 }).forma3 = editor;
 if (startNote) editor.toast(startNote);
 
@@ -147,6 +149,7 @@ function exportMenu(anchor: HTMLElement): void {
       const b = editor.store.building(editor.sel.building ?? editor.context);
       download(sectionSvg(editor.project, b ? b.position[1] : undefined), fileName(editor.project.name + '-section', 'svg'), 'image/svg+xml');
     }],
+    ['Quantities and cost estimate…', '.csv', () => openQuantities(editor)],
     ['Areas (CSV)', '.csv', () => download(['building;footprint m2;gross floor area m2;volume m3', ...areasTable(editor.project).map((r) => [r.building, r.footprint, r.gfa, r.volume].join(';'))].join('\n'), fileName(editor.project.name + '-areas', 'csv'), 'text/csv')],
     ['BIM and 3D', '', null],
     ['BIM model (IFC4)', '.ifc', async () => {

@@ -1440,6 +1440,8 @@ export class Editor3 {
   planRequested: ((on?: boolean) => void) | null = null;
   /** Shows the guide of the current stage again (ui/workspaces.ts). */
   guideRequested: (() => void) | null = null;
+  /** Opens the quantities and cost estimate (ui/quantities.ts). */
+  quantitiesRequested: (() => void) | null = null;
   /** Mouse navigation preset (ui/prefs.ts): which middle-button drag pans and which orbits. */
   navPreset: 'forma' | 'sketchup' | 'blender' = 'forma';
 

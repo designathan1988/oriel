@@ -50,3 +50,20 @@ describe('interior walls stay a connected plan', () => {
     expect(it.walls.length).toBe(6);
   });
 });
+
+describe('quantities', () => {
+  it('the single-storey house: areas, walls less openings, roof bigger than the plan, openings counted', async () => {
+    const { buildingQuantities } = await import('../../src/f3/eval/quantities');
+    const p = TEMPLATES.find((t) => t.id === 'house')!.make();
+    const b = p.buildings[0]!;
+    const ev = evaluateBuilding(b, {}, p);
+    const q = buildingQuantities(b, ev, [floorPlan(b, 0, ev.placements)]);
+    const get = (k: string) => q.find((l) => l.key === k)!.qty;
+    expect(get('gross')).toBeCloseTo(108, 0);
+    // 42 m around × 2.8 m high, less the openings.
+    expect(get('wall-ext')).toBeLessThan(42 * 2.8);
+    expect(get('wall-ext')).toBeGreaterThan(42 * 2.8 * 0.6);
+    expect(get('roof')).toBeGreaterThan(108);
+    expect(q.filter((l) => l.group === 'Windows and doors').reduce((s, l) => s + l.qty, 0)).toBe(15);
+  });
+});
