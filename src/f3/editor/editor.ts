@@ -36,7 +36,7 @@ import { family, typeById } from '../families/index';
 import { CATEGORY_NAMES, resolveParams } from '../families/family';
 import { columnGrid, freeSpot } from '../model/structure';
 import { osmToBuildings, overpassQuery } from '../model/osm';
-import { addRoomRect, loopAround, roomArea } from '../eval/interiorwalls';
+import { addRoomRect, interiorOf, loopAround, roomArea } from '../eval/interiorwalls';
 import { evalExpr } from '../model/expr';
 import { dimParams, partBox } from '../eval/partsize';
 import { FINISHES } from '../render/finishes';
@@ -320,6 +320,8 @@ export class Editor3 {
       overlay: this.snapOverlay,
       thickness: () => this.wallThickness,
       snap: (p) => (this.infer.enabled ? [Math.round(p[0] / this.infer.grid) * this.infer.grid, Math.round(p[1] / this.infer.grid) * this.infer.grid] : p),
+      angleStep: () => (this.infer.enabled ? this.rotSnap : 0),
+      lengthStep: () => (this.infer.enabled ? this.infer.grid : 0),
       showDim: (t, e) => this.showDim(t, e),
       hideDim: () => void (this.shell.dim.hidden = true),
       done: (pts, closed) => this.wallsDone(pts, closed),
@@ -335,6 +337,8 @@ export class Editor3 {
       },
       words: { start: 'Click the corners of the slab on the floor shown (click the first to close)', close: 'Click: close the slab', open: 'click the first point to close' },
       snap: (p) => (this.infer.enabled ? [Math.round(p[0] / this.infer.grid) * this.infer.grid, Math.round(p[1] / this.infer.grid) * this.infer.grid] : p),
+      angleStep: () => (this.infer.enabled ? this.rotSnap : 0),
+      lengthStep: () => (this.infer.enabled ? this.infer.grid : 0),
       showDim: (t, e) => this.showDim(t, e),
       hideDim: () => void (this.shell.dim.hidden = true),
       done: (pts, closed) => this.slabDone(pts, closed),
@@ -5323,7 +5327,7 @@ export class Editor3 {
     if (!loop) return this.toast('The walls do not close around this point: draw the missing wall, or drag a rectangle.');
     const id = uid();
     const area = Math.round(roomArea(loop.polygon) * 100) / 100;
-    this.change(b.id, (x) => void x.interiors[lv.id]!.rooms.push({ id, name: `Room ${n}`, wallIds: loop.wallIds, polygon: loop.polygon, area }), `Room ${n}: ${fmt(area)} m².`);
+    this.change(b.id, (x) => void interiorOf(x, lv.id).rooms.push({ id, name: `Room ${n}`, wallIds: loop.wallIds, polygon: loop.polygon, area }), `Room ${n}: ${fmt(area)} m².`);
     this.roomSel = { level: lv.id, room: id };
     this.iwallSel = null;
     this.emit();
@@ -6388,7 +6392,15 @@ export class Editor3 {
     });
     window.addEventListener('keydown', (e) => {
       const target = e.target as HTMLElement;
-      if (target.closest('input,select,textarea') || !this.shell.root.isConnected) return;
+      if (!this.shell.root.isConnected) return;
+      // Ctrl+K opens the command search from anywhere, a text field included (VS Code, Figma, Linear).
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'k' && !this.walk.active) {
+        e.preventDefault();
+        (document.activeElement as HTMLElement | null)?.blur?.();
+        this.command('palette');
+        return;
+      }
+      if (target.closest('input,select,textarea')) return;
       // Walking owns the keyboard (WASD, Shift, Space, Esc).
       if (this.walk.active) return;
       const k = e.key.toLowerCase();
@@ -6405,7 +6417,8 @@ export class Editor3 {
         }
         const back = e.ctrlKey;
         if (n === '0') this.view.animateTo(1, 0.75, 380, () => this.view.frameAll());
-        else if (n === '7') this.view.animateTo(0.001, this.view.theta);
+        // Top: north up, the plan axes square with the screen (Blender Numpad 7), not the current azimuth.
+        else if (n === '7') this.view.animateTo(0.001, back ? Math.PI : 0);
         else this.view.animateTo(Math.PI / 2 - 0.02, n === '1' ? (back ? Math.PI : 0) : back ? -Math.PI / 2 : Math.PI / 2);
         e.preventDefault();
         return;

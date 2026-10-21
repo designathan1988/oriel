@@ -40,7 +40,7 @@ export function interiorDoors(it: Interior): InteriorDoor[] {
 }
 
 /** Interior of a level, made empty when the level has none. */
-function interiorOf(b: Building3, levelId: ID): Interior {
+export function interiorOf(b: Building3, levelId: ID): Interior {
   return (b.interiors[levelId] ??= { nodes: [], walls: [], rooms: [] });
 }
 

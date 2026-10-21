@@ -20,6 +20,9 @@ const FACES: { name: string; n: V3; u: V3; v: V3; css: string }[] = [
 
 /** Home: the three-quarter view the editor opens with. */
 const HOME = { phi: 1, theta: 0.75 };
+/** Straight down or up: the heading turned to the nearest quarter, so the plan axes stay square with the
+ * screen (the cube's face views are defined by the Front view, Autodesk ViewCube) with the least spin. */
+const square = (theta: number) => Math.round(theta / (Math.PI / 2)) * (Math.PI / 2);
 
 /** Camera angles that look from direction `d` (world, toward the camera). */
 export function anglesFor(d: V3): { phi: number; theta: number } {
@@ -78,7 +81,7 @@ export function mountViewCube(ed: Editor3): void {
       const { right, up } = axes();
       const d = arrowDir(a.dataset.arrow!, right, up);
       const t = anglesFor(d);
-      view.animateTo(t.phi, d[0] === 0 && d[2] === 0 ? view.theta : t.theta);
+      view.animateTo(t.phi, d[0] === 0 && d[2] === 0 ? square(view.theta) : t.theta);
     });
   // CSS has y down: the cube shows the world rotated as the camera sees it (S·R·S, S = diag(1, −1, 1)).
   const sync = () => {
@@ -109,7 +112,7 @@ export function mountViewCube(ed: Editor3): void {
     if (!cell || cell.classList.contains('off')) return;
     const d = cell.dataset.dir!.split(',').map(Number) as V3;
     const a = anglesFor(d);
-    // Straight top: keep the current heading (no spin), like the cube's top face.
-    view.animateTo(a.phi, d[0] === 0 && d[2] === 0 ? view.theta : a.theta);
+    // Straight top: the nearest square heading (little spin, axes square with the screen).
+    view.animateTo(a.phi, d[0] === 0 && d[2] === 0 ? square(view.theta) : a.theta);
   });
 }

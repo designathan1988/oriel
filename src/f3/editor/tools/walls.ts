@@ -15,6 +15,11 @@ export interface WallsHost {
   /** Words of the prompts (the Slab tool reuses this drawing). */
   words?: { start: string; close: string; open: string };
   snap(p: Vec2): Vec2;
+  /** Angle step (degrees) for each new segment, measured from the plan axes (Revit "angular dimension snap
+   * increments"); absent or 0 = free. Alt held draws free. */
+  angleStep?(): number;
+  /** Length step (m) for each new segment (Revit "length dimension snap increments"); absent or 0 = free. */
+  lengthStep?(): number;
   showDim(text: string, e: { clientX: number; clientY: number }): void;
   hideDim(): void;
   /** The line is done: closed (a building) or open (a free-standing wall). */
@@ -23,6 +28,26 @@ export interface WallsHost {
 
 const NAME = 'walls-draft';
 const MAT = new THREE.LineBasicMaterial({ color: '#e2702a', depthTest: false });
+
+/**
+ * The end of a segment drawn from `from` towards `to`: its direction turned to the nearest multiple of
+ * `angleStep` degrees and its length rounded to `lengthStep` (a click in perspective lands on the plane
+ * where the cursor is, so without this a rectangle drawn on screen becomes a trapezoid with odd sides).
+ */
+export function lockSegment(from: Vec2, to: Vec2, angleStep: number, lengthStep: number): Vec2 {
+  const dx = to[0] - from[0];
+  const dz = to[1] - from[1];
+  let len = Math.hypot(dx, dz);
+  if (len < 1e-9) return [from[0], from[1]];
+  let a = Math.atan2(dz, dx);
+  if (angleStep > 0) {
+    const st = (angleStep * Math.PI) / 180;
+    a = Math.round(a / st) * st;
+  }
+  if (lengthStep > 0) len = Math.max(lengthStep, Math.round(len / lengthStep) * lengthStep);
+  const r = (v: number) => Math.round(v * 1e6) / 1e6;
+  return [r(from[0] + Math.cos(a) * len), r(from[1] + Math.sin(a) * len)];
+}
 
 export class WallsTool {
   private pts: Vec2[] = [];
@@ -33,9 +58,12 @@ export class WallsTool {
     return this.pts.length > 0;
   }
 
-  private at(e: { clientX: number; clientY: number }): Vec2 | null {
+  private at(e: { clientX: number; clientY: number; altKey?: boolean }): Vec2 | null {
     const p = this.h.view.onPlane(e, this.h.y?.() ?? 0);
-    return p ? this.h.snap([p.x, p.z]) : null;
+    if (!p) return null;
+    const last = this.pts[this.pts.length - 1];
+    if (!last || e.altKey) return this.h.snap([p.x, p.z]);
+    return lockSegment(last, [p.x, p.z], this.h.angleStep?.() ?? 0, this.h.lengthStep?.() ?? 0);
   }
 
   /** Near the first point on screen (closing the outline). */

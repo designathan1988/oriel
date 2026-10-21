@@ -287,10 +287,10 @@ export const CSS = `
 .f3-field>span.drag{cursor:ew-resize}
 /* Panel standard (kit.ts prow/numCell): label with icon | one to three cells on a 6-column grid. */
 .f3-side,.f3-lastop{container-type:inline-size}
-.f3-prow{display:grid;grid-template-columns:70px minmax(0,1fr);align-items:center;gap:6px;min-height:26px}
+.f3-prow{display:grid;grid-template-columns:88px minmax(0,1fr);align-items:center;gap:6px;min-height:26px}
 .f3-prow+.f3-prow,.f3-prow+.f3-row,.f3-row+.f3-prow{margin-top:4px}
 .f3-prow>.lab{display:flex;align-items:center;gap:5px;min-width:0;font-size:11px;color:var(--muted)}
-.f3-prow>.lab>span{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;line-height:1.15}
+.f3-prow>.lab>span{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;line-height:1.15;hyphens:auto;overflow-wrap:break-word}
 .f3-prow>.lab>svg{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;color:var(--faint)}
 .f3-cells{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;min-width:0}
 .f3-cells>*{grid-column:span 3}
@@ -446,7 +446,8 @@ export const CSS = `
 /* Columns of different lengths: rows never stretch, so the three headings line up. Same heading as a panel section. */
 .f3-help .f3-keys{align-content:start}
 .f3-help h3{grid-column:1/-1;margin:0 0 2px;font-size:11.5px;font-weight:600;color:var(--ink)}
-.f3-help .f3-keys>span{white-space:nowrap}
+.f3-help .f3-keys>span{min-width:0;overflow-wrap:anywhere}
+.f3-help .f3-keys{grid-template-columns:auto minmax(0,1fr)}
 .f3-menu{position:absolute;z-index:30;background:var(--panel-solid);border:1px solid var(--line);border-radius:9px;box-shadow:0 14px 40px #0008;padding:4px;min-width:210px;color:var(--ink)}
 .f3-menu button{display:flex;width:100%;border:0;background:transparent;border-radius:6px;height:30px;padding:0 9px;gap:9px;align-items:center;text-align:left;color:var(--ink);letter-spacing:0;font-weight:400}
 .f3-menu button:hover{background:var(--raise)}
