@@ -201,12 +201,12 @@ export function mountInspector(ed: Editor3): void {
     const s = ed.activeSolid();
     const it = ed.activeItem();
     if (ed.context !== b.id && ed.sel.others.length) side.innerHTML = alignPanel(1 + ed.sel.others.length, 'buildings');
-    else if (ed.context !== b.id) side.innerHTML = buildingPanel(b, false, '', ed.project);
+    else if (ed.context !== b.id) side.innerHTML = buildingPanel(b, false, '', ed.project, ed.boundsOf(b, undefined, true));
     else if (ed.sel.solids.length > 1) side.innerHTML = alignPanel(ed.sel.solids.length, 'volumes');
     else if (it && ed.sel.elems.length <= 1) side.innerHTML = itemPanel(ed, b, it.id);
     else if (ed.sel.elems.length) side.innerHTML = elementsPanel(ed);
     else if (s) side.innerHTML = solidPanel(ed, b, s);
-    else side.innerHTML = buildingPanel(b, true, groupsSection(ed), ed.project);
+    else side.innerHTML = buildingPanel(b, true, groupsSection(ed), ed.project, ed.boundsOf(b, undefined, true));
     bind(ed, b, s);
     polish(side);
   };
@@ -251,7 +251,7 @@ function emptyHelp(p: Project3): string {
   <div class="f3-keys">${k('W', 'Walls: click point to point, type the lengths')}${k('R', 'Rectangle: a volume to shape')}${k('K', 'Library: furniture, doors, windows, plants')}</div></div>`;
 }
 
-function buildingPanel(b: Building3, _inside = false, groups = '', project?: Project3): string {
+function buildingPanel(b: Building3, _inside = false, groups = '', project?: Project3, overall?: { min: number[]; max: number[] } | null): string {
   const levels = [...b.levels].sort((x, y) => x.elevation - y.elevation);
   const uses = [
     ['residential', 'Residential'],
@@ -276,7 +276,7 @@ function buildingPanel(b: Building3, _inside = false, groups = '', project?: Pro
     .join('')}</tbody></table></div>` : ''}
   <div class="f3-sec"><h3>Use</h3><div class="f3-seg">${uses.map(([v, l]) => `<button data-use="${v}" aria-pressed="${b.use === v}">${l}</button>`).join('')}</div></div>
   <div class="f3-sec"><h3>Style</h3><div class="f3-btns n2">${BUILDING_STYLES.map((st) => `<button class="f3-btn" data-style="${st.id}" title="Wall, roof and trim finishes, roof and facade of every volume"><span class="f3-swatch" style="background:${st.wall.color};border-color:${st.trim.color}"></span>${st.name}</button>`).join('')}</div></div>
-  ${infoSection(b, project)}
+  ${infoSection(b, project, overall)}
 `;
 }
 
@@ -451,7 +451,7 @@ function ruleRow(ed: Editor3, f: FacadeRule): string {
 }
 
 /** Areas of the building (model/lots.ts) and, on a lot, its urban indices: read only. */
-function infoSection(b: Building3, project?: Project3): string {
+function infoSection(b: Building3, project?: Project3, overall?: { min: number[]; max: number[] } | null): string {
   // The copies made by the live modifiers count (a row of five is five times the area).
   const a = buildingAreas(withModifiers(b));
   const m2 = (v: number) => `${num(Math.round(v * 10) / 10)} m²`;
@@ -463,7 +463,9 @@ function infoSection(b: Building3, project?: Project3): string {
     const W = Math.max(...ps.map((p) => p[0])) - Math.min(...ps.map((p) => p[0])),
       D = Math.max(...ps.map((p) => p[1])) - Math.min(...ps.map((p) => p[1])),
       H = Math.max(...adds.map((s) => s.base + s.height));
-    rows.unshift(['Size (W × D × H)', `${num(Math.round(W * 10) / 10)} × ${num(Math.round(D * 10) / 10)} × ${num(Math.round(H * 10) / 10)} m`]);
+    rows.unshift(['Walls (W × D × H)', `${num(W)} × ${num(D)} × ${num(H)} m`]);
+    // The whole building with its roof and eaves: the same box and sizes the selection shows in the view.
+    if (overall) rows.unshift(['Overall (W × D × H)', `${num(overall.max[0]! - overall.min[0]!)} × ${num(overall.max[2]! - overall.min[2]!)} × ${num(overall.max[1]!)} m`]);
   }
   const li = b.lotId && project ? lotIndices({ ...project, buildings: project.buildings.map(withModifiers) }, b.lotId) : null;
   if (li) rows.push(['Lot occupancy', `${num(Math.round(li.occupancy * 1000) / 10)} %`], ['Floor area ratio', num(Math.round(li.far * 100) / 100)], ['Permeable', `${num(Math.round(li.permeable * 1000) / 10)} %`], ['Smallest setback', `${num(Math.round(li.setbacks.min * 100) / 100)} m`]);

@@ -17,6 +17,8 @@ import { evaluateBuilding } from '../eval/evaluate';
 import { kernelReady, loadKernel } from '../kernel/kernel';
 import { buildShellMesh, type ShellMesh } from '../render/shell';
 import { buildPartsMesh, type PartsMesh } from '../render/parts';
+import { terrainMesh } from '../render/site';
+import { terrainField } from '../model/terrain';
 import { createRenderContext, type RenderContext } from '../../render/context';
 
 import { gameData } from './game';
@@ -179,6 +181,17 @@ export async function buildExportScene(project: Project3, opts: ExportOptions = 
     }
     scene.add(group);
   }
+  // The shaped ground (terrain) goes with the buildings, the lots tinted on it.
+  const field = terrainField(project);
+  let ground: THREE.Material | null = null;
+  if (field) {
+    const g = terrainMesh(field, project.lots.map((l) => l.polygon));
+    created.push(g);
+    ground = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, name: 'Terrain' });
+    const m = new THREE.Mesh(g, ground);
+    m.name = 'Terrain';
+    scene.add(m);
+  }
   scene.updateMatrixWorld(true);
   return {
     scene,
@@ -187,6 +200,7 @@ export async function buildExportScene(project: Project3, opts: ExportOptions = 
       for (const s of shells) s.dispose();
       for (const p of parts) p.dispose();
       for (const g of created) g.dispose();
+      ground?.dispose();
       scene.clear();
       if (ownCtx) ctx.dispose();
     },

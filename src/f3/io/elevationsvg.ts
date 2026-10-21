@@ -8,6 +8,7 @@ import { evaluateBuilding } from '../eval/evaluate';
 import { primitiveTris } from '../eval/interior';
 import { apply, type M4 } from '../eval/parts';
 import { family as familyOf } from '../families/index';
+import { terrainField } from '../model/terrain';
 
 /** What is never seen from outside (furniture, fittings, stairs): left out of the elevations. */
 const INSIDE = new Set(['furniture', 'sanitary', 'kitchen', 'stairs', 'lighting', 'interior']);
@@ -100,14 +101,29 @@ export function elevationSvg(p: Project3, side: Side, dec = '.', t: (s: string) 
     // Facing the viewer, above the ground and not a sliver.
     .filter((q) => q.facing < -0.02 && q.area > 2e-4 && Math.max(...q.pts.map((r) => r.y)) > 0.01)
     .sort((x, y) => y.depth - x.depth);
+  // The shaped ground seen from this side: the highest ground along each line of sight (every 25 cm),
+  // drawn behind the buildings; flat ground is the ground line alone.
+  const field = terrainField(p);
+  let skyline: [number, number][] = [];
+  if (field) {
+    const [x0, z0, x1, z1] = field.box;
+    const best = new Map<number, number>();
+    for (let x = x0; x <= x1; x += 0.5)
+      for (let z = z0; z <= z1; z += 0.5) {
+        const k = Math.round((x * h[0] + z * h[1]) / 0.25);
+        const y = field.at(x, z);
+        if (y > (best.get(k) ?? -Infinity)) best.set(k, y);
+      }
+    skyline = [...best.entries()].sort((a, b) => a[0] - b[0]).map(([k, y]) => [k * 0.25, y]);
+  }
   if (!drawn.length) return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 20"><text x="4" y="12" font-size="5" font-family="sans-serif">${esc(t('Nothing to draw yet.'))}</text></svg>`;
   const xs = drawn.flatMap((q) => q.pts.map((r) => r.x)),
     ys = drawn.flatMap((q) => q.pts.map((r) => r.y));
   const M = 4;
   const X0 = Math.min(...xs) - M,
     X1 = Math.max(...xs) + M,
-    Ytop = Math.max(...ys) + M,
-    Ybot = Math.min(0, ...ys) - M - 3;
+    Ytop = Math.max(...ys, ...skyline.map((q) => q[1])) + M,
+    Ybot = Math.min(0, ...ys, ...skyline.map((q) => q[1])) - M - 3;
   const fill = { wall: '#f7f5f0', roof: '#d9d1c4', part: '#ece8e0', glass: '#cfdde6' };
   // Creases: an edge drawn where the faces on its two sides turn (or where only one face has it), so a
   // flat wall shows no triangles and a window frame shows its outline.
@@ -138,10 +154,12 @@ export function elevationSvg(p: Project3, side: Side, dec = '.', t: (s: string) 
     return `<path d="${d}" fill="${col}" stroke="${col}" stroke-width="0.02"/>${lines.length ? `<path d="${lines.join('')}" fill="none" stroke="#2a2a2a" stroke-width="${q.kind === 'wall' || q.kind === 'roof' ? 0.035 : 0.02}" stroke-linecap="round"/>` : ''}`;
   });
   const n2 = (v: number) => v.toFixed(2).replace('.', dec);
+  const sky = skyline.filter((q) => q[0] >= X0 && q[0] <= X1);
   const out = [
+    ...(sky.length > 1 ? [`<path d="M${r2(sky[0]![0])} ${r2(-Math.min(0, ...sky.map((q) => q[1])) + 0.5)}${sky.map((q) => `L${r2(q[0])} ${r2(-q[1])}`).join('')}L${r2(sky[sky.length - 1]![0])} ${r2(-Math.min(0, ...sky.map((q) => q[1])) + 0.5)}Z" fill="#ebe7dc" stroke="#777" stroke-width="0.05" stroke-linejoin="round"/>`] : []),
     ...body,
     // Ground line and level marks (+0,00 and every floor).
-    `<line x1="${r2(X0)}" y1="0" x2="${r2(X1)}" y2="0" stroke="#111" stroke-width="0.1"/>`,
+    ...(sky.length > 1 ? [] : [`<line x1="${r2(X0)}" y1="0" x2="${r2(X1)}" y2="0" stroke="#111" stroke-width="0.1"/>`]),
     ...[0, ...[...new Set(levels.map((l) => Math.round(l * 100) / 100))]].map((l) => `<line x1="${r2(X1 - M + 0.4)}" y1="${r2(-l)}" x2="${r2(X1 - 0.6)}" y2="${r2(-l)}" stroke="#555" stroke-width="0.03"/><text x="${r2(X1 - M + 0.5)}" y="${r2(-l - 0.15)}" font-size="0.45" font-family="sans-serif" fill="#333">${l >= 0 ? '+' : ''}${n2(l)}</text>`),
     `<g transform="translate(${r2(X0 + 1)} ${r2(-Ybot - 2)})"><rect width="10" height="0.4" fill="#111"/><rect x="5" width="5" height="0.4" fill="#fff" stroke="#111" stroke-width="0.05"/><text y="1.6" font-size="1" font-family="sans-serif">0</text><text x="9.4" y="1.6" font-size="1" font-family="sans-serif">10 m</text></g>`,
     `<text x="${r2(X1 - 1)}" y="${r2(-Ybot - 3)}" font-size="1.1" text-anchor="end" font-family="sans-serif" fill="#555">${esc(p.name)} · ${esc(t(ELEVATION_NAMES[side]))}</text>`,

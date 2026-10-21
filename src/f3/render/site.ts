@@ -120,7 +120,7 @@ function streetLabel(name: string, pts: Vec2[], width: number): THREE.Mesh | nul
 }
 
 /** The shaped ground as a height grid over its box (at most ~180 cells a side), lots tinted on it. */
-function terrainMesh(t: TerrainField, lots: Vec2[][]): THREE.BufferGeometry {
+export function terrainMesh(t: TerrainField, lots: Vec2[][]): THREE.BufferGeometry {
   const [x0, z0, x1, z1] = t.box;
   const cell = Math.max(0.5, Math.max(x1 - x0, z1 - z0) / 180);
   const nx = Math.ceil((x1 - x0) / cell),
