@@ -3,7 +3,7 @@
 // or ceilings of every building — the buildings become hollow, with slabs per floor — and cuts
 // them by floor. Hiding is only a view state: saving and exporting take everything.
 import type { Editor3 } from '../editor/editor';
-import { BODY_CATEGORIES, bandedView, bodyHidden, explodeGap, interiorView, viewOf, type BodyCategory } from '../model/layers';
+import { BODY_CATEGORIES, optionSets, bandedView, bodyHidden, explodeGap, interiorView, viewOf, type BodyCategory } from '../model/layers';
 import { icon } from './icons';
 import { prow } from './kit';
 
@@ -65,7 +65,7 @@ export function mountInteriorView(ed: Editor3): void {
     const p = ed.project;
     btn.setAttribute('aria-pressed', String(interiorView(p)));
     if (pop.hidden) return;
-    const key = JSON.stringify([p.view?.hiddenBody, p.view?.cutLevel, p.view?.onlyLevel, p.view?.explode, p.view?.style, p.view?.phases, p.view?.section?.axis, p.view?.section?.flip, levelsMax()]);
+    const key = JSON.stringify([p.view?.hiddenBody, p.view?.cutLevel, p.view?.onlyLevel, p.view?.explode, p.view?.style, p.view?.phases, p.view?.options, [...optionSets(p)], p.view?.section?.axis, p.view?.section?.flip, levelsMax()]);
     if (key === last) return;
     last = key;
     const rows = BODY_CATEGORIES.map(([c, name]) => {
@@ -81,6 +81,7 @@ export function mountInteriorView(ed: Editor3): void {
       <div class="f3-interior-list">${rows}</div>
       <div class="f3-interior-ctl">
       ${prow('Style', 'palette', [`<div class="f3-seg" role="group" aria-label="View style">${([['', 'Realistic'], ['white', 'White'], ['xray', 'X-ray']] as const).map(([v, l]) => `<button data-style="${v}" aria-pressed="${(p.view?.style ?? '') === v}">${l}</button>`).join('')}</div>`], { wide: true })}
+      ${[...optionSets(p)].map(([set, names]) => prow(set, 'swap', [`<div class="f3-seg" role="group" aria-label="${set}" data-i18n-skip>${names.map((nm) => `<button data-optset="${set.replace(/"/g, '')}" data-opt="${nm}" aria-pressed="${(p.view?.options?.[set] ?? names[0]) === nm}">${nm}</button>`).join('')}</div>`], { wide: true })).join('')}
       ${prow('Phases', 'restore', [`<div class="f3-seg" role="group" aria-label="Phase filter">${([['', 'All'], ['existing', 'Existing'], ['proposal', 'Proposal']] as const).map(([v, l]) => `<button data-phases="${v}" aria-pressed="${(p.view?.phases ?? '') === v}">${l}</button>`).join('')}</div>`], { wide: true })}
       ${prow('Section', 'section', [`<div class="f3-seg" role="group" aria-label="Live section">${([['', 'Off'], ['z', 'Front'], ['x', 'Side']] as const).map(([v, l]) => `<button data-sec="${v}" aria-pressed="${(sec?.axis ?? '') === v}">${l}</button>`).join('')}<button data-secflip aria-pressed="${!!sec?.flip}" title="Keep the other side"${sec ? '' : ' disabled'}>⇄</button></div>`], { wide: true })}
       ${sec ? prow('Position', 'distance', [`<label class="f3-cell rng" title="Where the section cuts"><input type="range" data-secat min="${ext.lo[sec.axis === 'x' ? 0 : 1]}" max="${ext.hi[sec.axis === 'x' ? 0 : 1]}" step="0.1" value="${sec.at}" aria-label="Section position"><output>${Math.round(sec.at * 10) / 10} m</output></label>`], { wide: true }) : ''}
@@ -136,6 +137,13 @@ export function mountInteriorView(ed: Editor3): void {
       ed.store.touch([], '');
     });
     at?.addEventListener('change', () => commit(''));
+    pop.querySelectorAll<HTMLButtonElement>('[data-opt]').forEach((b) =>
+      b.addEventListener('click', () => {
+        const v = viewOf(ed.store.project);
+        (v.options ??= {})[b.dataset.optset!] = b.dataset.opt!;
+        commit(`Option ${b.dataset.opt}.`);
+      }),
+    );
     pop.querySelectorAll<HTMLButtonElement>('[data-phases]').forEach((b) =>
       b.addEventListener('click', () => {
         const v = viewOf(ed.store.project);

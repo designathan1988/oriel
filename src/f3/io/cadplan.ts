@@ -9,12 +9,13 @@ import { floorPlan, sortedLevels, type FloorPlan } from '../eval/floorplan';
 import { floorPlanSvg } from '../eval/floorplansvg';
 import { siteContext, type SiteContext } from '../eval/sitecontext';
 import type { Placement } from '../eval/facade';
+import { optionHidden } from '../model/layers';
 
 /** Every floor of every visible building that has walls cut on it, with its title. */
 export function collectFloorPlans(p: Project3, placementsOf: (id: ID) => Placement[], t: (s: string) => string = (s) => s): { fp: FloorPlan; title: string; site: SiteContext | null }[] {
   const out: { fp: FloorPlan; title: string; site: SiteContext | null }[] = [];
   for (const b of p.buildings) {
-    if (b.hidden || !b.solids.some((s) => s.op === 'add')) continue;
+    if (b.hidden || optionHidden(p, b) || !b.solids.some((s) => s.op === 'add')) continue;
     sortedLevels(b).forEach((lv, i) => {
       try {
         const fp = floorPlan(b, i, placementsOf(b.id));

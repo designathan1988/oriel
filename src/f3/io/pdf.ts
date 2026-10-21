@@ -10,6 +10,7 @@ import { BRAND } from '../model/brand';
 import type { Building3, Project3 } from '../model/schema';
 import { planSvg } from './plansvg';
 import { sectionSvg } from './sectionsvg';
+import { optionHidden } from '../model/layers';
 import { siteContext } from '../eval/sitecontext';
 import { ELEVATION_NAMES, elevationSvg } from './elevationsvg';
 import { evaluateBuilding } from '../eval/evaluate';
@@ -50,7 +51,7 @@ interface Sheet {
 export function projectPlans(p: Project3): { building: string; level: string; plan: FloorPlan; b: Building3; index: number }[] {
   const out: { building: string; level: string; plan: FloorPlan; b: Building3; index: number }[] = [];
   for (const b of p.buildings) {
-    if (b.hidden || !b.solids.some((s) => s.op === 'add' && !s.hidden)) continue;
+    if (b.hidden || optionHidden(p, b) || !b.solids.some((s) => s.op === 'add' && !s.hidden)) continue;
     let ev;
     try {
       ev = evaluateBuilding(b, {}, p);

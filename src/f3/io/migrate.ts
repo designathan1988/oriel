@@ -672,6 +672,7 @@ function checkBuilding(e: Errors, b: Building3, p: Project3, lotIds: Set<string>
   if (!str(b.name, 60)) e.add(w, 'invalid name.');
   if (b.lotId !== null && !lotIds.has(b.lotId)) e.add(w, 'missing lot.');
   if (b.linked !== undefined && !str(b.linked)) e.add(w, 'invalid linked group.');
+  if (b.option !== undefined && !(isObj(b.option) && str(b.option.set, 60) && str(b.option.name, 20))) e.add(w, 'invalid design option.');
   if (!vec(b.position, 2)) e.add(w, 'invalid position.');
   else if (Math.abs(b.position[0]) > LIMITS3.worldExtent || Math.abs(b.position[1]) > LIMITS3.worldExtent) e.add(w, `position beyond the ${LIMITS3.worldExtent} m limit.`);
   if (b.elevation !== undefined && (!fin(b.elevation) || Math.abs(b.elevation) > LIMITS3.maxHeight)) e.add(w, 'invalid building elevation.');

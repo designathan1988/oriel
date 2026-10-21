@@ -8,6 +8,7 @@ import { offsetRing, ringValid, signedArea2 } from './plan';
 import { building, facadeRule, levelsFor, planVertices, roofSpec, solid } from './defaults';
 import { toLocal } from './ops';
 import { outerRing } from './lots';
+import { optionHidden } from './layers';
 
 export type { Lot };
 
@@ -322,7 +323,7 @@ export function setbackWarnings(p: Project3): string[] {
 export function buildingOverlaps(p: Project3): string[] {
   const out: string[] = [];
   const bs = p.buildings
-    .filter((b) => !b.hidden && b.solids.length)
+    .filter((b) => !b.hidden && !optionHidden(p, b) && b.solids.length)
     .slice(0, 200)
     .map((b) => {
       const rings = b.solids.filter((s) => s.op === 'add' && !s.hidden).map((s) => outerRing(b, s));

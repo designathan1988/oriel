@@ -11,7 +11,7 @@ import { solidRings } from '../eval/body';
 import { stairClashes } from '../eval/clashes';
 import { terrainField, type TerrainField } from '../model/terrain';
 import { adoptOffsetSides, sideCurve, stackOnTop, edgeLength, extrudeSide, hostedFrame, insetSide, insetTop, offsetCopy, offsetSolid, setSideDepth, setSolidSize, splitAtHeight, splitByLine, splitSideAt } from '../model/modeling';
-import { activeLayer, buildingHidden, buildingLocked, ensureLayers, explodeGap, itemHidden, itemLocked, solidHidden, solidLocked, viewOf } from '../model/layers';
+import { activeLayer, buildingHidden, buildingLocked, ensureLayers, explodeGap, itemHidden, itemLocked, solidHidden, solidLocked, viewOf, optionHidden } from '../model/layers';
 import { boxPicks, combine, marqueeRect, selMode } from './selection';
 import { convertSub, segDistance, subElements, type ElemMode, type SubEdge, type SubVertex } from '../eval/subelements';
 import { invert, nextSetName, pickableBuildings, pickableSolids, recallSet, saveSet, similarBuildings, similarSolids } from '../model/selsets';
@@ -7253,6 +7253,48 @@ export class Editor3 {
     const mk = (edge: ID, u: number): Item => ({ id: uid(), type: 'win-casement', params: { width: Math.round(w * 100) / 100, trim: 0, shutters: 'none' }, host: { kind: 'face', solid: s.id, edge, u: Math.round(u * 1000) / 1000, y } });
     // The side that starts at the corner, and the one that ends there.
     this.change(b.id, (x) => void x.items.push(mk(next, w / 2), mk(prev, lp - w / 2)), 'Corner window.');
+  }
+
+  /**
+   * A new design option of the selected building (Revit's design options): a copy in the same place,
+   * the next option of its set (A, B, C…), shown at once; the original becomes option A of a new set.
+   */
+  newDesignOption(): void {
+    const b = this.activeBuilding();
+    if (!b) return this.toast('Select a building first.');
+    const sets = [...new Set(this.project.buildings.flatMap((x) => (x.option ? [x.option.set] : [])))];
+    const set = b.option?.set ?? (() => {
+      for (let i = 1; ; i++) if (!sets.includes(`Options ${i}`)) return `Options ${i}`;
+    })();
+    const used = this.project.buildings.filter((x) => x.option?.set === set).map((x) => x.option!.name);
+    let name = 'A';
+    for (let i = 0; i < 26; i++) {
+      name = String.fromCharCode(66 + i - 1);
+      if (!used.includes(name) && (b.option || name !== 'A')) break;
+    }
+    const src = this.store.building(b.id)!;
+    const c = cloneBuilding(src);
+    src.option ??= { set, name: 'A' };
+    c.option = { set, name };
+    c.name = `${src.name.replace(/ \([A-Z]\)$/, '')} (${name})`;
+    this.store.project.buildings.push(c);
+    (viewOf(this.store.project).options ??= {})[set] = name;
+    if (!this.store.commit([src.id, c.id], `Design option ${name}: change it freely; the Interior view switches the options.`)) return;
+    this.toast(`Design option ${name}: change it freely; the Interior view switches the options.`);
+    this.selectBuildings([c.id]);
+  }
+
+  /** Keeps the shown option of the selected building's set and deletes the others (Revit's Accept Primary). */
+  acceptDesignOption(): void {
+    const b = this.activeBuilding();
+    if (!b?.option) return this.toast('Select a design option first.');
+    const set = b.option.set;
+    const keep = this.project.buildings.filter((x) => x.option?.set === set && !optionHidden(this.project, x)).map((x) => x.id);
+    this.changeSite((p) => {
+      p.buildings = p.buildings.filter((x) => x.option?.set !== set || keep.includes(x.id));
+      for (const x of p.buildings) if (x.option?.set === set) delete x.option;
+      if (p.view?.options) delete p.view.options[set];
+    }, 'Option kept; the others deleted.');
   }
 
   /** Saves the selected buildings as a component of the project's library (Library → My types). */

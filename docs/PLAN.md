@@ -211,20 +211,24 @@ Backlog (P1 first):
 - [x] P1 Saved scenes (camera, time, interior view, floor cut, layers; view bar → Scenes, ui/scenes.ts).
 - [x] P1 Building instances: linked copies (Ctrl+Shift+D, Building3.linked); an edit of one is made on all,
       each keeps its position, rotation, name and lot; Make independent.
-- [ ] P2 Corner window; curved interior walls; trim/extend; openings in interior walls; door swing in plan.
-- [ ] P2 Roof by profile, openings in roofs; stair landings/winders; ramp tool; elevator core.
+- [x] P2 Corner window (selected corner → Corner window); curved interior walls (Curve field); extend to the next
+      wall (trim: walls split where they cross, the overshoot is its own wall); passages in interior walls;
+      door swing in plan and its flip.
+- [x] P2 Roof by profile (butterfly, asymmetric, curved, M, wave); skylights open the roof; L/U stairs with
+      landings and L with winders; ramp family; elevator shaft opening every slab.
 - [x] P2 Grid axes with labels (Shift+A; numbered and lettered; 3D, every floor plan, DXF S-GRID).
 - [x] P2 Automatic beams between columns (bar or Ctrl+K → Beams between columns).
 - [x] P2 Section box as a live section plane (Interior view → Section: front or side, position, flip).
-- [ ] P2 Guide lines; loft by
-      several sections; mirror about a drawn axis; component from selection.
+- [x] P2 Guide lines (Tape + Ctrl, snapping); loft through several sections; Mirror tool about a drawn line
+      (Shift+M); components from a selection (Library → My types).
 - [x] P2 Transfer properties: Copy / Paste properties (Ctrl+Shift+C / V) — roof, facade rules mapped to the
       sides facing the same way, materials, plinth, bands, bevel, walls.
 - [x] P2 View styles: realistic, white model, x-ray (Interior view → Style; view.style).
 - [x] P2 Parking along a path (families/parking.ts: 90°, 60°, 45°, one or both sides, lines, wheel stops).
 - [x] P2 Renovation phases: new, existing, to demolish per volume or part (panel → Phase); phase filter
       (Interior view → Phases: all, existing state, proposal), kept by the scenes.
-- [ ] P2 Design options.
+- [x] P2 Design options: sets of alternatives (A, B…), switched in the Interior view, accepted; exports and
+      totals follow the option shown; kept by the scenes.
 
 ### Procedural objects and methods (research 2026-10-13: three agent reports in the session)
 

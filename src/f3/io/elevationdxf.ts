@@ -5,6 +5,7 @@
 // (glass), A-ELEV-GRND (ground line), A-ANNO-TEXT (titles, levels). Written with @tarikjabiri/dxf.
 import { DxfWriter, Units, point3d } from '@tarikjabiri/dxf';
 import type { Project3 } from '../model/schema';
+import { optionHidden } from '../model/layers';
 import { creaseTest, elevationFaces, ELEVATION_NAMES, type ElevationFace, type Side } from './elevationsvg';
 
 const CELL = 0.05;
@@ -100,7 +101,7 @@ export function elevationsDxf(p: Project3, dec = '.', t: (s: string) => string =
   for (const [n, c] of [['A-ELEV', 7], ['A-ELEV-GLAZ', 5], ['A-ELEV-GRND', 8], ['A-ANNO-TEXT', 7]] as const) dxf.addLayer(n, c);
   let dx = 0,
     any = false;
-  const levels = [...new Set(p.buildings.filter((b) => !b.hidden).flatMap((b) => b.levels.map((l) => Math.round((l.elevation + (b.elevation ?? 0)) * 100) / 100)))].sort((a, b) => a - b);
+  const levels = [...new Set(p.buildings.filter((b) => !b.hidden && !optionHidden(p, b)).flatMap((b) => b.levels.map((l) => Math.round((l.elevation + (b.elevation ?? 0)) * 100) / 100)))].sort((a, b) => a - b);
   for (const side of Object.keys(ELEVATION_NAMES) as Side[]) {
     const v = visibleElevationLines(p, side);
     if (!v) continue;

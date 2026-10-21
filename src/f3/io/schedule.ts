@@ -4,6 +4,7 @@
 import { ROOM_USE_NAMES, type Project3, type RoomUse } from '../model/schema';
 import { roomArea, roomCeiling, roomPerimeter } from '../eval/interiorwalls';
 import { sortedLevels } from '../eval/floorplan';
+import { optionHidden } from '../model/layers';
 
 export interface RoomRow {
   building: string;
@@ -22,7 +23,7 @@ const r2 = (v: number) => Math.round(v * 100) / 100;
 export function roomRows(p: Project3): RoomRow[] {
   const out: RoomRow[] = [];
   for (const b of p.buildings) {
-    if (b.hidden) continue;
+    if (b.hidden || optionHidden(p, b)) continue;
     for (const lv of sortedLevels(b)) {
       for (const r of b.interiors?.[lv.id]?.rooms ?? []) {
         const area = r.polygon && r.polygon.length > 2 ? roomArea(r.polygon) : (r.area ?? 0);

@@ -14,6 +14,7 @@ import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
 import type { Project3 } from '../model/schema';
 import { evaluateBuilding } from '../eval/evaluate';
+import { optionHidden } from '../model/layers';
 import { kernelReady, loadKernel } from '../kernel/kernel';
 import { buildShellMesh, type ShellMesh } from '../render/shell';
 import { buildPartsMesh, type PartsMesh } from '../render/parts';
@@ -134,6 +135,7 @@ export async function buildExportScene(project: Project3, opts: ExportOptions = 
   const scene = new THREE.Scene();
   scene.name = project.name;
   for (const b of project.buildings) {
+    if (optionHidden(project, b)) continue;
     const ev = evaluateBuilding(b, { hidden: () => false, hollow: !!opts.hollow }, project);
     for (const w of ev.warnings) warnings.push(`${b.name}: ${w}`);
     const group = new THREE.Group();

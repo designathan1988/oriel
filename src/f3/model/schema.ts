@@ -121,7 +121,7 @@ export interface Scene {
   /** Orbit camera: what it looks at, how far, its angles (radians) and the projection. */
   camera: { target: Vec3; distance: number; phi: number; theta: number; parallel: boolean };
   /** The view state kept with it (time of day, interior view, floor cut, exploded floors). */
-  view: Pick<ViewState, 'time' | 'hiddenBody' | 'cutLevel' | 'onlyLevel' | 'explode' | 'style' | 'section' | 'phases'>;
+  view: Pick<ViewState, 'time' | 'hiddenBody' | 'cutLevel' | 'onlyLevel' | 'explode' | 'style' | 'section' | 'phases' | 'options'>;
   /** Visibility of each layer when it was saved. */
   layers?: Record<ID, boolean>;
 }
@@ -207,6 +207,8 @@ export interface ViewState {
   onlyLevel?: boolean;
   /** Exploded floors: gap (m) between the floors, each cut 1.2 m above its floor (Revit Displace Elements). 0/absent = off. */
   explode?: number;
+  /** The option shown of each design option set (absent: the first one). */
+  options?: Record<string, string>;
   /** Phase filter (Revit's phase filters): the site as it is (existing and demolished) or the proposal (existing and new); absent = everything. */
   phases?: 'existing' | 'proposal';
   /** View style (SketchUp's face styles, Revit's visual styles): a white model or x-ray; absent = realistic. */
@@ -248,6 +250,8 @@ export interface Building3 {
   id: ID;
   name: string;
   lotId: ID | null;
+  /** Design option (Revit's design options): this building is option `name` of the set `set`; one option of a set is shown. */
+  option?: { set: string; name: string };
   /**
    * Linked copies (identical houses on several lots, Revit's groups, SketchUp's components): every
    * building with the same key shares its volumes, parts, floors and interiors; an edit of one is made on

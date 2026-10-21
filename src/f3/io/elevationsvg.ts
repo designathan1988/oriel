@@ -9,6 +9,7 @@ import { primitiveTris } from '../eval/interior';
 import { apply, type M4 } from '../eval/parts';
 import { family as familyOf } from '../families/index';
 import { terrainField } from '../model/terrain';
+import { optionHidden } from '../model/layers';
 
 /** What is never seen from outside (furniture, fittings, stairs): left out of the elevations. */
 const INSIDE = new Set(['furniture', 'sanitary', 'kitchen', 'stairs', 'lighting', 'interior']);
@@ -49,7 +50,7 @@ export function elevationFaces(p: Project3, side: Side): { drawn: ElevationFace[
   const tris: Tri[] = [];
   const levels: number[] = [];
   for (const b of p.buildings) {
-    if (b.hidden) continue;
+    if (b.hidden || optionHidden(p, b)) continue;
     let ev;
     try {
       ev = evaluateBuilding(b, { hidden: () => false }, p);

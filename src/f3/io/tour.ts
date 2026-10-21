@@ -13,6 +13,7 @@ import type { TourData, TourDataPlan, TourDataRoom } from '../tour/types';
 import { projectPlans } from './pdf';
 import { siteContext } from '../eval/sitecontext';
 import { zipStore } from './zip';
+import { optionHidden } from '../model/layers';
 
 /** Eye height of a walking stop (m above the floor). */
 const EYE = 1.6;
@@ -148,7 +149,7 @@ export function autoStops(p: Project3, uid: () => string, t: (s: string) => stri
     z1 = -Infinity,
     y1 = 0;
   for (const b of p.buildings) {
-    if (b.hidden) continue;
+    if (b.hidden || optionHidden(p, b)) continue;
     const m = buildingToWorld(b);
     for (const s of b.solids) {
       if (s.op !== 'add' || s.hidden) continue;
@@ -273,7 +274,7 @@ export function tourData(p: Project3, glb: Uint8Array, o: TourOptions = {}): Tou
   const min: Vec3 = [Infinity, 0, Infinity],
     max: Vec3 = [-Infinity, 3, -Infinity];
   for (const b of p.buildings) {
-    if (b.hidden) continue;
+    if (b.hidden || optionHidden(p, b)) continue;
     const m = buildingToWorld(b);
     for (const s of b.solids)
       for (const v of s.plan.outer) {

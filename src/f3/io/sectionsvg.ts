@@ -8,6 +8,7 @@ import { evaluateBuilding } from '../eval/evaluate';
 import { terrainField } from '../model/terrain';
 import { offsetRing, oriented, sampleRing } from '../model/plan';
 import { kernel } from '../kernel/kernel';
+import { optionHidden } from '../model/layers';
 
 /**
  * The cut as closed polygons (Manifold slice: https://manifoldcad.org/docs/jsapi/classes/manifold.Manifold.html):
@@ -69,7 +70,7 @@ export function sectionSvg(p: Project3, at?: number, dec = '.', t: (s: string) =
   // Each building evaluated once (hollow: walls and slabs with the rooms between them).
   const evs = new Map<string, ReturnType<typeof evaluateBuilding>>();
   for (const b of p.buildings) {
-    if (b.hidden) continue;
+    if (b.hidden || optionHidden(p, b)) continue;
     try {
       evs.set(b.id, evaluateBuilding(b, { hidden: () => false, hollow: true }, p));
     } catch {
@@ -110,7 +111,7 @@ export function sectionSvg(p: Project3, at?: number, dec = '.', t: (s: string) =
   const labels: { x: number; y: number; name: string }[] = [];
   const levels: { x0: number; x1: number; y: number }[] = [];
   for (const b of p.buildings) {
-    if (b.hidden) continue;
+    if (b.hidden || optionHidden(p, b)) continue;
     const a = (b.rotation * Math.PI) / 180,
       c = Math.cos(a),
       s = Math.sin(a);

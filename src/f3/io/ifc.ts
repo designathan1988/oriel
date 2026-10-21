@@ -16,6 +16,7 @@ import { floorPlan } from '../eval/floorplan';
 import { SLAB } from '../eval/interior';
 import { interiorDoors, interiorWallMeshes } from '../eval/interiorwalls';
 import { FaceTable } from '../eval/faces';
+import { optionHidden } from '../model/layers';
 
 const B64 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$';
 
@@ -124,7 +125,7 @@ export function exportIFC(p: Project3, t: (s: string) => string = (x) => x): str
 
   const buildings: number[] = [];
   for (const b of p.buildings) {
-    if (b.hidden) continue;
+    if (b.hidden || optionHidden(p, b)) continue;
     let ev;
     try {
       ev = evaluateBuilding(b, { hidden: () => false }, p);

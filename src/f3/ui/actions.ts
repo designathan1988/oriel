@@ -72,6 +72,8 @@ function selectionActions(ed: Editor3): Action[] {
     add('Edit', 'dup', 'Duplicate', 'copy', () => ed.duplicate(), { title: 'Duplicate · Ctrl+D' });
     add('Edit', 'link', 'Linked copy', 'array', () => ed.duplicate(true), { title: 'An edit of one is made on all · Ctrl+Shift+D' });
     add('Edit', 'comp', 'Save as component', 'catalog', () => ed.saveAsComponent(), { title: 'Kept in the Library to insert again' });
+    add('Options', 'opt', 'New design option', 'swap', () => ed.newDesignOption(), { title: 'An alternative of this building in the same place' });
+    if (b.option) add('Options', 'optok', 'Accept option', 'restore', () => ed.acceptDesignOption(), { title: 'Keeps this option and deletes the others of its set' });
     if (b.items.some((it) => it.type.startsWith('column'))) add('Structure', 'beams', 'Beams between columns', 'row', () => ed.beamsBetweenColumns(), { title: 'Joins the columns on each line with beams' });
     if (b.linked) add('Edit', 'unlink', 'Make independent', 'unique', () => ed.unlink(b.id), { title: 'Leaves the linked copies' });
     add('Edit', 'rot90', 'Rotate 90°', 'rot90', () => ed.command('rot90'), { title: 'Rotate 90° around the center' });

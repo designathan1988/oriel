@@ -7,6 +7,7 @@
 import type { Project3, Vec2 } from './schema';
 import { outerRing } from './lots';
 import { insideRing, ribbon } from './site';
+import { optionHidden } from './layers';
 
 /** Reach of a point's influence (m), and the weight of the base ground (that of a point 15 m off). */
 const R = 40,
@@ -46,7 +47,7 @@ export function terrainField(p: Project3): TerrainField | null {
   if (!pts.length) return null;
   const pads: { rings: Vec2[][]; y: number; box: [number, number, number, number] }[] = [];
   for (const b of p.buildings) {
-    if (b.hidden) continue;
+    if (b.hidden || optionHidden(p, b)) continue;
     const rings = b.solids.filter((s) => s.op === 'add' && !s.hidden && s.base <= 0.05).map((s) => outerRing(b, s));
     if (!rings.length) continue;
     const xs = rings.flat().map((q) => q[0]),

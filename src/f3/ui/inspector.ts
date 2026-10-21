@@ -29,6 +29,7 @@ import { openCreator } from './creator';
 import { withModifiers } from '../eval/modifiers';
 import { openPhoto } from './photo';
 import { decimal, tr } from './i18n';
+import { optionHidden } from '../model/layers';
 import { PROFILES } from '../eval/roofs';
 import { WALL_TYPES, layersThickness } from '../model/walltypes';
 
@@ -223,8 +224,9 @@ function projectSummary(p: Project3): string {
   let gfa = 0,
     footprint = 0,
     floors = 0;
-  for (const b of p.buildings) {
-    if (b.hidden) continue;
+  // The buildings shown: an option not chosen of a design option set does not count.
+  const shown = p.buildings.filter((b) => !b.hidden && !optionHidden(p, b));
+  for (const b of shown) {
     const a = buildingAreas(b);
     gfa += a.gfa;
     footprint += a.footprint;
@@ -233,7 +235,7 @@ function projectSummary(p: Project3): string {
   const m2 = (v: number) => `${Math.round(v)} m²`;
   const stat = (v: string, l: string) => `<div><b>${v}</b><span>${l}</span></div>`;
   return `<div class="f3-sec f3-summary"><h3>Project</h3>
-    <div class="f3-sumstats">${stat(String(p.buildings.length), 'buildings')}${stat(String(floors), 'floors')}${stat(m2(footprint), 'footprint')}${stat(m2(gfa), 'floor area')}</div></div>`;
+    <div class="f3-sumstats">${stat(String(shown.length), 'buildings')}${stat(String(floors), 'floors')}${stat(m2(footprint), 'footprint')}${stat(m2(gfa), 'floor area')}</div></div>`;
 }
 
 /** The title block of the sheets (client, address, the professional responsible, registration, revision). */

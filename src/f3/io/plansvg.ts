@@ -15,6 +15,7 @@ import { toWorld } from '../model/ops';
 import { buildingAreas } from '../model/lots';
 import { ribbon } from '../model/site';
 import { contourSegments, terrainField } from '../model/terrain';
+import { optionHidden } from '../model/layers';
 
 const round3 = (v: number): number => Math.round(v * 1000) / 1000;
 const round2 = (v: number): number => Math.round(v * 100) / 100;
@@ -140,7 +141,7 @@ export function planSvg(p: Project3, opts: { scale?: number; showLots?: boolean 
   }
 
   for (const b of p.buildings) {
-    if (b.hidden) continue;
+    if (b.hidden || optionHidden(p, b)) continue;
     const adds: Vec2[][] = [];
     for (const s of b.solids) {
       const ring = sampleRing(oriented(s.plan.outer, 1)).pts.map((q) => toWorld(b, q));

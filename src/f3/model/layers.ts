@@ -59,7 +59,20 @@ export function activeLayer(p: Project3): ID | undefined {
   return id && id !== DEFAULT_LAYER.id && layersOf(p).some((l) => l.id === id) ? id : undefined;
 }
 
-export const buildingHidden = (p: Project3, b: Building3) => !!b.hidden || !layerById(p, b.layer).visible;
+/** A building that is a design option not chosen in its set (the first option of a set is shown by default). */
+export function optionHidden(p: Project3, b: Building3): boolean {
+  if (!b.option) return false;
+  const set = b.option.set;
+  const chosen = p.view?.options?.[set] ?? p.buildings.find((x) => x.option?.set === set)?.option?.name;
+  return b.option.name !== chosen;
+}
+/** The design option sets of a project with their option names, in order. */
+export function optionSets(p: Project3): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const b of p.buildings) if (b.option) out.set(b.option.set, [...new Set([...(out.get(b.option.set) ?? []), b.option.name])]);
+  return out;
+}
+export const buildingHidden = (p: Project3, b: Building3) => !!b.hidden || !layerById(p, b.layer).visible || optionHidden(p, b);
 export const buildingLocked = (p: Project3, b: Building3) => !!b.locked || layerById(p, b.layer).locked;
 /** Hidden by the phase filter: the existing state leaves out the new work, the proposal what is demolished. */
 export const phaseHidden = (p: Project3, phase: 'existing' | 'demolished' | undefined): boolean => (p.view?.phases === 'existing' ? !phase : p.view?.phases === 'proposal' ? phase === 'demolished' : false);

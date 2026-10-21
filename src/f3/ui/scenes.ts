@@ -10,7 +10,7 @@ import { icon } from './icons';
 import { tr } from './i18n';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-const KEYS = ['time', 'hiddenBody', 'cutLevel', 'onlyLevel', 'explode', 'style', 'section', 'phases'] as const;
+const KEYS = ['time', 'hiddenBody', 'cutLevel', 'onlyLevel', 'explode', 'style', 'section', 'phases', 'options'] as const;
 
 export function mountScenes(ed: Editor3): void {
   const bar = ed.shell.viewbar;

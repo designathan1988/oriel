@@ -8,6 +8,7 @@ import type { PlanVertex, Project3, Vec2 } from '../model/schema';
 import { oriented, sampleRing } from '../model/plan';
 import { toWorld } from '../model/ops';
 import { LOTS_LAYER, type DxfPolyline } from './dxf';
+import { optionHidden } from '../model/layers';
 
 /** Layer name DXF accepts (no `< > / \ " : ; ? * | = , ``), at most 31 characters, never 'LOTS'. */
 function layerName(name: string): string {
@@ -48,7 +49,7 @@ export function planToCadDxf(p: Project3, opts: { cutY?: number } = {}): string 
   }
   const used = new Set<string>();
   for (const b of p.buildings) {
-    if (b.hidden) continue;
+    if (b.hidden || optionHidden(p, b)) continue;
     let layer = layerName(b.name);
     for (let i = 2; used.has(layer); i++) layer = layerName(`${b.name} ${i}`);
     const world = (q: Vec2) => toWorld(b, q);
