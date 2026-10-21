@@ -139,7 +139,8 @@ function exportMenu(anchor: HTMLElement): void {
       editor.toast('Preparing the presentation…');
       const { optimizeGlb } = await import('../f3/io/glbopt');
       const { presentationHtml } = await import('../f3/io/presentation');
-      const glb = await optimizeGlb(new Uint8Array(await exportGLB(editor.project)), { maxTexture: 1024 });
+      // Plain meshes: the viewer's scene graph and the iPhone AR (USDZ) take no GPU instances.
+      const glb = await optimizeGlb(new Uint8Array(await exportGLB(editor.project, { expandInstances: true })), { maxTexture: 1024 });
       const pt = loadLang() === 'pt-BR';
       const html = presentationHtml(editor.project, glb, { t: tr, decimal: pt ? ',' : '.', lang: pt ? 'pt-BR' : 'en' });
       download(html, fileName(editor.project.name + '-presentation', 'html'), 'text/html');
