@@ -3196,7 +3196,7 @@ export class Editor3 {
         stair: "Click the foot, then the end",
         lot: "Drag the lot",
         street: "Click the centre line · Enter ends",
-        terrain: "Click the ground: a point at the height in the bar · type to change it · Alt+click removes",
+        terrain: "Click the ground: a point at the height in the bar · drag a point up or down · Alt+click removes",
         block: "Click the ground, a roof or a wall",
         place: "Click to place",
         paint: "Click a face · Alt picks the material",
@@ -3809,7 +3809,7 @@ export class Editor3 {
     if (this.tool === 'beam') return this.beamAt(e, false);
     if (this.tool === 'room') return this.roomMove(e);
     if (this.tool === 'lot') return this.site.lotMove(e, (e.buttons & 1) === 1);
-    if (this.tool === 'terrain') return this.terrainAt(e, false);
+    if (this.tool === 'terrain') return this.terrainDrag && (e.buttons & 1) ? this.terrainDragMove(e) : this.terrainAt(e, false);
     if (this.tool === 'street') return this.site.streetMove(e);
   }
 
@@ -3944,6 +3944,7 @@ export class Editor3 {
     if (this.drag) return this.finishDrag(e);
     if (this.opening.active) return this.opening.up(e);
     if (this.tool === 'lot') return this.site.lotUp(e);
+    if (this.tool === 'terrain' && this.terrainDrag) return this.terrainDragEnd();
     if (this.tool === 'room' && this.roomFrom) return this.roomUp(e);
     if ((this.tool === 'rect' || this.tool === 'circle') && this.draft && this.draft.points.length === 1 && this.draft.hover && this.draft.hover.distanceTo(this.draft.points[0]!) > 0.6) this.drawDown(e);
   }
@@ -5710,6 +5711,8 @@ export class Editor3 {
       }, 'Terrain point removed.');
       return this.drawTerrainMarks(null);
     }
+    // Pressing on a point and dragging up or down raises or lowers the ground there (sculpting).
+    if (near) this.terrainDrag = { id: near.id, y0: near.y, sy: e.clientY, moved: false };
     let id = near?.id;
     if (!id) {
       const q = { id: uid(), p: this.infer.enabled ? ([Math.round(g.x / this.infer.grid) * this.infer.grid, Math.round(g.z / this.infer.grid) * this.infer.grid] as Vec2) : ([g.x, g.z] as Vec2), y: this.terrainHeight };
@@ -5727,6 +5730,31 @@ export class Editor3 {
       }, `Ground at ${fmt(v)} m there.`);
     });
     this.drawTerrainMarks(pid);
+  }
+
+  private terrainDrag: { id: ID; y0: number; sy: number; moved: boolean } | null = null;
+
+  private terrainDragMove(e: PointerEvent): void {
+    const d = this.terrainDrag!;
+    const q = this.store.project.terrain?.points.find((x) => x.id === d.id);
+    if (!q) return;
+    if (Math.abs(e.clientY - d.sy) > 3) d.moved = true;
+    if (!d.moved) return;
+    // 1 px of the pointer: the size of a pixel at the point (snapped to 10 cm).
+    const k = this.view.worldPerPixel(new THREE.Vector3(q.p[0], q.y, q.p[1]));
+    q.y = Math.round((d.y0 + (d.sy - e.clientY) * k) * 10) / 10;
+    this.store.touch([], '');
+    this.drawTerrainMarks(d.id);
+    this.showDim(`${fmt(q.y)} m`, e);
+  }
+
+  private terrainDragEnd(): void {
+    const d = this.terrainDrag!;
+    this.terrainDrag = null;
+    if (!d.moved) return;
+    const q = this.store.project.terrain?.points.find((x) => x.id === d.id);
+    this.store.commit([], q ? `Ground at ${fmt(q.y)} m there.` : '');
+    if (q) this.toast(`Ground at ${fmt(q.y)} m there.`);
   }
 
   /** The terrain points while the tool is in hand: a short post at each, the one under the pointer orange. */

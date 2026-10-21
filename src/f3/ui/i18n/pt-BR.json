@@ -454,6 +454,7 @@
 "Click the ground to create, a roof to stack, a wall to attach. X: add or subtract.": "Clique no terreno para criar, em um telhado para empilhar, em uma parede para fixar. X: unir ou subtrair.",
 "Click the ground to set its height there": "Clique no chão para definir a altura dele ali",
 "Click the ground, a roof or a wall": "Clique no terreno, num telhado ou numa parede",
+"Click the ground: a point at the height in the bar · drag a point up or down · Alt+click removes": "Clique no chão: um ponto na altura da barra · arraste um ponto para cima ou para baixo · Alt+clique remove",
 "Click the ground: a point at the height in the bar · type to change it · Alt+click removes": "Clique no chão: um ponto na altura da barra · digite para mudar · Alt+clique remove",
 "Click the next point · Enter or Esc ends · the walls join by themselves": "Clique no próximo ponto · Enter ou Esc termina · as paredes se unem sozinhas",
 "Click the points of a smooth outline; click the first one or Enter to close. Its points stay editable.": "Clique nos pontos de um contorno suave; clique no primeiro ou Enter para fechar. Os pontos continuam editáveis.",
