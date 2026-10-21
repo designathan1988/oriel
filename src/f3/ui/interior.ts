@@ -14,7 +14,7 @@ export function mountInteriorView(ed: Editor3): void {
   const bar = ed.shell.viewbar;
   const btn = document.createElement('button');
   btn.className = 'f3-tb';
-  btn.title = 'Interior view: hide walls, roofs, floors or ceilings; cut by floor';
+  btn.title = 'Interior view';
   btn.setAttribute('aria-label', 'Interior view');
   btn.dataset.interior = '';
   btn.setAttribute('aria-haspopup', 'dialog');
@@ -54,11 +54,11 @@ export function mountInteriorView(ed: Editor3): void {
     const cut = p.view?.cutLevel;
     const gap = explodeGap(p);
     pop.innerHTML = `<div class="hd">Interior view</div>
-      <div class="f3-btns n3"><button class="f3-btn" data-preset="cutaway" title="Cuts every wall 1.2 m above the floor shown, like a plan: the rooms, doors and windows in view">${icon('cutaway')}<span>Cutaway</span></button><button class="f3-btn" data-preset="explode" title="Every floor apart, each cut 1.2 m above its floor">${icon('floorUp')}<span>Exploded</span></button><button class="f3-btn" data-preset="all" title="Shows every part and the whole building">${icon('eye')}<span>Show all</span></button></div>
+      <div class="f3-btns n3"><button class="f3-btn" data-preset="cutaway" title="Cut 1.2 m above the floor shown">${icon('cutaway')}<span>Cutaway</span></button><button class="f3-btn" data-preset="explode" title="Floors apart, each cut">${icon('floorUp')}<span>Exploded</span></button><button class="f3-btn" data-preset="all" title="Whole buildings">${icon('eye')}<span>Show all</span></button></div>
       <div class="f3-interior-list">${rows}</div>
       <div class="f3-interior-ctl">
-      ${prow('Apart', 'floorUp', [`<label class="f3-cell rng" title="${p.view?.onlyLevel ? 'One floor is shown: there is nothing to move apart (untick Only this floor)' : 'Floors apart: each floor cut 1.2 m above its floor and lifted by this gap (0 = together)'}"><input type="range" data-explode min="0" max="10" step="0.5" value="${gap}" aria-label="Gap between floors"${p.view?.onlyLevel ? ' disabled' : ''}><output>${gap} m</output></label>`], { wide: true, title: 'Floors apart' })}
-      ${prow('Show', 'level', [`<label class="f3-check" title="${cut === undefined ? 'Choose a floor in the floor switcher first' : 'Only the chosen floor (the others hidden)'}"><input type="checkbox" data-only ${p.view?.onlyLevel ? 'checked' : ''} ${cut === undefined ? 'disabled' : ''}><span>Only this floor</span></label>`], { wide: true })}
+      ${prow('Apart', 'floorUp', [`<label class="f3-cell rng" title="${p.view?.onlyLevel ? 'One floor shown: nothing to move apart' : 'Gap between floors (0 = together)'}"><input type="range" data-explode min="0" max="10" step="0.5" value="${gap}" aria-label="Gap between floors"${p.view?.onlyLevel ? ' disabled' : ''}><output>${gap} m</output></label>`], { wide: true, title: 'Floors apart' })}
+      ${prow('Show', 'level', [`<label class="f3-check" title="${cut === undefined ? 'Choose a floor in the floor switcher first' : 'Hides the other floors'}"><input type="checkbox" data-only ${p.view?.onlyLevel ? 'checked' : ''} ${cut === undefined ? 'disabled' : ''}><span>Only this floor</span></label>`], { wide: true })}
       </div>`;
     pop.querySelectorAll<HTMLButtonElement>('[data-body]').forEach((b) =>
       b.addEventListener('click', () => {
@@ -78,7 +78,7 @@ export function mountInteriorView(ed: Editor3): void {
       // left the interior walls floating on the grid.
       const v = viewOf(ed.store.project);
       if (v.cutLevel === undefined) v.cutLevel = 0;
-      setHidden([], 'Cutaway: the floor shown is cut 1.2 m above it.');
+      setHidden([], 'Cutaway.');
     });
     pop.querySelector('[data-preset="explode"]')!.addEventListener('click', () => {
       // Walls stay: cut 1.2 m above each floor they show every room like a plan. Every floor: a cut
@@ -87,14 +87,14 @@ export function mountInteriorView(ed: Editor3): void {
       v.explode = 4;
       delete v.cutLevel;
       delete v.onlyLevel;
-      setHidden([], 'Exploded floors: each floor apart, cut 1.2 m above its floor.');
+      setHidden([], 'Exploded floors.');
     });
     pop.querySelector('[data-preset="all"]')!.addEventListener('click', () => {
       const v = viewOf(ed.store.project);
       delete v.cutLevel;
       delete v.onlyLevel;
       delete v.explode;
-      setHidden([], 'Whole buildings visible.');
+      setHidden([], 'Whole buildings.');
     });
     // Dragging the gap only moves the floors already cut (no evaluation, no new mesh, even
     // through 0); releasing records it once (at 0 the buildings come back whole).
