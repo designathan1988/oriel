@@ -773,6 +773,15 @@ export function validateForma3(raw: unknown): string[] {
         else if (st.treesBuilding !== undefined && !str(st.treesBuilding)) e.add(w, 'invalid trees building.');
       }
   }
+  if (p.notes !== undefined) {
+    const v3 = (q: unknown) => vec(q, 3) && (q as number[]).every((c) => Math.abs(c) <= LIMITS3.worldExtent);
+    if (!Array.isArray(p.notes) || p.notes.length > 2000) e.add('Project', 'invalid notes (at most 2000).');
+    else
+      for (const n of p.notes) {
+        const ok = isObj(n) && str(n.id) && (n.building === undefined || str(n.building)) && (n.kind === 'dim' ? v3(n.a) && v3(n.b) : n.kind === 'label' ? v3(n.p) && str(n.text, 200) : false);
+        if (!ok) e.add('Project', 'invalid dimension or label.');
+      }
+  }
   if (p.scenes !== undefined) {
     if (!Array.isArray(p.scenes) || p.scenes.length > 100) e.add('Project', 'invalid scenes (at most 100).');
     else

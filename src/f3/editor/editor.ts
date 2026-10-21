@@ -368,11 +368,23 @@ export class Editor3 {
     });
     this.infer = new Inference(this.view);
     this.view.overlay.add(this.selOverlay, this.snapOverlay);
+    // A pinned dimension or label: Alt+click deletes it.
+    this.shell.view.addEventListener('pointerdown', (e) => {
+      const el = (e.target as HTMLElement).closest<HTMLElement>('.f3-dimlbl[data-note]');
+      if (!el || !e.altKey) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const id = el.dataset.note!;
+      this.changeSite((p) => {
+        p.notes = (p.notes ?? []).filter((n) => n.id !== id);
+        if (!p.notes.length) delete p.notes;
+      }, 'Deleted.');
+    });
     this.view.onCamera = () => {
       this.handles.draw();
       this.drawRoomLabels();
       this.placeCtxBar();
-      if (this.dims.length) this.drawDims();
+      if (this.project.notes?.length) this.drawDims();
       this.drawSelDims();
     };
     this.store.on((e) => {
@@ -459,6 +471,7 @@ export class Editor3 {
     this.warnings = [];
     for (const [id, built] of this.view.built) if (!this.context || id === this.context) this.warnings.push(...built.ev.warnings);
     this.drawRoomLabels();
+    if (p.notes?.length || this.shell.view.querySelector('.f3-dimlbl')) this.drawDims();
     if (p.lots.length) {
       const own = this.store.building(this.context)?.name;
       this.warnings.push(...setbackWarnings(p).filter((w) => !own || w.startsWith(own + ' ')));
@@ -3056,7 +3069,7 @@ export class Editor3 {
       { id: 'site', tools: [T('lot', 'lot', 'Lot', 'Shift+L', 'Drag the lot on the ground; its setbacks show where to build'), T('street', 'street', 'Street', 'Shift+S', 'Click the points of its centre line'), T('terrain', 'terrain', 'Terrain', 'Shift+T', 'Click the ground to set its height there')] },
       { id: 'catalog', tools: [T('catalog', 'catalog', 'Library', 'K', 'Furniture, doors, windows, plants and blocks')] },
       { id: 'paint', tools: [T('paint', 'paint', 'Paint', 'B', 'Click a surface with the chosen material (Alt: pick one)')] },
-      { id: 'tape', tools: [T('tape', 'tape', 'Measure', 'T', 'Click two points; Shift+Delete clears')] },
+      { id: 'tape', tools: [T('tape', 'tape', 'Measure', 'T', 'Click two points: a dimension; Shift+click: a label')] },
     ];
     const placingFamily = () => (this.tool === 'place' && this.placing ? (typeById(this.placing, this.project)?.family ?? null) : null);
     const pressed = (t: T) =>
@@ -3167,7 +3180,7 @@ export class Editor3 {
         push: "Drag a face · type the distance",
         extrude: "Drag a face · type the depth",
         cut: "Click a wall to split it · on a top, two points cut the volume",
-        tape: "Click two points",
+        tape: "Click two points · Shift+click: label · Alt+click a dimension deletes it",
         rect: "Two corners · or type 10x8",
         circle: "Centre, then radius · or type the radius",
         polygon: "Click the corners · type the lengths · Enter closes",
@@ -6413,8 +6426,26 @@ export class Editor3 {
 
   // ── Tape and dimensions ──────────────────────────────────────────────
   private tapeFrom: THREE.Vector3 | null = null;
-  /** Dimensions pinned to the model (this session). */
-  dims: { a: THREE.Vector3; b: THREE.Vector3 }[] = [];
+  /** The building the first point of the tape was on (the dimension follows it). */
+  private tapeOn: ID | null = null;
+
+  /** The pinned dimensions and labels in the world (project.notes, with their buildings' moves). */
+  get dims(): { id: ID; a: THREE.Vector3; b: THREE.Vector3 }[] {
+    return (this.project.notes ?? []).flatMap((n) => (n.kind === 'dim' ? [{ id: n.id, a: this.noteWorld(n.a, n.building), b: this.noteWorld(n.b, n.building) }] : []));
+  }
+
+  private noteWorld(p: Vec3, building?: ID): THREE.Vector3 {
+    const v = new THREE.Vector3(...p);
+    const b = building ? this.store.building(building) : undefined;
+    return b ? v.applyMatrix4(this.view.buildingMatrix(b)) : v;
+  }
+
+  /** A world point in the frame of `building` (or the world when none). */
+  private noteLocal(p: THREE.Vector3, building: ID | null): Vec3 {
+    const b = building ? this.store.building(building) : undefined;
+    const v = b ? p.clone().applyMatrix4(this.view.buildingMatrix(b).invert()) : p;
+    return [Math.round(v.x * 1000) / 1000, Math.round(v.y * 1000) / 1000, Math.round(v.z * 1000) / 1000];
+  }
 
   private tapePoint(e: { clientX: number; clientY: number }): THREE.Vector3 | null {
     const hit = this.pickAt(e);
@@ -6436,14 +6467,33 @@ export class Editor3 {
     }
     if (!p) return;
     if (commit) {
+      // Shift+click: a text label at that point (typed in the measure box).
+      if (e.shiftKey && !this.tapeFrom) {
+        const on = this.pickAt(e)?.building.id ?? null;
+        const at = this.noteLocal(p, on);
+        this.setMeasure('Text', (txt) => {
+          const text = txt.trim().slice(0, 200);
+          if (!text) return false;
+          return this.changeSite((pr) => void (pr.notes ??= []).push({ id: uid(), kind: 'label', p: at, text, ...(on ? { building: on } : {}) }), 'Label added.');
+        });
+        this.shell.status.vcb.value = '';
+        // After the click is over (the canvas takes the focus on its pointer up).
+        setTimeout(() => this.shell.status.vcb.focus(), 60);
+        return this.toast('Type the label and Enter.');
+      }
       if (!this.tapeFrom) {
         this.tapeFrom = p.clone();
+        this.tapeOn = this.pickAt(e)?.building.id ?? null;
         return;
       }
-      this.dims.push({ a: this.tapeFrom.clone(), b: p.clone() });
-      this.toast(`Dimension: ${fmt(this.tapeFrom.distanceTo(p))} m. It stays in the model; Shift+Delete clears the dimensions.`);
+      // Both points on the same building: the dimension is that building's (it follows it).
+      const on = this.tapeOn && this.pickAt(e)?.building.id === this.tapeOn ? this.tapeOn : null;
+      const a = this.noteLocal(this.tapeFrom, on),
+        b = this.noteLocal(p, on);
+      const len = this.tapeFrom.distanceTo(p);
       this.tapeFrom = null;
-      this.drawDims();
+      this.tapeOn = null;
+      this.changeSite((pr) => void (pr.notes ??= []).push({ id: uid(), kind: 'dim', a, b, ...(on ? { building: on } : {}) }), `Dimension ${fmt(len)} m.`);
       return;
     }
     if (!this.tapeFrom) {
@@ -6611,6 +6661,21 @@ export class Editor3 {
       old.geometry.dispose();
     }
     this.shell.view.querySelectorAll('.f3-dimlbl').forEach((x) => x.remove());
+    // Text labels: a tag at their point.
+    for (const n of this.project.notes ?? []) {
+      if (n.kind !== 'label') continue;
+      const sp = this.view.toScreen(this.noteWorld(n.p, n.building));
+      if (sp.behind) continue;
+      const el = document.createElement('div');
+      el.className = 'f3-dim f3-dimlbl note';
+      el.dataset.note = n.id;
+      el.title = 'Alt+click deletes';
+      el.setAttribute('data-i18n-skip', '');
+      el.textContent = n.text;
+      el.style.left = `${sp.x}px`;
+      el.style.top = `${sp.y}px`;
+      this.shell.view.appendChild(el);
+    }
     if (!this.dims.length) return this.view.mark();
     const pos: number[] = [];
     for (const d of this.dims) pos.push(...d.a.toArray(), ...d.b.toArray());
@@ -6626,6 +6691,8 @@ export class Editor3 {
       if (sp.behind) continue;
       const el = document.createElement('div');
       el.className = 'f3-dim f3-dimlbl';
+      el.dataset.note = d.id;
+      el.title = 'Alt+click deletes';
       el.textContent = `${fmt(d.a.distanceTo(d.b))} m`;
       el.style.left = `${sp.x}px`;
       el.style.top = `${sp.y}px`;
@@ -7027,7 +7094,7 @@ export class Editor3 {
         // A drawing in progress takes the value first (the length of its next side), then the last action.
         const m = this.draftInput() ?? this.measure;
         const ok = m?.apply(vcb.value) ?? false;
-        if (!ok) this.toast('Value not recognized for ' + (m?.label ?? 'measure') + '.');
+        if (!ok) this.toast(`Value not recognized for ${(m?.label ?? 'Size').toLowerCase()}.`);
         this.shell.status.vcbLabel.textContent = this.measure?.label ?? 'Size';
         vcb.value = '';
         this.shell.dim.hidden = true;
@@ -7127,9 +7194,7 @@ export class Editor3 {
         } else this.exitContext();
       }
       else if (k === 'delete' && e.shiftKey) {
-        this.dims = [];
-        this.drawDims();
-        this.toast('Dimensions cleared.');
+        if (this.project.notes?.length) this.changeSite((p) => void delete p.notes, 'Dimensions and labels cleared.');
       } else if (k === 'delete' || k === 'backspace') {
         if (this.draft && (this.tool === 'polygon' || this.tool === 'spline') && this.draft.points.length > 1) this.draft.points.pop();
         else if (k === 'delete' && !this.sel.building && this.deleteSite()) return;

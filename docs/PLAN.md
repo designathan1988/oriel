@@ -196,7 +196,8 @@ Backlog (P1 first):
       streets, lots tinted on it, contours in 3D, site plan and ground floor plans, section and elevations,
       exports (2026-10-21). [ ] From contours; sculpt.
 - [x] P1 Elevations (SVG/PDF, painter with creases); floor plans with interior walls, doors, rooms. [x] Elevations in DXF with hidden lines removed by a depth buffer (io/elevationdxf.ts).
-- [ ] P1 Persistent associative dimensions and labels saved in the project.
+- [x] P1 Dimensions and labels saved in the project (Project3.notes; Tape tool, Shift+click a label,
+      Alt+click deletes); measured on one building they follow it. [ ] Tied to vertices (associative).
 - [x] P1 Saved scenes (camera, time, interior view, floor cut, layers; view bar → Scenes, ui/scenes.ts).
 - [x] P1 Building instances: linked copies (Ctrl+Shift+D, Building3.linked); an edit of one is made on all,
       each keeps its position, rotation, name and lot; Make independent.
