@@ -188,7 +188,8 @@ Backlog (P1 first):
 - [ ] P1 Curtain wall per face (U/V grid, mullions, glass/opaque/door panels).
 - [ ] P1 Slab as an element per level (outline, thickness, holes, cantilever); shafts/atria through slabs.
 - [ ] P1 Pitch per side on hip roofs (weighted skeleton).
-- [ ] P1 Railings on stair, slab edge and terrace (edge host kept by a relation).
+- [x] P1 Railings: on stairs (the stair family's rails), around a selected top (terrace, slab edge: panel and
+      bar → Railing around), drawn on a flat top at its height. [ ] Edge host kept by a relation.
 - [x] P1 Rooms: use, ceiling height (a lowered ceiling board when below the slab), perimeter and volume;
       room schedule CSV with totals by use (io/schedule.ts); quantities and areas CSV already there.
 - [x] P1 Terrain from points (modified Shepard, back to 0 within 40 m; Shift+T), pads under buildings and

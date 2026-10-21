@@ -6726,7 +6726,29 @@ export class Editor3 {
     return { b, host: { kind: 'free', p: [l[0], ly, l[1]], rot: 0 }, frame: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, l[0], ly, l[1], 1], label: `${fmt(l[0])}; ${fmt(l[1])}` };
   }
 
-  private pathDraft: { pts: Vec3[] } | null = null;
+  /** The path part being drawn: its points (world) and, when it started on a flat top, its height and building. */
+  private pathDraft: { pts: Vec3[]; y: number; bid: ID | null } | null = null;
+
+  /** Where a path part starts: on the flat top under the pointer (a terrace, a slab), else on the ground. */
+  private pathStart(e: PointerEvent): { y: number; bid: ID | null } {
+    const hit = this.pickAt(e);
+    if (hit?.face && hit.normal.y > 0.9 && hit.point.y > 0.3) return { y: hit.point.y, bid: hit.building.id };
+    return { y: 0, bid: null };
+  }
+
+  /** A railing around the selected flat top (a terrace, a slab edge), 8 cm in from its edge. */
+  railAround(): void {
+    const b = this.activeBuilding();
+    const s = this.activeSolid();
+    if (!b || !s || this.sel.face?.kind !== 'top') return this.toast('Select the top of a volume first.');
+    const ring = offsetRing(topRing(s), topRing(s).map(() => 0.08));
+    if (!ringValid(ring, 1)) return this.toast('That top is too small for a railing.');
+    const y = s.base + s.height;
+    const points = [...ring, ring[0]!].map((p) => [p[0], y, p[1]] as Vec3);
+    const it: Item = { id: uid(), type: 'railing-bars', params: {}, host: { kind: 'path', points } };
+    this.change(b.id, (x) => void x.items.push(it), 'Railing around the edge.');
+    this.select({ building: b.id, item: it.id });
+  }
 
   /**
    * Drawing a path part (fence, wall, railing): the points so far and the segment to the pointer as a
@@ -6740,9 +6762,10 @@ export class Editor3 {
       (old as THREE.Line).geometry.dispose();
     }
     this.removeGhost();
-    const sn = this.infer.snap(e, 0, this.pathDraft?.pts.length ? new THREE.Vector3(...this.pathDraft.pts[this.pathDraft.pts.length - 1]!) : null, null);
+    const py = this.pathDraft?.y ?? this.pathStart(e).y;
+    const sn = this.infer.snap(e, py, this.pathDraft?.pts.length ? new THREE.Vector3(...this.pathDraft.pts[this.pathDraft.pts.length - 1]!) : null, null);
     if (!sn) return;
-    const pts = [...(this.pathDraft?.pts ?? []).map((p) => new THREE.Vector3(p[0], 0.05, p[2])), new THREE.Vector3(sn.p.x, 0.05, sn.p.z)];
+    const pts = [...(this.pathDraft?.pts ?? []).map((p) => new THREE.Vector3(p[0], py + 0.05, p[2])), new THREE.Vector3(sn.p.x, py + 0.05, sn.p.z)];
     if (pts.length > 1) {
       const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: HANDLE_COLORS.push, depthTest: false }));
       l.name = 'pathdraft';
@@ -6776,10 +6799,10 @@ export class Editor3 {
       // Points in the world; the owner is decided when the path ends (the building being edited, the
       // nearest one to the first point, or a new site there).
       const last = this.pathDraft?.pts[this.pathDraft.pts.length - 1];
-      const sn = this.infer.snap(e, 0, last ? new THREE.Vector3(...last) : null, null);
+      this.pathDraft ??= { pts: [], ...this.pathStart(e) };
+      const sn = this.infer.snap(e, this.pathDraft.y, last ? new THREE.Vector3(...last) : null, null);
       if (!sn) return;
-      this.pathDraft ??= { pts: [] };
-      this.pathDraft.pts.push([sn.p.x, 0, sn.p.z]);
+      this.pathDraft.pts.push([sn.p.x, this.pathDraft.y, sn.p.z]);
       this.toast(`${this.pathDraft.pts.length} point(s). Enter finishes.`);
       this.pathHover(e);
       return;
@@ -6824,11 +6847,12 @@ export class Editor3 {
     if (!pd || pd.pts.length < 2 || !this.placing) return;
     const t = typeById(this.placing, this.project)!;
     const first = pd.pts[0]!;
-    const ob = this.ownerAt(first[0], first[2]);
+    // Started on a terrace or a slab: that building, at that height; else the one under the first point.
+    const ob = this.store.building(pd.bid) ?? this.ownerAt(first[0], first[2]);
     const fresh = !this.store.building(ob.id);
     const points = pd.pts.map((p) => {
       const l = toLocal(ob, [p[0], p[2]]);
-      return [l[0], 0, l[1]] as Vec3;
+      return [l[0], pd.y - (ob.elevation ?? 0), l[1]] as Vec3;
     });
     const it: Item = { id: uid(), type: t.id, params: {}, host: { kind: 'path', points } };
     this.adopt(ob);

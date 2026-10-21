@@ -330,8 +330,8 @@ function solidPanel(ed: Editor3, b: Building3, s: Solid): string {
     ${finishSelect('wall', 'Wall', s.materials.wall)}
     <div class="f3-btns n3"><button class="f3-btn danger" data-act="noparapet" title="No parapet on this roof">${icon('trash')}Remove</button></div></div>`;
   } else if (face?.kind === 'top') {
-    // Top operations (inset, extrude) are in the contextual bar; here only what belongs to the top.
-    facePart = `<div class="f3-sec"><h3>${icon('push')} Selected top</h3><p class="f3-empty" style="padding:2px 0">Inset and extrude are in the bar next to the selection.</p></div>`;
+    // Top operations (inset, extrude) are in the contextual bar; here what is built on the top.
+    facePart = `<div class="f3-sec"><h3>${icon('push')} Top</h3><div class="f3-btns n2"><button class="f3-btn" data-act="railaround" title="A railing around the edge of this top (terrace, slab)">${icon('railing')}Railing around</button></div></div>`;
   }
   if (ed.sel.vertex) {
     const v = [...s.plan.outer, ...s.plan.holes.flat()].find((q) => q.id === ed.sel.vertex);
@@ -956,6 +956,7 @@ function bind(ed: Editor3, b: Building3, s: Solid | undefined): void {
       const a = el.dataset.act!;
       if (a === 'enter') ed.enter(b.id);
       else if (a === 'dup') ed.duplicate();
+      else if (a === 'railaround') ed.railAround();
       else if (a === 'del') ed.remove();
       else if (a === 'mirror') ed.command('mirror');
       else if (a === 'unique') ed.makeUnique();
