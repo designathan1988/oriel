@@ -6,6 +6,8 @@
 import type { Editor3 } from '../editor/editor';
 import type { Building3, ID, Vec2 } from '../model/schema';
 import { addInteriorWall, interiorDoors, type InteriorWithDoors } from '../eval/interiorwalls';
+import { inside, toWorld } from '../model/ops';
+import { sampleRing } from '../model/plan';
 import { floorPlan, sortedLevels, type FloorPlan } from '../eval/floorplan';
 import { checkFloor, type Check } from '../eval/compliance';
 import { floorPlanSvg } from '../eval/floorplansvg';
@@ -70,7 +72,7 @@ export function mountPlanView(ed: Editor3): PlanView {
       <div class="lv" data-lv role="group" aria-label="Floor"></div>
       <div class="lv" data-modes role="group" aria-label="Plan tools">
         <button data-mode="select" aria-pressed="true" title="Select · V">Select</button>
-        <button data-mode="wall" aria-pressed="false" title="Interior wall · W">Wall</button>
+        <button data-mode="wall" aria-pressed="false" title="Wall · W">Wall</button>
         <button data-mode="door" aria-pressed="false" title="Door · D">Door</button>
       </div>
       <span class="sp"></span>
@@ -124,8 +126,17 @@ export function mountPlanView(ed: Editor3): PlanView {
     const b = building();
     paper.querySelector('svg')?.remove();
     if (!b) {
-      empty.hidden = false;
-      empty.textContent = tr('No building to draw yet: draw a volume or start from a template.');
+      // A blank sheet (a 1 m grid): walls drawn on it make the first building.
+      empty.hidden = true;
+      fp = null;
+      vb ??= [-15, -10, 30, 20];
+      fitted = [-15, -10, 30, 20];
+      const lines: string[] = [];
+      for (let x = -100; x <= 100; x++) lines.push(`M${x},-100V100`);
+      for (let z = -100; z <= 100; z++) lines.push(`M-100,${z}H100`);
+      paper.insertAdjacentHTML('beforeend', `<svg xmlns="http://www.w3.org/2000/svg" data-i18n-skip preserveAspectRatio="xMidYMid meet"><rect x="-100" y="-100" width="200" height="200" fill="#f4f2ec"/><path d="${lines.join('')}" stroke="#d9d4c8" stroke-width="0.02"/><path d="M-100,0H100M0,-100V100" stroke="#c4bdae" stroke-width="0.04"/></svg>`);
+      applyVb();
+      preview();
       return;
     }
     const ev = ed.view.built.get(b.id)?.ev;
@@ -319,7 +330,45 @@ export function mountPlanView(ed: Editor3): PlanView {
   let from: Vec2 | null = null;
   let hover: Vec2 | null = null;
   let wallSel: ID | null = null;
+  /** A chain of walls started outside every building (plan points): closed, it becomes a building. */
+  let loop: Vec2[] | null = null;
+  /** A length being typed for the next wall (Revit, ArchiCAD tracker): Enter places it. */
+  let typed = '';
   const T = () => ed.iwallThickness || 0.12;
+  /** Inside the outline of the building drawn (its plan frame). */
+  const insideBuilding = (p: Vec2): boolean => {
+    const b = building();
+    return !!b && b.solids.some((s) => s.op === 'add' && !s.hidden && inside(p, sampleRing(s.plan.outer).pts));
+  };
+  const finishLoop = (closed: boolean) => {
+    const pts = loop;
+    loop = null;
+    from = null;
+    typed = '';
+    if (!pts || pts.length < (closed ? 3 : 2)) return preview();
+    const b = building();
+    ed.wallsFromPlan(pts.map((p) => (b ? toWorld(b, p) : p)), closed);
+    bid = pickBuilding();
+    vb = null;
+    fitted = null;
+    drawBar();
+    render();
+    hint();
+  };
+  /** A point clicked (or reached by a typed length) while drawing walls. */
+  const wallPoint = (p: Vec2) => {
+    if (loop) {
+      const f = loop[0]!;
+      if (loop.length >= 3 && Math.hypot(p[0] - f[0], p[1] - f[1]) < Math.max(0.05, 10 * mpp())) return finishLoop(true);
+      loop.push(p);
+    } else if (!from && !insideBuilding(p)) loop = [p];
+    else if (from) addWall(from, p);
+    from = p;
+    hover = p;
+    typed = '';
+    hint();
+    preview();
+  };
   /** Metres per screen pixel of the drawing. */
   const mpp = (): number => {
     const svg = paper.querySelector('svg');
@@ -357,7 +406,7 @@ export function mountPlanView(ed: Editor3): PlanView {
   };
   /**
    * Where a click lands: on a wall corner or an interior wall end; else locked to the axes from the
-   * previous point (within 8°) and stopped on the face of a wall it reaches; else on a 5 cm grid.
+   * previous point (within 15°) and stopped on the face of a wall it reaches; else on a 5 cm grid.
    */
   const snap = (raw: Vec2): Vec2 => {
     const tol = 10 * mpp();
@@ -377,7 +426,7 @@ export function mountPlanView(ed: Editor3): PlanView {
     if (from) {
       const ang = (Math.atan2(raw[1] - from[1], raw[0] - from[0]) * 180) / Math.PI;
       const m = ((ang % 90) + 90) % 90;
-      if (m < 8 || m > 82) {
+      if (m < 15 || m > 75) {
         axis = Math.abs(Math.cos((ang * Math.PI) / 180)) > 0.5 ? 'x' : 'z';
         p = axis === 'x' ? [raw[0], from[1]] : [from[0], raw[1]];
       }
@@ -436,9 +485,11 @@ export function mountPlanView(ed: Editor3): PlanView {
     }
     if (mode === 'wall' && hover) {
       html += `<circle cx="${hover[0]}" cy="${hover[1]}" r="${4 * k}" fill="#d97757"/>`;
+      // The walls of a new building drawn so far, as thick as they will be.
+      if (loop) for (let i = 1; i < loop.length; i++) html += line(loop[i - 1]!, loop[i]!, ed.wallThickness, '#b2502a', 0.8);
       if (from) {
-        html += line(from, hover, T(), '#d97757', 0.7);
-        const L = Math.hypot(hover[0] - from[0], hover[1] - from[1]);
+        html += line(from, hover, loop ? ed.wallThickness : T(), '#d97757', 0.7);
+        const L = typed ? (parseFloat(typed.replace(',', '.')) || 0) : Math.hypot(hover[0] - from[0], hover[1] - from[1]);
         const mx = (from[0] + hover[0]) / 2,
           my = (from[1] + hover[1]) / 2;
         html += `<text x="${mx + 8 * k}" y="${my - 8 * k}" font-size="${13 * k}" font-weight="600" fill="#b2502a">${L.toFixed(2).replace('.', decimal)} m</text>`;
@@ -481,10 +532,10 @@ export function mountPlanView(ed: Editor3): PlanView {
   const hint = () => {
     hintEl.textContent =
       mode === 'wall'
-        ? tr(from ? 'Click the next point · Enter or Esc ends · the walls join by themselves' : 'Click the start of the wall (it snaps to corners and wall faces)')
+        ? tr(from ? 'Click point to point · type the length · click the first point to close' : 'Click the start of the wall')
         : mode === 'door'
-          ? tr('Click an interior wall to put an 80 cm door in it: it opens to the side you click')
-          : tr('Click a room to name it, a wall to select it (Delete removes it) · drag to pan, wheel to zoom');
+          ? tr('Click a wall to put a door')
+          : tr('Click: select · drag: pan · wheel: zoom');
     // The selection hint gives way to the drawing after a while; the drawing ones stay while drawing.
     hintEl.classList.remove('fade');
     void hintEl.offsetWidth;
@@ -566,14 +617,7 @@ export function mountPlanView(ed: Editor3): PlanView {
     if (!d || d.moved) return;
     const at = toModel(e.clientX, e.clientY);
     if (!at) return;
-    if (mode === 'wall') {
-      const p = snap(at);
-      if (from) addWall(from, p);
-      from = p;
-      hover = p;
-      hint();
-      return preview();
-    }
+    if (mode === 'wall') return wallPoint(snap(at));
     if (mode === 'door') return addDoor(at);
     const w = wallAt(at);
     if (w) {
@@ -660,6 +704,34 @@ export function mountPlanView(ed: Editor3): PlanView {
       }
       if (!open || e.ctrlKey || e.metaKey) return;
       e.stopPropagation();
+      // A length typed while drawing a wall: the next point goes that far towards the cursor.
+      if (mode === 'wall' && from && /^[0-9.,]$/.test(e.key)) {
+        typed += e.key;
+        return preview();
+      }
+      if (mode === 'wall' && typed && e.key === 'Backspace') {
+        typed = typed.slice(0, -1);
+        return preview();
+      }
+      if (mode === 'wall' && from && typed && e.key === 'Enter') {
+        const len = parseFloat(typed.replace(',', '.'));
+        typed = '';
+        if (!(len > 0)) return preview();
+        const h = hover ?? [from[0] + 1, from[1]];
+        const d = Math.hypot(h[0] - from[0], h[1] - from[1]) || 1;
+        const dx = d > 1e-6 ? (h[0] - from[0]) / d : 1,
+          dz = d > 1e-6 ? (h[1] - from[1]) / d : 0;
+        const r = (v: number) => Math.round(v * 1e4) / 1e4;
+        return wallPoint([r(from[0] + dx * len), r(from[1] + dz * len)]);
+      }
+      if (mode === 'wall' && loop && (e.key === 'Enter' || e.key === 'Escape')) {
+        if (e.key === 'Enter') return finishLoop(false);
+        loop = null;
+        from = null;
+        typed = '';
+        hint();
+        return preview();
+      }
       const k = e.key.toLowerCase();
       if (e.key === 'F3') {
         e.preventDefault();

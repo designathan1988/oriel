@@ -5372,6 +5372,11 @@ export class Editor3 {
   }
 
   /** Walls tool finished: a building with walls of the thickness (closed) or a free-standing wall (open). */
+  /** Walls drawn in the floor plan (world points): closed, a building; open, a free-standing wall. */
+  wallsFromPlan(pts: Vec2[], closed: boolean): void {
+    this.wallsDone(pts, closed);
+  }
+
   private wallsDone(pts: Vec2[], closed: boolean): void {
     const t = this.wallThickness;
     if (!closed) {
