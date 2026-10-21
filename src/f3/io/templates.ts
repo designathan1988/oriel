@@ -41,13 +41,13 @@ function house(): Project3 {
   const lv = b.levels[0]!.id;
   const x = W / 2 - T,
     z = D / 2 - T;
-  addInteriorWall(b, lv, [0.5, -z], [0.5, z], 0.12, uid);
-  addInteriorWall(b, lv, [0.5, 0], [x, 0], 0.12, uid);
-  addInteriorWall(b, lv, [2.6, 0], [2.6, z], 0.12, uid);
+  addInteriorWall(b, lv, [1.2, -z], [1.2, z], 0.12, uid);
+  addInteriorWall(b, lv, [1.2, 0], [x, 0], 0.12, uid);
+  addInteriorWall(b, lv, [3.2, 0], [3.2, z], 0.12, uid);
   roomsAt(b, lv, W, D, T, [
     { name: 'Sala e cozinha', at: [-3, 0] },
     { name: 'Quarto 1', at: [3.2, -2] },
-    { name: 'Banheiro', at: [1.5, 2] },
+    { name: 'Banheiro', at: [2.2, 2] },
     { name: 'Quarto 2', at: [4.2, 2] },
   ]);
   return project({ name: 'Casa térrea', buildings: [b] });

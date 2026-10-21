@@ -6,6 +6,11 @@ async function open(page: Page, errors: string[], keep = false) {
   page.on('console', (m) => {
     if (m.type() === 'error') errors.push(m.text());
   });
+  // The gestures read the interface in English, and the start screen stays closed (samples open).
+  await page.addInitScript(() => {
+    localStorage.setItem('oriel_lang', 'en');
+    (globalThis as any).__orielNoStart = true;
+  });
   await page.goto('/editor.html');
   if (!keep) {
     await page.evaluate(() => localStorage.clear());

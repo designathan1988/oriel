@@ -467,7 +467,7 @@ export const CSS = `
 .f3-help h3{grid-column:1/-1;margin:0 0 2px;font-size:11.5px;font-weight:600;color:var(--ink)}
 .f3-help .f3-keys>span{min-width:0;overflow-wrap:anywhere}
 .f3-help .f3-keys{grid-template-columns:auto minmax(0,1fr)}
-.f3-menu{position:absolute;z-index:30;background:var(--panel-solid);border:1px solid var(--line);border-radius:9px;box-shadow:0 14px 40px #0008;padding:4px;min-width:210px;color:var(--ink)}
+.f3-menu{position:absolute;z-index:30;max-height:calc(100vh - 64px);overflow:auto;background:var(--panel-solid);border:1px solid var(--line);border-radius:9px;box-shadow:0 14px 40px #0008;padding:4px;min-width:210px;color:var(--ink)}
 .f3-menu button{display:flex;width:100%;border:0;background:transparent;border-radius:6px;height:30px;padding:0 9px;gap:9px;align-items:center;text-align:left;color:var(--ink);letter-spacing:0;font-weight:400}
 .f3-menu button:hover{background:var(--raise)}
 .f3-menu small,.f3-menu kbd{margin-left:auto;color:var(--faint)}

@@ -1436,6 +1436,8 @@ export class Editor3 {
 
   /** The preferences dialog (ui/prefs.ts). */
   prefsRequested: (() => void) | null = null;
+  /** Opens (true), closes (false) or toggles the plan view (ui/planview.ts). */
+  planRequested: ((on?: boolean) => void) | null = null;
   /** Mouse navigation preset (ui/prefs.ts): which middle-button drag pans and which orbits. */
   navPreset: 'forma' | 'sketchup' | 'blender' = 'forma';
 

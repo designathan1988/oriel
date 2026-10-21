@@ -49,6 +49,10 @@ for (const s of SCENES) {
     page.on('pageerror', (e) => errors.push(e.message));
     page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
     await page.addInitScript(frozen);
+    await page.addInitScript(() => {
+      localStorage.setItem('oriel_lang', 'en');
+      (globalThis as any).__orielNoStart = true;
+    });
     // The project is the saved one the editor opens (as after a reload): no message, no samples first.
     await page.addInitScript((json) => localStorage.setItem('forma3_project', json), JSON.stringify(s.project));
     await page.goto('/editor.html');

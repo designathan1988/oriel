@@ -20,6 +20,7 @@ import { mountWorkspaces } from '../f3/ui/workspaces';
 import { mountCatalog } from '../f3/ui/catalog';
 import { mountLayers } from '../f3/ui/layers';
 import { mountPalette } from '../f3/ui/palette';
+import { mountPlanView } from '../f3/ui/planview';
 import { mountTime } from '../f3/ui/time';
 import { mountActions } from '../f3/ui/actions';
 import { mountLastOp } from '../f3/ui/lastop';
@@ -68,6 +69,7 @@ mountLastOp(editor);
 mountViewCube(editor);
 mountInteriorView(editor);
 mountWorkspaces(editor);
+mountPlanView(editor);
 (globalThis as { forma3?: Editor3 }).forma3 = editor;
 if (startNote) editor.toast(startNote);
 

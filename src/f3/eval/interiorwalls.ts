@@ -52,12 +52,114 @@ function nodeAt(it: Interior, p: Vec2, uid: () => string): ID {
   return id;
 }
 
-/** Adds a wall between two plan points, reusing the nodes already there; returns the wall id. */
+/** An end this close to a wall lands on it (a T): the wall is split there (m). */
+const ON_WALL = 0.15;
+
+/**
+ * Splits wall `wid` at plan point `p` (on it): the first part keeps the id, the second is new, and the
+ * doors go to the part they stand on. Returns the node at `p`.
+ */
+function splitWall(it: Interior, wid: ID, p: Vec2, uid: () => string): ID {
+  const w = it.walls.find((x) => x.id === wid)!;
+  const node = new Map(it.nodes.map((n) => [n.id, n.p]));
+  const a = node.get(w.a)!;
+  const t = Math.hypot(p[0] - a[0], p[1] - a[1]);
+  const mid = nodeAt(it, p, uid);
+  if (mid === w.a || mid === w.b) return mid;
+  const nid = uid();
+  const end = w.b;
+  w.b = mid;
+  it.walls.push({ id: nid, a: mid, b: end, thickness: w.thickness });
+  const doors = (it as InteriorWithDoors).doors;
+  if (doors) for (const d of doors) if (d.wall === wid && d.u > t) Object.assign(d, { wall: nid, u: d.u - t });
+  return mid;
+}
+
+/** Where segment p–q crosses segment a–c, strictly inside both (as the fraction along p–q), or null. */
+function crossing(p: Vec2, q: Vec2, a: Vec2, c: Vec2): number | null {
+  const rx = q[0] - p[0],
+    rz = q[1] - p[1],
+    sx = c[0] - a[0],
+    sz = c[1] - a[1];
+  const den = rx * sz - rz * sx;
+  if (Math.abs(den) < 1e-12) return null;
+  const t = ((a[0] - p[0]) * sz - (a[1] - p[1]) * sx) / den;
+  const u = ((a[0] - p[0]) * rz - (a[1] - p[1]) * rx) / den;
+  const lp = Math.hypot(rx, rz),
+    la = Math.hypot(sx, sz);
+  return t * lp > SNAP && (1 - t) * lp > SNAP && u * la > SNAP && (1 - u) * la > SNAP ? t : null;
+}
+
+/** The wall whose middle passes within ON_WALL of `p` (not near its ends), with the point on it. */
+function wallUnder(it: Interior, p: Vec2): { id: ID; at: Vec2 } | null {
+  const node = new Map(it.nodes.map((n) => [n.id, n.p]));
+  let best: { id: ID; at: Vec2; d: number } | null = null;
+  for (const w of it.walls) {
+    const a = node.get(w.a),
+      c = node.get(w.b);
+    if (!a || !c) continue;
+    const len = Math.hypot(c[0] - a[0], c[1] - a[1]);
+    if (len < MIN_WALL) continue;
+    const u = ((p[0] - a[0]) * (c[0] - a[0]) + (p[1] - a[1]) * (c[1] - a[1])) / len;
+    if (u <= SNAP || u >= len - SNAP) continue;
+    const at: Vec2 = [a[0] + ((c[0] - a[0]) * u) / len, a[1] + ((c[1] - a[1]) * u) / len];
+    const d = Math.hypot(at[0] - p[0], at[1] - p[1]);
+    if (d <= ON_WALL && (!best || d < best.d)) best = { id: w.id, at, d };
+  }
+  return best;
+}
+
+/**
+ * Adds a wall between two plan points and keeps the walls a connected plan (what makes a room a closed
+ * loop of walls, ArchiCAD-like): an end on the middle of a wall splits it there (a T), the walls the new
+ * one crosses are split at the crossing (an X), and the new wall is split at every node it passes over.
+ * Nodes already within `SNAP` are reused. Returns the id of the first piece of the new wall.
+ */
 export function addInteriorWall(b: Building3, levelId: ID, a: Vec2, c: Vec2, thickness = 0.12, uid: () => string): ID {
   const it = interiorOf(b, levelId);
-  const id = uid();
-  it.walls.push({ id, a: nodeAt(it, a, uid), b: nodeAt(it, c, uid), thickness });
-  return id;
+  const ends: Vec2[] = [a, c].map((p) => {
+    if (it.nodes.some((n) => Math.hypot(n.p[0] - p[0], n.p[1] - p[1]) <= SNAP)) return p;
+    const on = wallUnder(it, p);
+    if (!on) return p;
+    splitWall(it, on.id, on.at, uid);
+    return on.at;
+  });
+  const [p, q] = ends as [Vec2, Vec2];
+  // Crossings with the walls there now (each split once, at its crossing).
+  const node = () => new Map(it.nodes.map((n) => [n.id, n.p]));
+  const stops: { t: number; p: Vec2 }[] = [];
+  for (const w of [...it.walls]) {
+    const nm = node();
+    const wa = nm.get(w.a),
+      wc = nm.get(w.b);
+    if (!wa || !wc) continue;
+    const t = crossing(p, q, wa, wc);
+    if (t === null) continue;
+    const x: Vec2 = [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t];
+    splitWall(it, w.id, x, uid);
+    stops.push({ t, p: x });
+  }
+  // Nodes lying on the new wall.
+  const len = Math.hypot(q[0] - p[0], q[1] - p[1]);
+  if (len >= MIN_WALL)
+    for (const n of it.nodes) {
+      const t = ((n.p[0] - p[0]) * (q[0] - p[0]) + (n.p[1] - p[1]) * (q[1] - p[1])) / (len * len);
+      if (t * len <= SNAP || (1 - t) * len <= SNAP) continue;
+      const d = Math.hypot(p[0] + (q[0] - p[0]) * t - n.p[0], p[1] + (q[1] - p[1]) * t - n.p[1]);
+      if (d <= SNAP) stops.push({ t, p: n.p });
+    }
+  stops.sort((x, y) => x.t - y.t);
+  const pts = [p, ...stops.map((s) => s.p), q];
+  let first: ID | null = null;
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const na = nodeAt(it, pts[i]!, uid),
+      nb = nodeAt(it, pts[i + 1]!, uid);
+    if (na === nb || it.walls.some((w) => (w.a === na && w.b === nb) || (w.a === nb && w.b === na))) continue;
+    const id = uid();
+    it.walls.push({ id, a: na, b: nb, thickness });
+    first ??= id;
+  }
+  return first ?? '';
 }
 
 /** Copies the interior of a level (nodes, walls, rooms and doors) to other levels, all with new ids. */
