@@ -20,7 +20,7 @@ import { StairTool } from './tools/stair';
 import { WallsTool } from './tools/walls';
 import { decimal, tr } from '../ui/i18n';
 import { PolylineTool, pointsAlong } from './tools/polyline';
-import { lotAt, lotOverlaps, replantStreetTrees, setbackWarnings, streetAt } from '../model/site';
+import { buildingOverlaps, lotAt, lotOverlaps, replantStreetTrees, setbackWarnings, streetAt } from '../model/site';
 import { WalkMode } from './tools/walk';
 import { addInteriorWall, interiorDoors, replicateLevel, type InteriorWithDoors } from '../eval/interiorwalls';
 import { stairBetween } from '../model/stairs';
@@ -449,6 +449,7 @@ export class Editor3 {
       this.warnings.push(...setbackWarnings(p).filter((w) => !own || w.startsWith(own + ' ')));
       if (!own) this.warnings.push(...lotOverlaps(p));
     }
+    if (!this.context && p.buildings.length > 1) this.warnings.push(...buildingOverlaps(p));
     this.drawSelection();
     this.refreshTop();
     this.renderCrumb();

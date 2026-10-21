@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { building, project } from '../../src/f3/model/defaults';
+import { building, levelsFor, project, rectPlan, solid } from '../../src/f3/model/defaults';
 import { signedArea2 } from '../../src/f3/model/plan';
 import { planArea } from '../../src/f3/model/lots';
-import { buildableArea, buildOnLot, frontTowardStreet, lotAt, lotOverlaps, lotsAlongStreet, rectLotFrom, ribbon, setbackWarnings, sideSetbacks, splitLot, streetAt, treeItems, treesAlong } from '../../src/f3/model/site';
+import { buildableArea, buildingOverlaps, buildOnLot, frontTowardStreet, lotAt, lotOverlaps, lotsAlongStreet, rectLotFrom, ribbon, setbackWarnings, sideSetbacks, splitLot, streetAt, treeItems, treesAlong } from '../../src/f3/model/site';
 import { toWorld } from '../../src/f3/model/ops';
 import { validateForma3 } from '../../src/f3/io/migrate';
 import type { Street, Vec2 } from '../../src/f3/model/schema';
@@ -231,5 +231,20 @@ describe('street trees follow the street', () => {
     expect(p.buildings).toHaveLength(1);
     expect(p.buildings[0]!.name).toBe('B trees');
     expect(p.buildings[0]!.items.length).toBe(16);
+  });
+});
+
+describe('buildingOverlaps', () => {
+  const mk = (name: string, at: Vec2) => building({ name, position: at, levels: levelsFor(1), solids: [solid({ plan: { outer: rectPlan(10, 8), holes: [] }, height: 3 })] });
+  it('warns of buildings standing in each other, not of ones side by side', () => {
+    const p = project();
+    p.buildings = [mk('A', [0, 0]), mk('B', [4, 3]), mk('C', [-10, 0])];
+    expect(buildingOverlaps(p)).toEqual(['B overlaps A.']);
+  });
+  it('sees a building inside another one (no side crossing)', () => {
+    const p = project();
+    const small = building({ name: 'S', position: [0, 0], levels: levelsFor(1), solids: [solid({ plan: { outer: rectPlan(2, 2), holes: [] }, height: 3 })] });
+    p.buildings = [mk('A', [0, 0]), small];
+    expect(buildingOverlaps(p)).toEqual(['S overlaps A.']);
   });
 });

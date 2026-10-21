@@ -315,6 +315,39 @@ export function setbackWarnings(p: Project3): string[] {
   return out;
 }
 
+/**
+ * Buildings standing in each other (their plans cross; buildings that only touch, like row houses,
+ * do not): one warning per pair. Only on the ground floor plans of their visible volumes.
+ */
+export function buildingOverlaps(p: Project3): string[] {
+  const out: string[] = [];
+  const bs = p.buildings
+    .filter((b) => !b.hidden && b.solids.length)
+    .slice(0, 200)
+    .map((b) => {
+      const rings = b.solids.filter((s) => s.op === 'add' && !s.hidden).map((s) => outerRing(b, s));
+      return { b, rings, box: boxOf(rings.flat()) };
+    })
+    .filter((x) => x.rings.length);
+  const cross = (a: Vec2, b: Vec2, c: Vec2, d: Vec2) => {
+    const o = (p: Vec2, q: Vec2, r: Vec2) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
+    const e = 1e-6;
+    return o(a, b, c) * o(a, b, d) < -e && o(c, d, a) * o(c, d, b) < -e;
+  };
+  // A point well inside (5 cm from every side) of a ring.
+  const deep = (q: Vec2, r: Vec2[]) => insideRing(q, r) && r.every((v, i) => segDist(q, v, r[(i + 1) % r.length]!) > 0.05);
+  const ringsMeet = (A: Vec2[], B: Vec2[]) =>
+    A.some((q) => deep(q, B)) || B.some((q) => deep(q, A)) || A.some((a, i) => B.some((c, j) => cross(a, A[(i + 1) % A.length]!, c, B[(j + 1) % B.length]!)));
+  for (let i = 0; i < bs.length; i++)
+    for (let j = i + 1; j < bs.length; j++) {
+      const a = bs[i]!,
+        b = bs[j]!;
+      if (a.box[2] <= b.box[0] || b.box[2] <= a.box[0] || a.box[3] <= b.box[1] || b.box[3] <= a.box[1]) continue;
+      if (a.rings.some((r) => b.rings.some((q) => ringsMeet(r, q)))) out.push(`${b.b.name} overlaps ${a.b.name}.`);
+    }
+  return out;
+}
+
 function segDist(p: Vec2, a: Vec2, b: Vec2): number {
   const dx = b[0] - a[0],
     dz = b[1] - a[1];
