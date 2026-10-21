@@ -459,7 +459,7 @@ export const CSS = `
 .f3-acct .note{margin:0;color:var(--faint);font-size:11.5px}
 @media (max-width:620px){.f3-acct .plans{grid-template-columns:minmax(0,1fr)}}
 .f3-modal>.f3-start{width:min(1040px,94vw);max-width:none;max-height:92vh;overflow:auto;display:grid;gap:14px;padding:20px 22px}
-.f3-start header{display:flex;align-items:center;justify-content:space-between}.f3-start h2{margin:0;font-size:18px}
+.f3-start header{display:flex;align-items:center;gap:8px}.f3-start h2{margin:0;font-size:18px;flex:1}
 .f3-start .f3-x{background:none;border:0;color:var(--muted);font-size:20px;cursor:pointer}
 .f3-start .cols{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
 .f3-start h3{margin:0 0 8px;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}

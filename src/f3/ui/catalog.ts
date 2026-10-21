@@ -14,6 +14,10 @@ import { BLOCKS } from '../model/blocks';
 import { MATERIAL_PRESETS, materialThumb } from './materials';
 import { readImageFile } from '../render/images';
 import { uid } from '../model/defaults';
+import { tr } from './i18n';
+
+/** Lower case without accents: what a search compares. */
+const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 const FAV_KEY = 'forma3_favorites';
 const RECENT_KEY = 'forma3_recent';
@@ -144,8 +148,10 @@ export function mountCatalog(ed: Editor3): { open(): void } {
       return all.filter((t) => {
         const f = family(t.family);
         // Each typed word must start a word of the name, family, tags or category ("tree" is not in "street").
-        const words = `${t.name} ${f?.name ?? ''} ${(f?.tags ?? []).join(' ')} ${f ? CATEGORY_NAMES[f.category] : ''}`.toLowerCase().split(/[^a-z0-9à-ÿ]+/).filter(Boolean);
-        return query.split(/\s+/).filter(Boolean).every((w) => words.some((x) => x.startsWith(w)));
+        // In English or in the interface language, accents ignored ("portao" finds "Portão").
+        const text = [t.name, f?.name ?? '', ...(f?.tags ?? []), f ? CATEGORY_NAMES[f.category] : ''];
+        const words = fold([...text, ...text.map((x) => tr(x))].join(' ')).split(/[^a-z0-9]+/).filter(Boolean);
+        return fold(query).split(/\s+/).filter(Boolean).every((w) => words.some((x) => x.startsWith(w)));
       });
     }
     if (tab === 'fav') return all.filter((t) => favs.has(t.id));

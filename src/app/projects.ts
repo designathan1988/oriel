@@ -25,13 +25,13 @@ export interface ProjectHost {
   currentId(): string;
 }
 
-/** Opens the start screen. `first`: the first visit (no project yet): it cannot be dismissed empty. */
+/** Opens the start screen. `first`: the first visit (no project yet): a welcome, closed onto a blank project. */
 export function openStart(ed: Editor3, host: ProjectHost, first = false): void {
   ed.shell.root.querySelector('.f3-modal.f3-start-modal')?.remove();
   const m = document.createElement('div');
   m.className = 'f3-modal f3-start-modal';
   m.innerHTML = `<div class="f3-start" role="dialog" aria-label="Start">
-    <header><h2>${first ? 'Welcome' : 'Projects'}</h2>${first ? '' : '<button class="f3-x" data-close aria-label="Close">×</button>'}</header>
+    <header><h2>${first ? 'Welcome' : 'Projects'}</h2><button class="f3-btn" data-openfile>${icon('folder')}<span>Open a file…</span></button><button class="f3-x" data-close aria-label="Close" title="Close (Esc)">×</button></header>
     <div class="cols">
       <section><h3>New project</h3><div class="tpls">${TEMPLATES.map((t) => `<button class="tpl" data-tpl="${t.id}"><span class="pic">${t.id === 'blank' ? icon('add') : `<img src="./tpl/${t.id}.webp" alt="" loading="lazy" decoding="async" width="480" height="300">`}</span><b>${esc(tr(t.name))}</b><small>${esc(tr(t.note))}</small></button>`).join('')}</div></section>
       <section><h3>Recent projects</h3><ul class="list"><li class="empty">…</li></ul></section>
@@ -80,7 +80,13 @@ export function openStart(ed: Editor3, host: ProjectHost, first = false): void {
   };
   m.addEventListener('click', async (e) => {
     const t = e.target as HTMLElement;
-    if ((t === m && !first) || t.closest('[data-close]')) return close();
+    // Closed on the first visit too: the blank project behind it is ready to draw on.
+    if (t === m || t.closest('[data-close]')) return close();
+    if (t.closest('[data-openfile]')) {
+      close(true);
+      ed.shell.root.querySelector<HTMLInputElement>('[data-file="project"]')?.click();
+      return;
+    }
     const tpl = t.closest<HTMLElement>('[data-tpl]');
     if (tpl) {
       const def = TEMPLATES.find((x) => x.id === tpl.dataset.tpl)!;
@@ -147,7 +153,7 @@ export function openStart(ed: Editor3, host: ProjectHost, first = false): void {
     if (api && sp) await api.putProject(sp.id, { name, buildings: sp.buildings }, sp.json).catch(() => undefined);
   });
   const onKey = (e: KeyboardEvent) => {
-    if (e.key === 'Escape' && !first) {
+    if (e.key === 'Escape') {
       e.stopPropagation();
       close();
     } else if ((e.target as HTMLElement).closest?.('input')) e.stopPropagation();
