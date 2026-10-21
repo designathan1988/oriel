@@ -200,6 +200,12 @@ export interface Building3 {
   id: ID;
   name: string;
   lotId: ID | null;
+  /**
+   * Linked copies (identical houses on several lots, Revit's groups, SketchUp's components): every
+   * building with the same key shares its volumes, parts, floors and interiors; an edit of one is made on
+   * all of them. Each keeps its own position, rotation, name and lot.
+   */
+  linked?: ID;
   position: Vec2;
   /** Building base elevation (m; absent = on the ground). Rises onto another building with the green arrow. */
   elevation?: number;

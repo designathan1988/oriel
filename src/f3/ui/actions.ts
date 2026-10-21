@@ -70,6 +70,8 @@ function selectionActions(ed: Editor3): Action[] {
     add('Floors', 'lvup', 'Floor +', 'floorUp', () => ed.floorsDelta(1), { title: 'Floor + (what is on top moves up with it)' });
     add('Floors', 'lvdown', 'Floor −', 'floorDown', () => ed.floorsDelta(-1), { title: 'Floor −' });
     add('Edit', 'dup', 'Duplicate', 'copy', () => ed.duplicate(), { title: 'Duplicate · Ctrl+D' });
+    add('Edit', 'link', 'Linked copy', 'array', () => ed.duplicate(true), { title: 'An edit of one is made on all · Ctrl+Shift+D' });
+    if (b.linked) add('Edit', 'unlink', 'Make independent', 'unique', () => ed.unlink(b.id), { title: 'Leaves the linked copies' });
     add('Edit', 'rot90', 'Rotate 90°', 'rot90', () => ed.command('rot90'), { title: 'Rotate 90° around the center' });
   }
   if (multiB || multiS) {

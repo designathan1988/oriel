@@ -119,11 +119,47 @@ export class Store {
   }
 
   /**
+   * Linked buildings (Building3.linked): the member edited since the last step gives its volumes, parts,
+   * floors, interiors and use to the others of its group. Returns the buildings changed that way.
+   */
+  private propagateLinks(ids: ID[] | null): ID[] {
+    const groups = new Map<ID, Building3[]>();
+    for (const b of this.project.buildings) if (b.linked) groups.set(b.linked, [...(groups.get(b.linked) ?? []), b]);
+    if (![...groups.values()].some((g) => g.length > 1)) return [];
+    const shape = (b: Building3) => JSON.stringify([b.solids, b.items, b.levels, b.interiors, b.use]);
+    const before = new Map(unpack<Project3>(this.last).buildings.map((b) => [b.id, shape(b)]));
+    const out: ID[] = [];
+    for (const g of groups.values()) {
+      if (g.length < 2) continue;
+      // The member that changed (one of the ids given first); a new member takes the group's shape.
+      const changed = g.filter((b) => before.has(b.id) && before.get(b.id) !== shape(b));
+      const src = changed.find((b) => !ids || ids.includes(b.id)) ?? changed[0] ?? g.find((b) => before.has(b.id));
+      if (!src) continue;
+      const s = shape(src);
+      for (const b of g) {
+        if (b === src || shape(b) === s) continue;
+        b.solids = structuredClone(src.solids);
+        b.items = structuredClone(src.items);
+        b.levels = structuredClone(src.levels);
+        b.interiors = structuredClone(src.interiors);
+        b.use = src.use;
+        out.push(b.id);
+      }
+    }
+    return out;
+  }
+
+  /**
    * Records the current state as a history step. `geometry = false` when only
    * building position/rotation changed (no re-evaluation needed).
    */
   commit(ids: ID[] | null, message = '', geometry = true): boolean {
     this.resolve(ids);
+    const linked = this.propagateLinks(ids);
+    if (linked.length) {
+      this.resolve(linked);
+      if (ids) ids = [...new Set([...ids, ...linked])];
+    }
     const now = pack(this.project);
     this.changed = false;
     if (now === this.last) return true;

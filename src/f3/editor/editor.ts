@@ -1500,10 +1500,10 @@ export class Editor3 {
     this.view.frame(g ? new THREE.Box3().setFromObject(g) : undefined);
   }
 
-  duplicate(): void {
+  duplicate(linked = false): void {
     const b = this.activeBuilding();
     if (!b) return;
-    if (this.context === b.id && this.sel.item) {
+    if (!linked && this.context === b.id && this.sel.item) {
       const it = this.activeItem()!;
       const c = structuredClone(it);
       c.id = uid();
@@ -1524,7 +1524,7 @@ export class Editor3 {
       this.select({ building: b.id, item: c.id });
       return;
     }
-    if (this.context === b.id && this.sel.solids.length) {
+    if (!linked && this.context === b.id && this.sel.solids.length) {
       const ids: ID[] = [];
       // The copies keep their arrangement and go beside the selected volumes, on a free spot of the
       // building (before, 2 m off: the copy went through the original).
@@ -1579,16 +1579,37 @@ export class Editor3 {
     const others = this.project.buildings.filter((o) => !sel.includes(o)).map(box).filter((q): q is PlanBox => !!q);
     const [shiftX, shiftZ] = freeShift(group, others, 3);
     const copies = sel.flatMap((src) => {
-      const c = cloneBuilding(src);
+      // A linked copy keeps the very same volumes (their IDs too): an edit of either is made on both.
+      const c = linked ? structuredClone(src) : cloneBuilding(src);
+      if (linked) {
+        c.id = uid();
+        src.linked ??= src.id;
+        c.linked = src.linked;
+        c.lotId = null;
+      }
       c.position = [src.position[0] + shiftX, src.position[1] + shiftZ];
-      c.name = src.name + ' (copy)';
+      c.name = src.name.replace(/( \(copy\))+$/, '') + ' (copy)';
       this.store.project.buildings.push(c);
       return [c.id];
     });
-    const msg = copies.length > 1 ? `${copies.length} buildings duplicated.` : 'Building duplicated.';
+    const msg = linked ? (copies.length > 1 ? `${copies.length} linked copies: an edit of one is made on all.` : 'Linked copy: an edit of one is made on all.') : copies.length > 1 ? `${copies.length} buildings duplicated.` : 'Building duplicated.';
     if (!this.store.commit(copies, msg)) return;
     this.toast(msg);
     this.selectBuildings(copies);
+  }
+
+  /** The building leaves its group of linked copies (it is edited on its own from now on). */
+  unlink(id: ID): void {
+    const b = this.store.building(id);
+    if (!b?.linked) return;
+    const key = b.linked;
+    this.changeSite((p) => {
+      const x = p.buildings.find((q) => q.id === id)!;
+      delete x.linked;
+      // A group of one is no group.
+      const rest = p.buildings.filter((q) => q.linked === key);
+      if (rest.length === 1) delete rest[0]!.linked;
+    }, 'Independent: edited on its own.');
   }
 
   remove(): void {
@@ -7030,7 +7051,7 @@ export class Editor3 {
       if (e.ctrlKey || e.metaKey) {
         if (k === 'z') this.command(e.shiftKey ? 'redo' : 'undo');
         else if (k === 'y') this.command('redo');
-        else if (k === 'd') this.duplicate();
+        else if (k === 'd') this.duplicate(e.shiftKey);
         else if (k === 'c') this.copy();
         else if (k === 'v') this.paste();
         else if (k === 's') this.saveRequested?.();

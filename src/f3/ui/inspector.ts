@@ -465,6 +465,9 @@ function infoSection(b: Building3, project?: Project3, overall?: { min: number[]
       H = Math.max(...adds.map((s) => s.base + s.height));
     rows.unshift(['Walls (W × D × H)', `${num(W)} × ${num(D)} × ${num(H)} m`]);
     // The whole building with its roof and eaves: the same box and sizes the selection shows in the view.
+    // Linked copies: how many share this building's shape.
+    const group = b.linked && project ? project.buildings.filter((x) => x.linked === b.linked).length : 0;
+    if (group > 1) rows.unshift(['Linked copies', String(group)]);
     if (overall) rows.unshift(['Overall (W × D × H)', `${num(overall.max[0]! - overall.min[0]!)} × ${num(overall.max[2]! - overall.min[2]!)} × ${num(overall.max[1]!)} m`]);
   }
   const li = b.lotId && project ? lotIndices({ ...project, buildings: project.buildings.map(withModifiers) }, b.lotId) : null;

@@ -90,6 +90,7 @@ export function mountPalette(ed: Editor3): void {
       { label: 'Undo', group: 'Edit', ic: 'undo', key: 'Ctrl Z', run: () => ed.command('undo') },
       { label: 'Redo', group: 'Edit', ic: 'redo', key: 'Ctrl Y', run: () => ed.command('redo') },
       { label: 'Duplicate selection', group: 'Edit', ic: 'copy', key: 'Ctrl D', run: () => ed.duplicate() },
+      { label: 'Linked copy (an edit of one is made on all)', group: 'Edit', ic: 'array', key: 'Ctrl Shift D', run: () => ed.duplicate(true) },
       { label: 'Delete selection', group: 'Edit', ic: 'trash', key: 'Del', run: () => ed.remove() },
       { label: 'Mirror volume', group: 'Edit', ic: 'mirror', run: () => ed.command('mirror') },
       { label: 'Frame selection', group: 'View', ic: 'focus', key: 'F', run: () => ed.frameSelection() },
