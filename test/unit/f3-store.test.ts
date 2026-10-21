@@ -102,3 +102,26 @@ describe('saved niches get their wall back', () => {
     expect(p.buildings[0]!.solids[0]!.host).toBeUndefined();
   });
 });
+
+describe('history and embedded images', () => {
+  it('an image is kept once, not in every step; undo and saving give it back whole', () => {
+    const st = new Store(project({ name: 'P', buildings: sampleBuildings() }));
+    const data = 'data:image/png;base64,' + 'A'.repeat(300_000);
+    st.project.images = [{ id: 'img', name: 'facade.png', data, w: 100, h: 100 }];
+    st.commit(null, 'image');
+    for (let i = 0; i < 40; i++) {
+      st.project.name = `P${i}`;
+      st.commit(null, 'rename');
+    }
+    const stack = (st as unknown as { undoStack: string[] }).undoStack;
+    expect(stack.reduce((s, j) => s + j.length, 0)).toBeLessThan(40 * 60_000);
+    expect(st.json()).toContain(data);
+    for (let i = 0; i < 40; i++) st.undo();
+    expect(st.project.name).toBe('P');
+    expect(st.project.images?.[0]?.data).toBe(data);
+    st.undo();
+    expect(st.project.images).toBeUndefined();
+    st.redo();
+    expect(st.project.images?.[0]?.data).toBe(data);
+  });
+});

@@ -8,6 +8,32 @@ export type StoreEvent = { kind: 'change'; ids: ID[] | null; message: string } |
 
 const MAX_HISTORY = 200;
 
+// The history keeps every step as text; an embedded image (a data URL of a few MB) would be copied into
+// each one and written out on every edit. Big data URLs go into this table once and the steps hold a
+// short reference to them; reading a step back puts the very same string in place again.
+const BIG = 4096;
+const blobs: string[] = [];
+const blobId = new Map<string, number>();
+const REF = '\u0001blob:';
+
+/** The project as history text, big data URLs as references. */
+function pack(p: unknown): string {
+  return JSON.stringify(p, (_k, v: unknown) => {
+    if (typeof v !== 'string' || v.length < BIG || !v.startsWith('data:')) return v;
+    let id = blobId.get(v);
+    if (id === undefined) {
+      id = blobs.push(v) - 1;
+      blobId.set(v, id);
+    }
+    return REF + id;
+  });
+}
+
+/** History text back to a project, the references replaced by their data. */
+function unpack<T>(json: string): T {
+  return JSON.parse(json, (_k, v: unknown) => (typeof v === 'string' && v.startsWith(REF) ? (blobs[Number(v.slice(REF.length))] ?? '') : v)) as T;
+}
+
 export class Store {
   project: Project3;
   /** Revision per building: changes when it needs re-evaluation. */
@@ -40,7 +66,7 @@ export class Store {
     this.project = p;
     // An opened project gets its relations (older files had none); nothing moves.
     this.resolve(null);
-    this.last = JSON.stringify(p);
+    this.last = pack(p);
     for (const b of p.buildings) this.revision.set(b.id, 1);
   }
 
@@ -87,7 +113,7 @@ export class Store {
    */
   commit(ids: ID[] | null, message = '', geometry = true): boolean {
     this.resolve(ids);
-    const now = JSON.stringify(this.project);
+    const now = pack(this.project);
     this.changed = false;
     if (now === this.last) return true;
     const why = this.guard?.();
@@ -114,15 +140,15 @@ export class Store {
    * are re-evaluated (before, every click redid the booleans of the whole project).
    */
   revert(): void {
-    const now = JSON.stringify(this.project);
+    const now = pack(this.project);
     if (now === this.last) return;
-    const prev = JSON.parse(this.last) as Project3;
+    const prev = unpack<Project3>(this.last);
     const before = new Map(prev.buildings.map((b) => [b.id, JSON.stringify(b)]));
     const changed = new Set<ID>();
     for (const b of this.project.buildings) if (before.get(b.id) !== JSON.stringify(b)) changed.add(b.id);
     for (const id of before.keys()) if (!this.project.buildings.some((b) => b.id === id)) changed.add(id);
     this.project = prev;
-    const rest = JSON.stringify({ ...prev, buildings: [] }) !== JSON.stringify({ ...(JSON.parse(now) as Project3), buildings: [] });
+    const rest = pack({ ...prev, buildings: [] }) !== pack({ ...unpack<Project3>(now), buildings: [] });
     this.rebase(null);
     this.touch(rest ? null : [...changed].filter((id) => prev.buildings.some((b) => b.id === id)));
   }
@@ -163,10 +189,10 @@ export class Store {
   private restore(json: string): void {
     const shown = this.project;
     this.last = json;
-    this.project = JSON.parse(json) as Project3;
+    this.project = unpack<Project3>(json);
     // A recorded state already has its relations: it is the new reference, not an edit.
     this.rebase(null);
-    const rest = (p: Project3) => JSON.stringify({ ...p, buildings: [], view: null, layers: null, name: '', selectionSets: null });
+    const rest = (p: Project3) => pack({ ...p, buildings: [], view: null, layers: null, name: '', selectionSets: null });
     if (rest(shown) !== rest(this.project)) this.touch(null, '');
     else {
       const before = new Map(shown.buildings.map((b) => [b.id, JSON.stringify(b)]));
@@ -185,7 +211,7 @@ export class Store {
     this.project = p;
     this.resolved.clear();
     this.resolve(null);
-    this.last = JSON.stringify(p);
+    this.last = pack(p);
     this.revision.clear();
     this.touch(null, message);
     this.emit({ kind: 'history' });
@@ -198,7 +224,7 @@ export class Store {
 
 /** The project without its view state (camera-like settings that never count as an edit). */
 function withoutView(json: string): string {
-  const p = JSON.parse(json) as Project3;
+  const p = unpack<Project3>(json);
   delete p.view;
-  return JSON.stringify(p);
+  return pack(p);
 }
