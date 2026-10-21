@@ -42,12 +42,14 @@ export function wallTargets(ed: Editor3): WallTarget[] {
     for (const s of b.solids) {
       if (s.hidden || s.op !== 'add') continue;
       const ax = wallAxisOf(s);
-      if (ax) out.push({ a: w(ax[0]), b: w(ax[1]), bid: b.id, interior: false });
+      const y0 = (b.elevation ?? 0) + s.base,
+        y1 = y0 + s.height;
+      if (ax) out.push({ a: w(ax[0]), b: w(ax[1]), bid: b.id, interior: false, y0, y1 });
       else if (s.shell && !s.loft && !s.revolve) {
         const r = sampleRing(s.plan.outer).pts;
         const ccw = signedArea2(r) > 0 ? r : [...r].reverse();
         const mid = offsetRing(ccw, ccw.map(() => s.shell! / 2));
-        mid.forEach((q, i) => out.push({ a: w(q), b: w(mid[(i + 1) % mid.length]!), bid: b.id, interior: false, enclosing: true }));
+        mid.forEach((q, i) => out.push({ a: w(q), b: w(mid[(i + 1) % mid.length]!), bid: b.id, interior: false, enclosing: true, y0, y1 }));
       }
     }
     const lv = ed.workLevel(b);

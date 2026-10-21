@@ -49,6 +49,9 @@ export interface WallTarget {
   interior: boolean;
   /** The wall of a closed building (a hollow volume): walls drawn from it divide that building's floor. */
   enclosing?: boolean;
+  /** World heights of its foot and top: the cursor sticks to the wall seen anywhere up its face. */
+  y0?: number;
+  y1?: number;
 }
 
 /** What the cursor stuck to: a wall end, or a point along a wall. */
@@ -134,14 +137,24 @@ export class WallsTool {
     if (!ts.length) return null;
     const r = this.h.view.renderer.domElement.getBoundingClientRect();
     const y = this.h.y?.() ?? 0;
-    const px = (q: Vec2) => {
-      const s = this.h.view.toScreen(new THREE.Vector3(q[0], y, q[1]));
-      return Math.hypot(s.x + r.left - e.clientX, s.y + r.top - e.clientY);
+    // Screen distance from the cursor to the vertical line of the wall at plan point q (its foot to its top).
+    const px = (q: Vec2, t?: WallTarget) => {
+      const lo = t?.y0 ?? y,
+        hi = t?.y1 ?? y;
+      const a = this.h.view.toScreen(new THREE.Vector3(q[0], lo, q[1]));
+      const b = this.h.view.toScreen(new THREE.Vector3(q[0], hi, q[1]));
+      const mx = e.clientX - r.left,
+        my = e.clientY - r.top;
+      const dx = b.x - a.x,
+        dy = b.y - a.y;
+      const l2 = dx * dx + dy * dy;
+      const k = l2 > 1e-6 ? Math.max(0, Math.min(1, ((mx - a.x) * dx + (my - a.y) * dy) / l2)) : 0;
+      return Math.hypot(a.x + dx * k - mx, a.y + dy * k - my);
     };
     let best: { p: Vec2; hit: WallHit; d: number } | null = null;
     for (const t of ts)
       for (const q of [t.a, t.b]) {
-        const d = px(q);
+        const d = px(q, t);
         if (d < STICK_PX && (!best || d < best.d)) best = { p: [q[0], q[1]], hit: { target: t, end: true }, d };
       }
     if (best) return best;
@@ -150,9 +163,19 @@ export class WallsTool {
         dz = t.b[1] - t.a[1];
       const l2 = dx * dx + dz * dz;
       if (l2 < 1e-9) continue;
-      const u = Math.max(0, Math.min(1, ((p[0] - t.a[0]) * dx + (p[1] - t.a[1]) * dz) / l2));
-      const q: Vec2 = [t.a[0] + dx * u, t.a[1] + dz * u];
-      const d = px(q);
+      // The point of the wall under the cursor: on the ground line, or seen up its face (its top line).
+      let best2: { q: Vec2; d: number } | null = null;
+      for (const hy of t.y1 !== undefined ? [t.y0 ?? y, (((t.y0 ?? y) + t.y1) / 2), t.y1] : [y]) {
+        const g = this.h.view.onPlane(e, hy);
+        if (!g) continue;
+        const u = Math.max(0, Math.min(1, ((g.x - t.a[0]) * dx + (g.z - t.a[1]) * dz) / l2));
+        const q: Vec2 = [t.a[0] + dx * u, t.a[1] + dz * u];
+        const d = px(q, t);
+        if (!best2 || d < best2.d) best2 = { q, d };
+      }
+      if (!best2) continue;
+      const q = best2.q,
+        d = best2.d;
       if (d < STICK_PX * 0.75 && (!best || d < best.d)) best = { p: q, hit: { target: t, end: false }, d };
     }
     return best;

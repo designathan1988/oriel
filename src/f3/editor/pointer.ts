@@ -311,8 +311,9 @@ export function onDown(ed: Editor3, e: PointerEvent): void {
     // floor (interior walls of the floor shown, cut open so they can be seen); one started outside
     // makes walls of their own (closed: a building).
     if (!ed.wallsTool.busy) {
-      const h = ed.handles.hit(e);
-      if (h?.iwall) return ed.beginIwallHandle(h, e);
+      // A click always draws with this tool (the handles of a wall just drawn sat where the next wall
+      // starts, on its middle, and grabbed the click); walls are reshaped with Select.
+      ed.iwallSel = null;
       startWallChain(ed, e, ed.wallsTool.probe(e)?.hit ?? null);
     }
     return ed.wallsTool.down(e);
