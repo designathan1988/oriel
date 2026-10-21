@@ -6803,6 +6803,26 @@ export class Editor3 {
     return { y: 0, bid: null };
   }
 
+  /**
+   * A curtain wall over the whole selected side (Revit's curtain wall): it replaces the wall there, and the
+   * side stops taking the facade rule's windows (blank) so nothing sits behind the glass.
+   */
+  curtainWall(): void {
+    const b = this.activeBuilding();
+    const s = this.activeSolid();
+    const edge = this.sel.face?.kind === 'side' ? this.sel.face.edge : undefined;
+    if (!b || !s || !edge) return this.toast('Select a side of a volume first.');
+    const len = edgeLength(s, edge);
+    if (!(len > 1)) return this.toast('That side is too short.');
+    const it: Item = { id: uid(), type: 'curtain-wall', params: { width: Math.round((len - 0.1) * 100) / 100, height: Math.round((s.height - 0.05) * 100) / 100, sillH: 0 }, host: { kind: 'face', solid: s.id, edge, u: Math.round((len / 2) * 100) / 100, y: 0 } };
+    this.change(b.id, (x) => {
+      const so = findSolid(x, s.id)!;
+      (so.edges[edge] ??= {}).blank = true;
+      x.items.push(it);
+    }, 'Curtain wall on this side.');
+    this.select({ building: b.id, item: it.id });
+  }
+
   /** A railing around the selected flat top (a terrace, a slab edge), 8 cm in from its edge. */
   railAround(): void {
     const b = this.activeBuilding();

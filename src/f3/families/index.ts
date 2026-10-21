@@ -3,6 +3,7 @@
 import type { ComponentType, ID, Project3 } from '../model/schema';
 import type { Family } from './family';
 import { BAY_WINDOW, WINDOW } from './windows';
+import { CURTAIN_WALL } from './curtainwall';
 import { DOOR, GARAGE_DOOR, LOADING_DOOR, SHOPFRONT } from './doors';
 import { BALCONY, VERANDA } from './balconies';
 import { FENCE, GATE, HEDGE, SWEEP, WALL_RUN } from './fences';
@@ -34,7 +35,7 @@ export function allFamilies(): Family[] {
   return [...families.values()];
 }
 
-for (const f of [WINDOW, BAY_WINDOW, DOOR, GARAGE_DOOR, LOADING_DOOR, SHOPFRONT, BALCONY, VERANDA, RAILING, JULIETTE, WALL_RUN, FENCE, GATE, HEDGE, SWEEP, COLUMN, BEAM, PERGOLA, PORTICO, STAIR, RAMP, CANOPY, AWNING, PORCH_ROOF, BRISE, COBOGO, ROLL_SHUTTER, CORNICE, PILASTER, QUOINS, PEDIMENT, BAND, SIGN, CLOCK, DOWNPIPE, CHIMNEY, SKYLIGHT, SOLAR, WATER_TANK, VENT, CUPOLA, DORMER, SILO, STACK, LADDER, TANK, IMAGE_DECAL, CLADDING, WALL_LAMP, STREET_LAMP]) registerFamily(f);
+for (const f of [WINDOW, BAY_WINDOW, CURTAIN_WALL, DOOR, GARAGE_DOOR, LOADING_DOOR, SHOPFRONT, BALCONY, VERANDA, RAILING, JULIETTE, WALL_RUN, FENCE, GATE, HEDGE, SWEEP, COLUMN, BEAM, PERGOLA, PORTICO, STAIR, RAMP, CANOPY, AWNING, PORCH_ROOF, BRISE, COBOGO, ROLL_SHUTTER, CORNICE, PILASTER, QUOINS, PEDIMENT, BAND, SIGN, CLOCK, DOWNPIPE, CHIMNEY, SKYLIGHT, SOLAR, WATER_TANK, VENT, CUPOLA, DORMER, SILO, STACK, LADDER, TANK, IMAGE_DECAL, CLADDING, WALL_LAMP, STREET_LAMP]) registerFamily(f);
 // Interior, planting, street furniture and facade grilles.
 for (const f of [SOFA, ARMCHAIR, BED, DINING_TABLE, CHAIR, DESK, OFFICE_CHAIR, KITCHEN_COUNTER, WARDROBE, BOOKSHELF, TV_UNIT, TOILET, SINK, BATHTUB, SHOWER, FRIDGE, STOVE]) registerFamily(f);
 for (const f of [TREE_DECIDUOUS, TREE_CONIFER, PALM, BUSH, PLANTER, FLOWER_BED, GRASS_PATCH, ORNAMENTAL_GRASS, FERN]) registerFamily(f);
@@ -68,6 +69,8 @@ export const BUILTIN_TYPES: ComponentType[] = [
   t('win-hopper', 'window', 'Up-and-over', { operation: 'awning', width: 0.8, height: 0.6, leaves: 1, sillH: 1.6, trim: 0 }),
   t('win-tall', 'window', 'Floor-to-ceiling window', { width: 1.4, height: 2.4, sillH: 0.1, leaves: 2, operation: 'sliding', frameColor: '#2f3437', frameFinish: 'metal', trim: 0, sill: false }),
   t('win-bay', 'baywindow', 'Bay window'),
+  t('curtain-wall', 'curtainwall', 'Curtain wall'),
+  t('curtain-wall-clear', 'curtainwall', 'Curtain wall, all glass', { spandrel: false, glassColor: '#7f9cab' }),
   t('door-panel', 'door', 'Panelled door'),
   t('door-double', 'door', 'Double door with transom', { leaves: 2, width: 1.6, leaf: 'half', transom: true }),
   t('door-french', 'door', 'Balcony door', { leaves: 2, width: 1.4, height: 2.3, leaf: 'french', leafColor: '#f4f2ec', leafFinish: 'paint', step: false }),

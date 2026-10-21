@@ -185,7 +185,8 @@ panels, Slab, Column and Beam tools, interior wall corners editable.
 Backlog (P1 first):
 - [x] P1 Walls: reference line (axis/inner/outer; tool options, 2026-10-21). [ ] Arcs, top tied to a level.
 - [ ] P1 Wall types with thickness and layers (poché by layer in section and plan).
-- [ ] P1 Curtain wall per face (U/V grid, mullions, glass/opaque/door panels).
+- [x] P1 Curtain wall per face (families/curtainwall.ts: U/V grids at most a spacing apart, border and interior
+      mullions, glass panels, opaque band at each floor; selected side → Curtain wall). [ ] Door panels.
 - [x] P1 Shafts and atria: a cutter drawn inside a building opens every slab it crosses, and the floor
       areas leave it out (model/lots.ts levelAreas). Slabs per level: Slab tool (outline, thickness).
       [ ] Holes and cantilevers edited on a slab of its own.

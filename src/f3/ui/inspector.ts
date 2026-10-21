@@ -318,6 +318,7 @@ function solidPanel(ed: Editor3, b: Building3, s: Solid): string {
       <button class="f3-btn" data-act="gable" aria-pressed="${!!e.gable}" title="${e.gable ? 'This side is a gable: click to undo' : 'Make this side a gable (the roof rises to it)'}">${icon('gable')}Gable</button>
       <button class="f3-btn" data-act="blank" aria-pressed="${!!e.blank}" title="${e.blank ? 'Blank wall: click to let it take components again' : 'Blank wall: no windows or doors on this side'}">${icon('blank')}Blank</button>
       <button class="f3-btn" data-act="split" title="Split this side in two">${icon('split')}Split</button>
+      <button class="f3-btn" data-act="curtain" title="The whole side in glass on a grid of mullions">${icon('window')}Curtain wall</button>
     </div></div>`;
   } else if (face?.kind === 'plinth') {
     facePart = `<div class="f3-sec"><h3>${icon('flat')} Selected plinth</h3>
@@ -987,7 +988,8 @@ function bind(ed: Editor3, b: Building3, s: Solid | undefined): void {
       } else if (a === 'noparapet' && s) {
         ed.changeSolid((x) => void (x.roof.parapet = 0), 'Parapet removed.');
         ed.select({ building: b.id, solids: [s.id] });
-      } else if (a === 'gable' && s && ed.sel.face?.edge) ed.changeSolid((x) => void ((x.edges[ed.sel.face!.edge!] ??= {}).gable = !x.edges[ed.sel.face!.edge!]?.gable), 'Gable changed.');
+      } else if (a === 'curtain') ed.curtainWall();
+      else if (a === 'gable' && s && ed.sel.face?.edge) ed.changeSolid((x) => void ((x.edges[ed.sel.face!.edge!] ??= {}).gable = !x.edges[ed.sel.face!.edge!]?.gable), 'Gable changed.');
       else if (a === 'blank' && s && ed.sel.face?.edge) ed.changeSolid((x) => void ((x.edges[ed.sel.face!.edge!] ??= {}).blank = !x.edges[ed.sel.face!.edge!]?.blank));
       else if (a === 'split' && s && ed.sel.face?.edge) ed.changeSolid((x) => void splitEdgeOf(x, ed.sel.face!.edge!), 'Side split: drag the new point.');
       else if (a === 'delvertex') ed.remove();
