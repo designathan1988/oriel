@@ -315,8 +315,15 @@ only), Müller 2006 CGA, CityEngine docs, Houdini Labs, TestFit, Forma):
       unions (disjoint cutters composed, booleans only where boxes overlap), family meshes shared in
       BatchedMesh, and LOD by screen size (a building smaller than 12 % of the view leaves out its
       furniture and ornaments, `render/batch.ts`).
-- [ ] The five validation buildings from scratch (house, apartment block with verandas, factory,
-      curved, irregular with a courtyard) through the interface; docs.
+- [x] The five validation buildings from scratch through the interface only (2026-10-21, real mouse
+      and keyboard in Chrome): a 12 × 9 m house (Rectangle typed 12x9, height 3, gable roof, two windows
+      and a door by clicking walls, then W 14 with the parts following); an apartment block (20x12,
+      6 floors, "With balconies" preset, terrace); a factory (40x25, 9 m, Industrial use and preset,
+      sawtooth roof, a linked copy that followed the height edit to 11 m); a round building (circle
+      r 9, 12 m, Modern preset); an irregular hexagon with an inner courtyard (Polygon, then Courtyard).
+      Each saved and opened again without a validation error and exported to GLB. Found and fixed on the
+      way: the courtyard refused a 17 m irregular plan (its wings now fit the plan's inradius), Bevel and
+      Chamfer shared one Portuguese word, warnings and the building-use message showed in English.
 
 ## Verification (2026-10-13): seconds, not hours
 

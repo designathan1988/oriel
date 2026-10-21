@@ -122,7 +122,7 @@ describe('building use', () => {
     expect(b.levels[0]!.height).toBeCloseTo(8);
     expect(b.solids[0]!.height).toBeCloseTo(8);
     expect(b.solids[1]!.height).toBeCloseTo(13);
-    expect(msg).toMatch(/one floor of 8 m/);
+    expect(msg).toMatch(/One floor of 8 m/);
   });
 });
 

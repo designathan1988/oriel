@@ -545,7 +545,8 @@ export class Editor3 {
     const w = this.shell.warn;
     const uniq = [...new Set(this.warnings)];
     w.classList.toggle('on', uniq.length > 0);
-    const text = uniq.slice(0, 3).join(' · ') + (uniq.length > 3 ? ` (+${uniq.length - 3})` : '');
+    // Each warning in the interface language before they are joined (a joined text matches no pattern).
+    const text = uniq.slice(0, 3).map(tr).join(' · ') + (uniq.length > 3 ? ` (+${uniq.length - 3})` : '');
     if (text === w.textContent) return;
     w.textContent = text;
     // The contextual bar steps aside from the warning (it covered it right after placing a part).

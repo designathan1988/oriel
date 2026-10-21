@@ -1,6 +1,6 @@
 // Quick building tools: floors, top setback, podium,
 // courtyard and facade presets. They operate on the document (no three).
-import type { Building3, BuildingUse, FacadeRule, Level, MaterialRef, RoofKind, Solid } from './schema';
+import type { Building3, BuildingUse, FacadeRule, Level, MaterialRef, RoofKind, Solid, Vec2 } from './schema';
 import { facadeRule, levelsFor, planVertices, roofSpec, solid, uid } from './defaults';
 import { offsetRing, oriented, ringValid, sampleRing, signedArea2 } from './plan';
 import { levelsUpTo } from './modeling';
@@ -173,8 +173,17 @@ export function podiumUnder(b: Building3, s: Solid, grow = 2.5): Solid | null {
 /** Courtyard: a cut in the middle of the volume, set back `margin` from the edges. */
 export function courtyardIn(b: Building3, s: Solid, margin = 6): Solid | null {
   const r = sampleRing(oriented(s.plan.outer, 1));
-  const ring = offsetRing(r.pts, r.pts.map(() => margin));
-  if (!ringValid(ring, 1)) return null;
+  // The wing depth fits the plan (6 m on a big block, less on a smaller or irregular one: before, a 17 m
+  // hexagon said it was too small), down to 3 m wings and a 3 × 3 m courtyard.
+  // The wings take about half of the plan's inradius (2·area / perimeter), at most `margin`.
+  const per = r.pts.reduce((acc, p, i) => acc + Math.hypot(r.pts[(i + 1) % r.pts.length]![0] - p[0], r.pts[(i + 1) % r.pts.length]![1] - p[1]), 0);
+  const inradius = Math.abs(signedArea2(r.pts)) / (per || 1);
+  let ring: Vec2[] | null = null;
+  for (let m = Math.min(margin, Math.max(3, Math.round(inradius * 0.45 * 2) / 2)); m >= 3 - 1e-9 && !ring; m -= 0.5) {
+    const o = offsetRing(r.pts, r.pts.map(() => m));
+    if (ringValid(o, 1) && Math.abs(signedArea2(o)) / 2 >= 9) ring = o;
+  }
+  if (!ring) return null;
   const n = solid({ name: 'Courtyard', op: 'subtract', plan: { outer: planVertices(ring), holes: [] }, base: s.base + (levelsSorted(b)[0]?.height ?? 0) * 0, height: s.height + 2, roof: roofSpec('flat', { parapet: 0 }), plinth: 0 });
   n.base = s.base - 0.5;
   b.solids.push(n);
@@ -315,7 +324,8 @@ export function applyUse(b: Building3, use: BuildingUse, isWindow: (type: string
   }
   // The height follows the floors: the message says so (before, 25 m became 32.58 m without a word).
   const lvTxt = shed ? `one floor of ${+floorsTop.toFixed(2)} m` : lv.length ? `ground ${pr.ground} m, others ${pr.typical} m${Math.abs(h1 - h0) > 0.005 ? `, height ${+h0.toFixed(2)} → ${+h1.toFixed(2)} m` : ''}` : '';
-  return `Use: ${pr.name}. ${[lvTxt, facades ? `facade of ${facades} volume(s) adjusted` : ''].filter(Boolean).join('; ')}. Ctrl+Z undoes.`;
+  // Sentences the dictionary has patterns for (the floors part is translated inside them).
+  return [`Use: ${pr.name}.`, lvTxt ? `${lvTxt[0]!.toUpperCase()}${lvTxt.slice(1)}.` : '', facades ? `Facade of ${facades} volume(s) adjusted.` : '', 'Ctrl+Z undoes.'].filter(Boolean).join(' ');
 }
 
 /** Building styles (the style packs of styles/builtin.ts, as presets for forma/3 volumes). */
