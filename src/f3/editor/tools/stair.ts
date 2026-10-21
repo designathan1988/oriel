@@ -1,6 +1,5 @@
 // Stair tool (after Estúdio de Construção v4): click the foot of the flight, click where it ends (the
-// direction and the run), then move the pointer up or down for the height and click (Enter takes the
-// height shown). The height snaps to a floor of the building when it comes near one; the treads are
+// direction and the run): it climbs to the floor above the foot (its height is the storey's). The treads are
 // spread to fill the run (the stair family's rule: risers ⌈rise / 0.18⌉, the tread between 0.22 and
 // 0.40 m). The flight is a free stair part of the building it is in or next to (families/stairs.ts).
 import * as THREE from 'three';
@@ -56,7 +55,7 @@ export class StairTool {
 
   /** Floor elevations (world) of the building the stair goes in, for the height to snap to. */
   private floors(): number[] {
-    const b = this.h.context() ?? (this.foot ? this.h.ownerAt(this.foot.x, this.foot.z) : undefined);
+    const b = this.foot ? this.h.ownerAt(this.foot.x, this.foot.z) : this.h.context();
     return b ? b.levels.map((l) => l.elevation + (b.elevation ?? 0)) : [];
   }
 
@@ -72,9 +71,11 @@ export class StairTool {
       if (!p || p.distanceTo(this.foot) < 0.6) return this.h.toast('Click farther from the foot: where the flight ends.');
       this.end = p;
       this.y0 = e.clientY;
-      // A first height from the run: a comfortable tread of 0.28 m with risers of 0.175 m.
-      this.height = Math.max(0.3, (p.distanceTo(this.foot) / 0.28) * 0.175);
-      this.draw();
+      // The stair reaches the floor above the foot (ArchiCAD, Revit, Chief Architect: base level to
+      // top level): two clicks and it is done. With no floor above, a storey of 2.8 m.
+      const above = this.floors().filter((f) => f - this.foot!.y > 0.3).sort((x, y) => x - y)[0];
+      this.height = above !== undefined ? above - this.foot.y : 2.8;
+      this.finish();
       return;
     }
     this.finish();
@@ -109,7 +110,7 @@ export class StairTool {
   private finish(): void {
     const foot = this.foot!,
       end = this.end!;
-    const b = this.h.context() ?? this.h.ownerAt(foot.x, foot.z);
+    const b = this.h.ownerAt(foot.x, foot.z);
     const a = toLocal(b, [foot.x, foot.z]),
       c = toLocal(b, [end.x, end.z]);
     const dx = c[0] - a[0],
@@ -126,7 +127,7 @@ export class StairTool {
     };
     const height = this.height;
     this.cancel();
-    this.h.commit(b, item, `Stair: ${fmt(height)} m high, ${fl.risers} risers over ${fmt(fl.risers * fl.going)} m.${fl.fits ? '' : ' The run was too short or too long for comfortable treads: the flight is longer or shorter than the clicks.'}`);
+    this.h.commit(b, item, `Stair: ${fmt(height)} m, ${fl.risers} risers.`);
   }
 
   cancel(): void {
