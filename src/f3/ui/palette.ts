@@ -155,7 +155,14 @@ export function mountPalette(ed: Editor3): void {
     const draw = () => {
       const q = norm(input.value.trim());
       const words = q.split(/\s+/).filter(Boolean);
-      shown = all.filter((c) => words.every((w) => norm(`${c.label} ${c.group} ${tr(c.label)} ${tr(c.group)}`).includes(w))).slice(0, 60);
+      // Names that start with what was typed come first (in either language), then words found anywhere.
+      const starts = (c: (typeof all)[number]) => (q && (norm(tr(c.label)).startsWith(q) || norm(c.label).startsWith(q)) ? 0 : 1);
+      shown = all
+        .filter((c) => words.every((w) => norm(`${c.label} ${c.group} ${tr(c.label)} ${tr(c.group)}`).includes(w)))
+        .map((c, i) => ({ c, i }))
+        .sort((x, y) => starts(x.c) - starts(y.c) || x.i - y.i)
+        .map((x) => x.c)
+        .slice(0, 60);
       cur = Math.min(cur, Math.max(0, shown.length - 1));
       ul.innerHTML = shown.length
         ? shown.map((c, i) => `<li role="option" data-i="${i}" aria-selected="${i === cur}">${icon(c.ic)}<span>${c.label}</span><em>${c.group}</em>${c.key ? `<small><kbd>${c.key}</kbd></small>` : ''}</li>`).join('')
