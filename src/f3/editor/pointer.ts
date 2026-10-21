@@ -232,6 +232,20 @@ export function onDown(ed: Editor3, e: PointerEvent): void {
       }
       return;
     }
+    // Rotate tool on an object (not only on its ring): it turns about its centre, dragged or clicked
+    // and then clicked again or a typed angle (before, it was moved instead, and a typed 30 moved it 30 m).
+    if (ed.tool === 'rotate' && hit) {
+      // The whole object turns (a face or an element selected would carry no ring).
+      if (ed.context === hit.building.id && hit.face?.solid) {
+        if (!(ed.sel.solids.includes(hit.face.solid) && !ed.sel.face && !ed.sel.elems.length && !ed.sel.item)) ed.select({ building: hit.building.id, solids: [hit.face.solid] });
+      } else if (!ed.inSelection(hit, true) || ed.sel.face || ed.sel.elems.length || ed.sel.item) ed.selectBuildings([hit.building.id]);
+      const rh = ed.handles.list.find((x) => x.kind === 'rotate');
+      if (rh) {
+        ed.beginHandle(rh, e);
+        if (ed.drag) ed.drag.data.viaHandle = true;
+      }
+      return;
+    }
     // Ctrl on what is already selected: dragging copies (SketchUp); still, nothing changes.
     const copyGrab = !!hit && (e.ctrlKey || e.metaKey) && !e.shiftKey && ed.inSelection(hit, false);
     // Empty space, or Ctrl/Shift anywhere: selection box; still, it counts as a click on release.

@@ -14,7 +14,7 @@ import { HANDLE_COLORS } from './handles';
 import { buildingPassedThrough } from '../model/compose';
 import { adoptLevels, fillLevels } from '../model/quick';
 import { between } from './elements';
-import { type Measure, type Drag, fmt, arcSample, parseLength, parseFloors, floorsHeight, polyArea, screenDist, cutEdgePoint } from './support';
+import { type Measure, type Drag, fmt, arcSample, parseLength, parseFloors, parseOffset, floorsHeight, polyArea, screenDist, cutEdgePoint } from './support';
 import { parseLengthAngle } from './tools/walls';
 import type { Editor3 } from './editor';
 
@@ -509,6 +509,34 @@ export function cutAt(ed: Editor3, e: PointerEvent, commit: boolean): void {
  * pending measure of the last action, and the digits never switch the selection mode meanwhile.
  */
 export function draftInput(ed: Editor3): Measure | null {
+  // Move or Rotate after a still click (the object follows the cursor): a typed value finishes it, the
+  // distance along the way the cursor went, or the angle (SketchUp: click, point, type, Enter).
+  if (ed.stickyDrag && ed.drag && (ed.tool === 'move' || ed.tool === 'rotate')) {
+    return {
+      label: ed.tool === 'move' ? 'Distance (or dx;dz)' : 'Angle',
+      apply: (t) => {
+        const d = ed.drag!;
+        // The typed value replaces where the cursor took it, and the drag ends there: one history step.
+        if (ed.tool === 'rotate') {
+          const v = parseLength(t);
+          if (v === null) return false;
+          ed.applyRotation(v, d.origBuilding);
+        } else {
+          const off = parseOffset(t);
+          const v = off ? null : parseLength(t);
+          const live = d.data.liveDelta as THREE.Vector3 | undefined;
+          if (off) ed.applyMoveDelta(new THREE.Vector3(off[0], 0, off[1]), false);
+          else if (v !== null && live && live.lengthSq() > 1e-9) ed.applyMoveDelta(live.clone().normalize().multiplyScalar(v), false);
+          else return false;
+        }
+        const at = ed.pointerAt ?? { clientX: 0, clientY: 0 };
+        ed.stickyDrag = false;
+        d.moved = true;
+        ed.finishDrag({ clientX: at.clientX, clientY: at.clientY, shiftKey: false, ctrlKey: false, altKey: false, metaKey: false, button: 0 } as unknown as PointerEvent);
+        return true;
+      },
+    };
+  }
   if (ed.tool === 'walls' && ed.wallsTool.busy)
     return {
       label: 'Length (5 or 5<30°)',

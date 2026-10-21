@@ -625,6 +625,7 @@ export function updateDrag(ed: Editor3, e: PointerEvent): void {
         }
       }
     }
+    d.data.liveDelta = delta.clone();
     ed.applyMoveDelta(delta, false);
     ed.showDim(`${fmt(delta.length())} m`, e);
     return;

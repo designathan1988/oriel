@@ -2,6 +2,7 @@
 import { toolForKey } from './commands';
 import { row } from './elements';
 import { fmt, parseLength } from './support';
+import { tr } from '../ui/i18n';
 import type { Editor3 } from './editor';
 
 export function bindKeys(ed: Editor3): void {
@@ -19,7 +20,7 @@ export function bindKeys(ed: Editor3): void {
       // A drawing in progress takes the value first (the length of its next side), then the last action.
       const m = ed.draftInput() ?? ed.measure;
       const ok = m?.apply(vcb.value) ?? false;
-      if (!ok) ed.toast(`Value not recognized for ${(m?.label ?? 'Size').toLowerCase()}.`);
+      if (!ok) ed.toast(`Value not recognized for ${tr(m?.label ?? 'Size').toLowerCase()}.`);
       ed.shell.status.vcbLabel.textContent = ed.measure?.label ?? 'Size';
       vcb.value = '';
       ed.shell.dim.hidden = true;
