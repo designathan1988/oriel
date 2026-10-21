@@ -485,7 +485,7 @@ function paramInputs(defs: ParamDef[], values: Record<string, unknown>, override
     const over = d.key in overrides;
     // A blue field (overridden on this occurrence) edits the override, not the type; its ↺ gives the
     // field back to the type (one field at a time, like Figma's reset of one instance override).
-    const attr = `data-p="${d.key}" data-scope="${over ? 'instance' : d.scope}"`;
+    const attr = `data-p="${d.key}" data-scope="${over ? 'instance' : d.scope}"${d.min !== undefined ? ` data-min="${d.min}"` : ''}${d.max !== undefined ? ` data-max="${d.max}"` : ''}`;
     const reset = (html: string) => (over ? html.replace(/<\/label>$/, `<button type="button" class="f3-reset" data-reset="${d.key}" title="Back to the type value" aria-label="${d.label}: back to the type value">↺</button></label>`) : html);
     if (d.kind === 'enum') return reset(selectCell(attr, d.label, d.options!.map((o) => [String(o.value), o.label] as const), String(v), glyph, over));
     if (d.kind === 'bool') return reset(selectCell(`${attr} data-bool="1"`, d.label, [['1', 'Yes'], ['0', 'No']], v === true ? '1' : '0', glyph, over));
@@ -851,8 +851,16 @@ function bind(ed: Editor3, b: Building3, s: Solid | undefined): void {
         // A formula of the other parameters ("=width/2"): kept as written, worked out by the family.
         v = el.value.trim();
       } else if (el instanceof HTMLInputElement && el.type !== 'color') {
-        const n = parse(el.value);
+        let n = parse(el.value);
         if (!Number.isFinite(n)) return;
+        // Out of the family's range: kept at the limit, and said so (a 30 m window would be clamped anyway).
+        const lo = el.dataset.min !== undefined ? Number(el.dataset.min) : -Infinity,
+          hi = el.dataset.max !== undefined ? Number(el.dataset.max) : Infinity;
+        if (n < lo || n > hi) {
+          n = Math.min(hi, Math.max(lo, n));
+          el.value = num(n);
+          queueMicrotask(() => ed.toast(`${el.getAttribute('aria-label') ?? k}: from ${num(lo)} to ${num(hi)}.`));
+        }
         v = n;
       }
       if (ed.sel.elems.length && !(ed.activeItem() && ed.sel.elems.length <= 1)) ed.editElemsParam(k, v);

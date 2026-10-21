@@ -3022,6 +3022,7 @@
 "{0}: does not fit level {1} ({2} m in {3} m).": "{0}: não cabe no nível {1} ({2} m em {3} m).",
 "{0}: drag this side (type the value)": "{0}: arraste este lado (digite o valor)",
 "{0}: facade rules wait while the volume is {1}.": "{0}: as regras de fachada aguardam enquanto o volume for {1}.",
+"{0}: from {1} to {2}.": "{0}: de {1} a {2}.",
 "{0}: invalid size \"{1}\".": "{0}: tamanho inválido \"{1}\".",
 "{0}: it fills the buildable area. Edit it like any building.": "{0}: ocupa a área edificável. Edite como qualquer edificação.",
 "{0}: module \"{1}\" not declared.": "{0}: módulo \"{1}\" não declarado.",
