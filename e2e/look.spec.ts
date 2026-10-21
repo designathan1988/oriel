@@ -69,7 +69,7 @@ test('inside finishes: the walls of a floor take a finish of their own; a room f
     const ed = (globalThis as any).forma3;
     const b = ed.project.buildings[0];
     const lv = Object.keys(b.interiors)[0]!;
-    const r = b.interiors[lv].rooms.find((x: any) => /Quarto/.test(x.name));
+    const r = b.interiors[lv].rooms.find((x: any) => /Bedroom/.test(x.name));
     ed.roomSel = { level: lv, room: r.id };
     ed.select({ ...ed.sel });
     return r.finish.finish;
@@ -78,7 +78,7 @@ test('inside finishes: the walls of a floor take a finish of their own; a room f
   await page.locator('[data-isurf="room"] input[data-sf="rot"]').fill('90');
   await page.locator('[data-isurf="room"] input[data-sf="rot"]').press('Enter');
   await settle(page);
-  expect((await inside()).rooms.find((x: any) => /Quarto/.test(x.name)).finish.rot).toBe(90);
+  expect((await inside()).rooms.find((x: any) => /Bedroom/.test(x.name)).finish.rot).toBe(90);
   expect(errors).toEqual([]);
 });
 

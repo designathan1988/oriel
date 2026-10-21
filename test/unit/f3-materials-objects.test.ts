@@ -6,6 +6,7 @@ import { materialKey } from '../../src/f3/render/finishes';
 import { partMaterial } from '../../src/f3/render/parts';
 import { extraKey } from '../../src/geometry/parts';
 import { sameMaterial } from '../../src/f3/model/matlib';
+import { TEMPLATES } from '../../src/f3/io/templates';
 
 const shape = (kind: Shape['kind'], extra: Partial<Shape> = {}): Shape => ({ kind, at: [0, 0.5, 0], size: [1, 1, 1], color: '#888888', ...extra });
 
@@ -80,5 +81,19 @@ describe('objects from shapes', () => {
     expect(k.metalness).toBe(1);
     expect(k.roughness).toBe(0.1);
     expect(k.opacity).toBe(0.4);
+  });
+});
+
+describe('templates in the interface language', () => {
+  it('names the project, buildings and rooms through the translator; the floors follow the room, not its translation', () => {
+    const pt: Record<string, string> = { 'Single-storey house': 'Casa térrea', 'Bedroom 1': 'Quarto 1', Walls: 'Paredes' };
+    const p = TEMPLATES.find((t) => t.id === 'house')!.make((s) => pt[s] ?? s);
+    const b = p.buildings[0]!;
+    expect(p.name).toBe('Casa térrea');
+    expect(b.solids[0]!.name).toBe('Paredes');
+    const rooms = Object.values(b.interiors ?? {})[0]!.rooms;
+    expect(rooms.find((r) => r.name === 'Quarto 1')!.finish!.finish).toBe('wood');
+    // Without a translator: English, and the next template is not left translated.
+    expect(TEMPLATES.find((t) => t.id === 'house')!.make().name).toBe('Single-storey house');
   });
 });

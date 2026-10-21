@@ -210,11 +210,13 @@ export function openTour(ed: Editor3, pub: TourPublish): void {
     const s = spec();
     const made = await pub.autoStops();
     if (!made.length) return ed.toast(tr('Nothing to visit yet: draw a building first.'));
-    s.stops = s.stops.length && !confirm(tr('Replace the stops of the tour with a new tour from the rooms?')) ? [...s.stops, ...made] : made;
+    // No blocking question: the new tour replaces the stops and Ctrl+Z brings the old ones back (one step).
+    const had = s.stops.length > 0;
+    s.stops = made;
     sel = null;
     commit('Tour made from the rooms.');
     drawStops();
-    ed.toast(`${made.length} ${tr('stops: rename them, frame them again or remove them.')}`);
+    ed.toast(`${made.length} ${tr('stops: rename them, frame them again or remove them.')}${had ? ` ${tr('Ctrl+Z brings the previous stops back.')}` : ''}`);
   });
   const stopsBox = $('[data-stops]');
   stopsBox.addEventListener('click', (e) => {

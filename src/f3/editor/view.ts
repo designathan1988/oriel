@@ -209,6 +209,23 @@ export class View {
     loop();
   }
 
+  /**
+   * Quality of the view (Preferences): Light draws at one pixel per CSS pixel with a 2048 shadow map and no
+   * ambient occlusion (integrated GPUs, software rendering); Normal is the default; High goes up to two pixels
+   * per CSS pixel on high-density screens. The photographic render is not affected.
+   */
+  setQuality(q: 'light' | 'normal' | 'high'): void {
+    const dpr = globalThis.devicePixelRatio || 1;
+    const ratio = q === 'light' ? 1 : q === 'high' ? Math.min(dpr, 2) : Math.min(dpr, 1.75);
+    if (this.renderer.getPixelRatio() !== ratio) {
+      this.renderer.setPixelRatio(ratio);
+      this.resize();
+    }
+    this.look.setAO(q !== 'light');
+    this.look.setShadowSize(q === 'light' ? 2048 : 4096);
+    this.mark();
+  }
+
   /** The photographic render running on the canvas (render/pathtrace.ts), or null. */
   photo: PhotoSession | null = null;
 

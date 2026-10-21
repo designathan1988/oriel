@@ -383,6 +383,7 @@ export const CSS = `
 .f3-rule .f3-cell input,.f3-rule .f3-cell select{height:100%;background:transparent;padding:0 4px}
 .f3-rule-body{grid-column:1/-1;margin-top:4px}
 .f3-empty{color:var(--muted);font-size:11.5px;padding:14px 12px;line-height:1.55}
+.f3-sumstats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-bottom:12px}.f3-sumstats>div{display:grid;gap:1px;padding:8px 10px;border-radius:8px;background:var(--field)}.f3-sumstats b{font-size:15px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}.f3-sumstats span{font-size:11px;color:var(--muted)}.f3-summary .f3-btns{gap:5px}.f3-summary .f3-btn{justify-content:flex-start;gap:8px;padding:0 10px}
 .f3-empty b{color:var(--ink)}
 .f3-keys{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center;margin-top:12px}
 /* Layers */
@@ -442,16 +443,18 @@ export const CSS = `
 .f3-versions li div{display:grid;gap:2px;min-width:0}.f3-versions li input{border:0;background:none;color:var(--ink);font-weight:600;min-width:0;padding:2px 0}
 .f3-versions li small{color:var(--muted);font-size:11px}.f3-versions li.empty{color:var(--muted);display:block;border-style:dashed}
 .f3-versions .note{color:var(--faint);font-size:11px;margin:0}
-.f3-modal>.f3-start{width:min(920px,94vw);max-width:none;display:grid;gap:14px;padding:20px 22px}
+.f3-modal>.f3-start{width:min(1040px,94vw);max-width:none;max-height:92vh;overflow:auto;display:grid;gap:14px;padding:20px 22px}
 .f3-start header{display:flex;align-items:center;justify-content:space-between}.f3-start h2{margin:0;font-size:18px}
 .f3-start .f3-x{background:none;border:0;color:var(--muted);font-size:20px;cursor:pointer}
-.f3-start .cols{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:22px}
+.f3-start .cols{display:grid;grid-template-columns:minmax(0,1fr);gap:18px}
 .f3-start h3{margin:0 0 8px;font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
-.f3-start .tpls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.f3-start .tpl{display:grid;grid-template-columns:28px minmax(0,1fr);grid-template-rows:auto auto;column-gap:10px;row-gap:2px;align-items:center;text-align:left;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--field);color:var(--ink);cursor:pointer}
+.f3-start .tpls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.f3-start .tpl{display:grid;grid-template-rows:auto auto 1fr;gap:3px;align-content:start;text-align:left;padding:0 0 10px;border:1px solid var(--line);border-radius:10px;background:var(--field);color:var(--ink);cursor:pointer;overflow:hidden;transition:border-color .12s,transform .12s}.f3-start .tpl:hover{transform:translateY(-1px)}
+.f3-start .tpl .pic{display:grid;place-items:center;aspect-ratio:16/10;background:#dedbd1;margin-bottom:6px;overflow:hidden}.f3-start .tpl .pic img{width:100%;height:100%;object-fit:cover;display:block}.f3-start .tpl[data-tpl=blank] .pic{background:repeating-linear-gradient(0deg,transparent 0 19px,#0000000f 19px 20px),repeating-linear-gradient(90deg,transparent 0 19px,#0000000f 19px 20px),#dedbd1}
 .f3-start .tpl:hover,.f3-start .tpl:focus-visible{border-color:var(--accent);outline:none}
-.f3-start .tpl svg{grid-row:1/3;width:24px;height:24px;fill:none;stroke:var(--accent);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
-.f3-start .tpl b{font-size:13px;font-weight:600}.f3-start .tpl small{color:var(--muted);font-size:11.5px;line-height:1.3}
+.f3-start .tpl .pic svg{width:34px;height:34px;fill:none;stroke:var(--accent);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.f3-start .tpl b{font-size:13px;font-weight:600;padding:0 11px}.f3-start .tpl small{color:var(--muted);font-size:11.5px;line-height:1.3;padding:0 11px}
+@media (max-width:760px){.f3-start .cols{grid-template-columns:minmax(0,1fr)}.f3-start .tpls{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .f3-start .list{list-style:none;margin:0;padding:0;display:grid;gap:4px;max-height:52vh;overflow:auto}
 .f3-start li{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center;padding:6px 8px;border:1px solid var(--line);border-radius:8px}
 .f3-start li.cur{border-color:var(--accent)}

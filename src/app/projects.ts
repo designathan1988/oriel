@@ -8,6 +8,7 @@ import { TEMPLATES } from '../f3/io/templates';
 import { deleteProject, getProject, listProjects, renameProject } from '../f3/io/projects';
 import { migrateForma3 } from '../f3/io/migrate';
 import { icon } from '../f3/ui/icons';
+import { tr } from '../f3/ui/i18n';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const when = (t: number) => new Date(t).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
@@ -27,7 +28,7 @@ export function openStart(ed: Editor3, host: ProjectHost, first = false): void {
   m.innerHTML = `<div class="f3-start" role="dialog" aria-label="Start">
     <header><h2>${first ? 'Welcome' : 'Projects'}</h2>${first ? '' : '<button class="f3-x" data-close aria-label="Close">×</button>'}</header>
     <div class="cols">
-      <section><h3>New project</h3><div class="tpls">${TEMPLATES.map((t) => `<button class="tpl" data-tpl="${t.id}">${icon(t.id === 'blank' ? 'add' : t.id === 'samples' ? 'template' : 'home')}<b>${esc(t.name)}</b><small>${esc(t.note)}</small></button>`).join('')}</div></section>
+      <section><h3>New project</h3><div class="tpls">${TEMPLATES.map((t) => `<button class="tpl" data-tpl="${t.id}"><span class="pic">${t.id === 'blank' ? icon('add') : `<img src="./tpl/${t.id}.webp" alt="" loading="lazy" decoding="async" width="480" height="300">`}</span><b>${esc(tr(t.name))}</b><small>${esc(tr(t.note))}</small></button>`).join('')}</div></section>
       <section><h3>Recent projects</h3><ul class="list"><li class="empty">…</li></ul></section>
     </div>
     <p class="note">Projects are saved automatically in this browser. Use Save (Ctrl+S) to keep a copy in a file.</p></div>`;
@@ -60,7 +61,7 @@ export function openStart(ed: Editor3, host: ProjectHost, first = false): void {
     const tpl = t.closest<HTMLElement>('[data-tpl]');
     if (tpl) {
       const def = TEMPLATES.find((x) => x.id === tpl.dataset.tpl)!;
-      host.open(def.make(), null, `${def.name}: new project.`);
+      host.open(def.make(tr), null, `${tr(def.name)}: new project.`);
       return close(true);
     }
     const li = t.closest<HTMLElement>('li[data-id]');
@@ -94,7 +95,7 @@ export function openStart(ed: Editor3, host: ProjectHost, first = false): void {
     const inp = e.target as HTMLInputElement;
     const li = inp.closest<HTMLElement>('li[data-id]');
     if (inp.dataset.rename === undefined || !li) return;
-    const name = inp.value.trim().slice(0, 80) || 'Untitled project';
+    const name = inp.value.trim().slice(0, 80) || tr('Untitled project');
     if (li.dataset.id === host.currentId()) {
       ed.store.project.name = name;
       ed.shell.name.value = name;

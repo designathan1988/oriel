@@ -27,6 +27,7 @@ import { bindInteriorPanel, interiorPanel } from './interiorpanel';
 import { evalExpr } from '../model/expr';
 import { openCreator } from './creator';
 import { withModifiers } from '../eval/modifiers';
+import { openPhoto } from './photo';
 
 const ROOFS: [RoofKind, string, string][] = [
   ['flat', 'Flat', 'flat'],
@@ -147,7 +148,7 @@ export function mountInspector(ed: Editor3): void {
     const b = ed.activeBuilding();
     const site = !b && (ed.sitePick.lot || ed.sitePick.street);
     const ib = ed.store.building(ed.context) ?? b;
-    const key = JSON.stringify([ed.sel, ed.context, b && ed.store.revision.get(b.id), ed.project.types.length, ed.tool, ed.tool === 'paint' ? ed.paintMat : 0, ed.sitePick, site ? [ed.project.lots, ed.project.streets, ed.project.buildings.length] : 0, ed.iwallSel, ed.roomSel, surfaceToggles.n, ib && (ed.iwallSel || ed.roomSel || ed.tool === 'iwall' || ed.tool === 'room') ? [ed.store.revision.get(ib.id), ed.project.view?.cutLevel, ed.iwallThickness] : 0]);
+    const key = JSON.stringify([ed.sel, ed.context, b && ed.store.revision.get(b.id), ed.project.types.length, ed.tool, ed.tool === 'paint' ? ed.paintMat : 0, ed.sitePick, site ? [ed.project.lots, ed.project.streets, ed.project.buildings.length] : 0, ed.iwallSel, ed.roomSel, surfaceToggles.n, b ? 0 : [...ed.store.revision.values()].join(), ib && (ed.iwallSel || ed.roomSel || ed.tool === 'iwall' || ed.tool === 'room') ? [ed.store.revision.get(ib.id), ed.project.view?.cutLevel, ed.iwallThickness] : 0]);
     // Does not redraw while the user types in a field.
     if (key === lastKey && side.contains(document.activeElement)) return;
     lastKey = key;
@@ -181,7 +182,17 @@ export function mountInspector(ed: Editor3): void {
       return;
     }
     if (!b) {
-      side.innerHTML = emptyHelp();
+      side.innerHTML = emptyHelp(ed.project);
+      side.querySelectorAll<HTMLButtonElement>('[data-next]').forEach((x) =>
+        x.addEventListener('click', () => {
+          const n = x.dataset.next;
+          if (n === 'photo') openPhoto(ed);
+          else if (n === 'tour') ed.tourRequested?.();
+          else if (n === 'qty') ed.quantitiesRequested?.();
+          else if (n === 'export' && !ed.topCommand?.('export')) ed.command('export');
+        }),
+      );
+      polish(side);
       return;
     }
     const s = ed.activeSolid();
@@ -200,9 +211,31 @@ export function mountInspector(ed: Editor3): void {
   draw();
 }
 
-function emptyHelp(): string {
+/** The project at a glance (nothing selected): its size, then what to make of it. */
+function projectSummary(p: Project3): string {
+  if (!p.buildings.length) return '';
+  let gfa = 0,
+    footprint = 0,
+    floors = 0;
+  for (const b of p.buildings) {
+    if (b.hidden) continue;
+    const a = buildingAreas(b);
+    gfa += a.gfa;
+    footprint += a.footprint;
+    floors = Math.max(floors, b.levels.length);
+  }
+  const m2 = (v: number) => `${v.toLocaleString(undefined, { maximumFractionDigits: 0 })} m²`;
+  const stat = (v: string, l: string) => `<div><b>${v}</b><span>${l}</span></div>`;
+  const next = (k: string, ic: string, l: string, t: string) => `<button class="f3-btn" data-next="${k}" title="${t}">${icon(ic)}${l}</button>`;
+  return `<div class="f3-sec f3-summary"><h3>Project</h3>
+    <div class="f3-sumstats">${stat(String(p.buildings.length), 'buildings')}${stat(String(floors), 'floors (tallest)')}${stat(m2(footprint), 'footprint')}${stat(m2(gfa), 'floor area')}</div>
+    <h3>Next steps</h3>
+    <div class="f3-btns n1">${next('photo', 'camera', 'Photorealistic render', 'A picture of the view, path traced: sun, sky, glass and bounced light')}${next('tour', 'walk', 'Virtual tour to share', 'A site to walk through the project, with a link for the client')}${next('export', 'export', 'Drawings, BIM and 3D', 'Plans and section (PDF, DXF), IFC, GLB and more')}${next('qty', 'tape', 'Quantities and cost', 'Areas, materials and an estimate of the cost')}</div></div>`;
+}
+
+function emptyHelp(p: Project3): string {
   const k = (keys: string, what: string) => `<span>${keys.split(' ').map((x) => `<kbd>${x}</kbd>`).join(' ')}</span><span>${what}</span>`;
-  return `<div class="f3-empty"><b>Nothing selected</b>
+  return `${projectSummary(p)}<div class="f3-empty"><b>Nothing selected</b>
   <div class="f3-keys">${k('R C L', 'Draw on the ground or on a slab')}${k('K', 'Library of blocks and components')}${k('V', 'Select; double click enters')}${k('P', 'Push faces (Ctrl extrudes)')}${k('Ctrl K', 'Search any command')}${k('?', 'All shortcuts')}</div></div>`;
 }
 

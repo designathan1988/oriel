@@ -61,7 +61,7 @@ try {
 // The first visit opens on the start screen: nothing is built behind it (the eleven samples took the main
 // thread for seconds while the visitor chose a template, and the click on it waited for them).
 const welcome = firstVisit && !(globalThis as { __orielNoStart?: boolean }).__orielNoStart;
-initial ??= welcome ? project({ name: 'Projeto sem título' }) : project({ name: 'Samples', buildings: sampleBuildings() });
+initial ??= welcome ? project({ name: tr('Untitled project') }) : project({ name: tr('Samples'), buildings: sampleBuildings() });
 currentId ??= newProjectId();
 const editor = new Editor3(document.getElementById('app')!, { project: initial });
 mountInspector(editor);

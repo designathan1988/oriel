@@ -17,7 +17,7 @@ describe('virtual tour', () => {
     p.buildings[0]!.position = [10, -4];
     p.buildings[0]!.rotation = 90;
     const { rooms, plans } = tourRooms(p);
-    expect(rooms.map((r) => r.name).sort()).toEqual(['Banheiro', 'Circulação', 'Quarto 1', 'Quarto 2', 'Sala e cozinha']);
+    expect(rooms.map((r) => r.name).sort()).toEqual(['Bathroom', 'Bedroom 1', 'Bedroom 2', 'Hall', 'Living and kitchen']);
     expect(plans).toHaveLength(1);
     // Turned 90°, a point of the plan (x, z) goes to (z, −x) and then by the position.
     const m = buildingToWorld(p.buildings[0]!);
@@ -36,7 +36,7 @@ describe('virtual tour', () => {
     let n = 0;
     const stops = autoStops(p, () => `s${n++}`);
     expect(stops.length).toBe(3 + 5);
-    expect(stops.filter((s) => s.walk).map((s) => s.name)).toContain('Quarto 1');
+    expect(stops.filter((s) => s.walk).map((s) => s.name)).toContain('Bedroom 1');
     // The project with its stops is still a valid document (the file opens again).
     p.tour = { stops, hotspots: [{ id: 'h', title: 'Cozinha planejada', text: 'Cooktop e aéreos', at: [0, 1, 0] }] };
     expect(validateForma3(JSON.parse(JSON.stringify(p)))).toEqual([]);
@@ -93,7 +93,7 @@ describe('virtual tour', () => {
     const ev = evaluateBuilding(b, {}, p);
     expect(ev.warnings).toEqual([]);
     const { rooms } = tourRooms(p);
-    expect(rooms.map((r) => r.name).sort()).toEqual(['Banheiro', 'Circulação', 'Cozinha', 'Lavabo e serviço', 'Quarto 1', 'Quarto 2', 'Sala']);
+    expect(rooms.map((r) => r.name).sort()).toEqual(['Bathroom', 'Bedroom 1', 'Bedroom 2', 'Hall', 'Kitchen', 'Lavatory and laundry', 'Living room']);
     expect(new Set(rooms.map((r) => r.floor.toFixed(2)))).toEqual(new Set(['0.25', '3.15']));
     const d = tourData(p, new Uint8Array([1, 2, 3]));
     expect(d.stairs).toHaveLength(1);

@@ -56,7 +56,7 @@ describe('IFC4 export', () => {
     expect(ids.size()).toBe(5);
     const names: string[] = [];
     for (let i = 0; i < ids.size(); i++) names.push(api.GetLine(id, ids.get(i)).LongName.value);
-    expect(names.sort()).toEqual(['Banheiro', 'Circulação', 'Quarto 1', 'Quarto 2', 'Sala e cozinha']);
+    expect(names.sort()).toEqual(['Bathroom', 'Bedroom 1', 'Bedroom 2', 'Hall', 'Living and kitchen']);
     const areas = api.GetLineIDsWithType(id, WebIFC.IFCQUANTITYAREA);
     let total = 0;
     for (let i = 0; i < areas.size(); i++) total += api.GetLine(id, areas.get(i)).AreaValue.value;

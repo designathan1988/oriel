@@ -62,6 +62,8 @@ export interface Look {
   setOutline(objects: THREE.Object3D[]): void;
   render(): void;
   setAO(on: boolean): void;
+  /** Size of the sun's shadow map (texels a side): sharper and costlier as it grows. */
+  setShadowSize(n: number): void;
   /** Region where ambient occlusion acts (the buildings plus a margin); outside it, none (far ground and horizon stay clean). */
   setAOBox(box: THREE.Box3 | null): void;
   /**
@@ -313,6 +315,14 @@ export function createLook(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
     },
     setAO(on) {
       gtao.enabled = on;
+    },
+    setShadowSize(n) {
+      if (sun.shadow.mapSize.x === n) return;
+      sun.shadow.mapSize.set(n, n);
+      // A new map at the new size on the next shadow pass (three.js makes it when the map is null).
+      sun.shadow.map?.dispose();
+      sun.shadow.map = null;
+      renderer.shadowMap.needsUpdate = true;
     },
     setAOBox(box) {
       gtao.setSceneClipBox(box as THREE.Box3); // null turns the clip off (GTAOPass.setSceneClipBox)

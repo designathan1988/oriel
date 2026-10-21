@@ -52,14 +52,14 @@ test('tour: make, publish, open, walk, share', async ({ page, context }, info) =
   tour.on('pageerror', (e) => errors.push(e.message));
   await tour.goto('file://' + sitePath);
   await tour.waitForFunction(() => (window as any).__tourReady, null, { timeout: 120_000 });
-  await expect(tour.locator('.title h1')).toHaveText('Casa térrea');
+  await expect(tour.locator('.title h1')).toHaveText('Single-storey house');
   await expect(tour.locator('.title p')).toContainText('Studio Test');
   await expect(tour.locator('.hot')).toHaveCount(1);
   const state = () => tour.evaluate(() => (window as any).__tour.state);
 
   // A room from the list: walking, inside the house, on its floor.
   await tour.locator('.tools [data-k="rooms"]').click();
-  await tour.locator('.side .room', { hasText: 'Quarto 1' }).click();
+  await tour.locator('.side .room', { hasText: 'Bedroom 1' }).click();
   await tour.waitForFunction(() => !(window as any).__tour.state.flying && (window as any).__tour.state.mode === 'walk');
   const w0 = (await state()).walker;
   expect(Math.abs(w0.x)).toBeLessThan(6);

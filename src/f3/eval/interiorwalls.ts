@@ -252,7 +252,8 @@ function wallPrism(mb: MeshBuilder, a: Vec2, c: Vec2, thickness: number, y0: num
 
 /**
  * Interior walls of every level as one mesh, or null when the building has none. `hidden`
- * drops a level (a floor switched off in the view).
+ * drops a level (a floor switched off in the view). The room floors lie on the slab, or on the
+ * bottom of a hollow volume (shell) standing on that level: its own thickness, not a slab's.
  */
 export function interiorWallMeshes(b: Building3, table: FaceTable, opts: { hidden?: (levelId: ID) => boolean } = {}): MeshBuilder | null {
   const mb = new MeshBuilder();
@@ -265,7 +266,7 @@ export function interiorWallMeshes(b: Building3, table: FaceTable, opts: { hidde
       if (!r.finish || !r.polygon || r.polygon.length < 3) continue;
       const rf = table.add({ kind: 'floor', solid: `room:${level.id}:${r.id}` });
       const ring = area2(r.polygon) > 0 ? r.polygon : [...r.polygon].reverse();
-      const y0 = level.elevation + SLAB;
+      const y0 = floorTop(b, level.elevation);
       heightPrism(mb, ring, [], [], () => y0 + 0.01, y0, { top: () => rf, bottom: rf, side: () => rf });
     }
     if (!it.walls.length) continue;
@@ -282,6 +283,12 @@ export function interiorWallMeshes(b: Building3, table: FaceTable, opts: { hidde
     }
   }
   return mb.empty ? null : mb;
+}
+
+/** Top of the floor of a level: the bottom of a hollow volume based there, else the slab. */
+function floorTop(b: Building3, elevation: number): number {
+  for (const s of b.solids) if (s.op === 'add' && !s.hidden && (s.shell ?? 0) > 0 && Math.abs(s.base - elevation) < 0.01) return s.base + s.shell!;
+  return elevation + SLAB;
 }
 
 /** Signed area of a plan ring (positive counterclockwise, in the plan's own sense). */

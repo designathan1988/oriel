@@ -17,7 +17,7 @@ describe('floor plan', () => {
     const fp = floorPlan(b, 0, ev.placements);
     expect(fp.walls.length).toBeGreaterThan(0);
     const names = fp.rooms.map((r) => r.name).filter(Boolean).sort();
-    expect(names).toEqual(['Banheiro', 'Circulação', 'Quarto 1', 'Quarto 2', 'Sala e cozinha']);
+    expect(names).toEqual(['Bathroom', 'Bedroom 1', 'Bedroom 2', 'Hall', 'Living and kitchen']);
     const total = fp.rooms.reduce((s, r) => s + r.area, 0);
     // 12 × 9 outside, 15 cm walls: under the inner area, over 90 % of it.
     expect(total).toBeLessThan(11.7 * 8.7);
@@ -44,7 +44,7 @@ describe('floor plan', () => {
     }
     expect(fp.doors.length).toBeGreaterThanOrEqual(5);
     const { svg } = floorPlanSvg(fp, { title: 'Planta', decimal: ',' });
-    expect(svg).toContain('Quarto 1');
+    expect(svg).toContain('Bedroom 1');
     expect(svg).toContain('12,00');
   });
 });
@@ -92,6 +92,7 @@ describe('code check', () => {
     expect(roomUse('Suíte master')).toBe('bedroom');
     expect(roomUse('Lavabo')).toBe('bath');
     expect(roomUse('Sala e cozinha')).toBe('living');
+    expect(roomUse('Lavatory and laundry')).toBe('bath');
     const p = TEMPLATES.find((t) => t.id === 'house')!.make();
     const b = p.buildings[0]!;
     const ev = evaluateBuilding(b, {}, p);
@@ -100,7 +101,7 @@ describe('code check', () => {
     // Without the facade windows the bedrooms have none.
     const bare = floorPlan(b, 0, []);
     const fails = checkFloor(b, bare).filter((c) => !c.ok);
-    expect(fails.some((c) => c.rule === 'window' && c.room.name === 'Quarto 1')).toBe(true);
+    expect(fails.some((c) => c.rule === 'window' && c.room.name === 'Bedroom 1')).toBe(true);
   });
 });
 

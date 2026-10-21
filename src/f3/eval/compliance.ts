@@ -27,7 +27,7 @@ const USES: [RoomUse, RegExp][] = [
   ['bedroom', /\b(quarto|dormit|su[ií]te|bedroom|master)/i],
   ['living', /\b(sala|estar|jantar|living|dining|lounge|escrit[oó]rio|office|home)/i],
   ['kitchen', /\b(cozinha|kitchen|copa)/i],
-  ['bath', /\b(banheiro|lavabo|wc|sanit|bath|toilet)/i],
+  ['bath', /\b(banheiro|lavabo|wc|sanit|bath|toilet|lavatory)/i],
   ['laundry', /\b(servi[cç]o|lavanderia|laundry|utility)/i],
   ['hall', /\b(corredor|circula|hall|entrada|despensa|closet|dep[oó]sito|storage)/i],
 ];
