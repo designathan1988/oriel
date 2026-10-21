@@ -743,6 +743,7 @@
 "Door color": "Cor da porta",
 "Door deleted.": "Porta excluída.",
 "Door height": "Altura da porta",
+"Door in bay (0: none)": "Porta no vão (0: nenhuma)",
 "Door type": "Tipo de porta",
 "Door width": "Largura da porta",
 "Door {0}": "Porta {0}",

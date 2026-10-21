@@ -190,7 +190,7 @@ Backlog (P1 first):
       double wall); thickness = their sum; layer lines in the floor plan (SVG, PDF, DXF A-WALL-PATT).
       Layers in the section too (io/sectionsvg.ts, only where the wall is cut solid).
 - [x] P1 Curtain wall per face (families/curtainwall.ts: U/V grids at most a spacing apart, border and interior
-      mullions, glass panels, opaque band at each floor; selected side → Curtain wall). [ ] Door panels.
+      mullions, glass panels, opaque band at each floor; selected side → Curtain wall). Door panel in a bay of the ground row (doorBay).
 - [x] P1 Shafts and atria: a cutter drawn inside a building opens every slab it crosses, and the floor
       areas leave it out (model/lots.ts levelAreas). Slabs per level: Slab tool (outline, thickness).
       [ ] Holes and cantilevers edited on a slab of its own.
