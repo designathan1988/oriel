@@ -18,7 +18,8 @@ import { loadLang, tr } from './i18n';
 const CSS = `
 .f3-plan{position:absolute;inset:0;z-index:12;display:flex;flex-direction:column;background:#f4f2ec;color:#1e2024}
 .f3-plan[hidden]{display:none}
-.f3-plan .bar{display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--panel-solid);border-bottom:1px solid var(--line);color:var(--ink);flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;min-height:49px}
+.f3-plan .bar{display:flex;align-items:center;gap:6px;padding:8px 10px;white-space:nowrap;background:var(--panel-solid);border-bottom:1px solid var(--line);color:var(--ink);flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;min-height:49px}
+.f3-plan .bar>*{flex-shrink:0}
 .f3-plan .bar b{font-size:12.5px;font-weight:600;margin-right:6px}
 .f3-plan .bar select{height:28px;background:var(--field);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:0 6px;max-width:180px}
 .f3-plan .lv{display:flex;gap:2px;background:var(--field);border-radius:7px;padding:2px}
@@ -78,10 +79,10 @@ export function mountPlanView(ed: Editor3): PlanView {
       </div>
       <div class="popts" data-opts></div>
       <span class="sp"></span>
-      <button class="f3-btn" data-check aria-pressed="false" title="Check the rooms against a building code: window area for light, ceiling height">${icon('star')}<span>Code check</span></button>
-      <button class="f3-btn" data-fit title="Fit the drawing">${icon('focus')}<span>Fit</span></button>
-      <button class="f3-btn" data-svg title="Download the plan as SVG (opens in any drawing program)">${icon('export')}<span>SVG</span></button>
-      <button class="f3-btn" data-3d title="Back to the 3D view · F3">${icon('cube')}<span>3D view</span></button>
+      <button class="f3-btn" data-check aria-pressed="false" title="Code check" aria-label="Code check">${icon('star')}</button>
+      <button class="f3-btn" data-fit title="Fit" aria-label="Fit">${icon('focus')}</button>
+      <button class="f3-btn" data-svg title="Download SVG" aria-label="Download SVG">${icon('export')}</button>
+      <button class="f3-btn" data-3d title="3D view · F3" aria-label="3D view">${icon('cube')}</button>
     </div>
     <div class="paper"><div class="empty" hidden></div><div class="hint"></div><div class="checks" hidden></div></div>`;
   ed.shell.view.appendChild(el);

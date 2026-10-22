@@ -3373,5 +3373,7 @@
 "{0} m · {1} floor · same height as {2}": "{0} m · {1} pavimento · mesma altura que {2}",
 "{0} m · {1} floors · same height as {2}": "{0} m · {1} pavimentos · mesma altura que {2}",
 "{0} m · {1} floor": "{0} m · {1} pavimento",
-"{0} m · {1} floors": "{0} m · {1} pavimentos"
+"{0} m · {1} floors": "{0} m · {1} pavimentos",
+"Download SVG": "Baixar SVG",
+"3D view · F3": "Vista 3D · F3"
 }
