@@ -232,11 +232,35 @@ export function followWalls(b: Building3, orig: { solids: Solid[] }): void {
       }
   }
   if (!moved.length) return;
+  // The lines of the moved walls before and after: an end on the middle of one (a T) stays on it (Revit).
+  const hosts = b.solids.flatMap((s) => {
+    const o = ids.has(s.id) ? orig.solids.find((q) => q.id === s.id) : undefined;
+    const a0 = o ? wallAxisOf(o) : null;
+    return a0 && s.wallAxis ? [{ a0, a1: s.wallAxis }] : [];
+  });
+  const onHost = (q: Vec2): Vec2 | null => {
+    for (const { a0, a1 } of hosts) {
+      const v: Vec2 = [a0[1][0] - a0[0][0], a0[1][1] - a0[0][1]];
+      const L2 = v[0] * v[0] + v[1] * v[1];
+      if (L2 < 1e-9) continue;
+      const t = ((q[0] - a0[0][0]) * v[0] + (q[1] - a0[0][1]) * v[1]) / L2;
+      const L = Math.sqrt(L2);
+      if (t * L < 0.02 || (1 - t) * L < 0.02) continue;
+      if (Math.hypot(a0[0][0] + v[0] * t - q[0], a0[0][1] + v[1] * t - q[1]) > 0.02) continue;
+      // Onto the moved line, square to it (a host slid along itself leaves the end where it was).
+      const w: Vec2 = [a1[1][0] - a1[0][0], a1[1][1] - a1[0][1]];
+      const W2 = w[0] * w[0] + w[1] * w[1];
+      if (W2 < 1e-9) continue;
+      const u = Math.max(0, Math.min(1, ((q[0] - a1[0][0]) * w[0] + (q[1] - a1[0][1]) * w[1]) / W2));
+      return [a1[0][0] + w[0] * u, a1[0][1] + w[1] * u];
+    }
+    return null;
+  };
   for (const s of b.solids) {
     if (ids.has(s.id) || !s.wallAxis) continue;
     s.wallAxis = s.wallAxis.map((q) => {
       const m = moved.find(([from]) => Math.hypot(from[0] - q[0], from[1] - q[1]) < 0.02);
-      return m ? [m[1][0], m[1][1]] : q;
+      return m ? [m[1][0], m[1][1]] : (onHost(q) ?? q);
     }) as [Vec2, Vec2];
   }
   joinWalls(b);
