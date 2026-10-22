@@ -168,3 +168,121 @@ export function joinOutlines(walls: JoinWall[]): Map<string, WallOutline> {
   }
   return out;
 }
+
+/**
+ * The room the walls close around a point (Revit's room-bounding walls; the method of planar-dual and
+ * planar-face-discovery): the centre lines are split where they meet or cross (a T, an X), the faces of that
+ * planar graph are walked, and the smallest one around the point is the room, its sides moved in by half
+ * the thickness of each wall (the room ends at the wall faces). Null when no walls close around it.
+ */
+export function enclosureAt(walls: JoinWall[], at: Vec2): { polygon: Vec2[]; wallIds: string[] } | null {
+  // Points along each wall where it is split: its ends, other walls' ends on it, crossings.
+  const cuts = new Map<string, Vec2[]>(walls.map((w) => [w.id, [w.a, w.b]]));
+  const onSeg = (w: JoinWall, p: Vec2) => {
+    const v: Vec2 = [w.b[0] - w.a[0], w.b[1] - w.a[1]];
+    const L2 = v[0] * v[0] + v[1] * v[1];
+    if (L2 < 1e-12) return false;
+    const t = ((p[0] - w.a[0]) * v[0] + (p[1] - w.a[1]) * v[1]) / L2;
+    if (t <= 0 || t >= 1) return false;
+    return Math.hypot(w.a[0] + v[0] * t - p[0], w.a[1] + v[1] * t - p[1]) < TOL;
+  };
+  for (const w of walls)
+    for (const o of walls) {
+      if (o === w) continue;
+      for (const p of [o.a, o.b]) if (onSeg(w, p)) cuts.get(w.id)!.push(p);
+      // A proper crossing of the two lines.
+      const r: Vec2 = [w.b[0] - w.a[0], w.b[1] - w.a[1]],
+        s: Vec2 = [o.b[0] - o.a[0], o.b[1] - o.a[1]];
+      const den = r[0] * s[1] - r[1] * s[0];
+      if (Math.abs(den) < 1e-9) continue;
+      const t = ((o.a[0] - w.a[0]) * s[1] - (o.a[1] - w.a[1]) * s[0]) / den,
+        u = ((o.a[0] - w.a[0]) * r[1] - (o.a[1] - w.a[1]) * r[0]) / den;
+      if (t > 1e-6 && t < 1 - 1e-6 && u > 1e-6 && u < 1 - 1e-6) cuts.get(w.id)!.push([w.a[0] + r[0] * t, w.a[1] + r[1] * t]);
+    }
+  // Nodes (points within TOL are one) and the pieces between them.
+  const nodes: Vec2[] = [];
+  const node = (p: Vec2) => {
+    const i = nodes.findIndex((q) => Math.hypot(q[0] - p[0], q[1] - p[1]) < TOL);
+    return i >= 0 ? i : nodes.push([p[0], p[1]]) - 1;
+  };
+  const adj = new Map<number, { to: number; wall: JoinWall; ang: number }[]>();
+  for (const w of walls) {
+    const v: Vec2 = [w.b[0] - w.a[0], w.b[1] - w.a[1]];
+    const L2 = v[0] * v[0] + v[1] * v[1] || 1;
+    const ts = cuts.get(w.id)!.map((p) => ({ t: ((p[0] - w.a[0]) * v[0] + (p[1] - w.a[1]) * v[1]) / L2, n: node(p) })).sort((p, q) => p.t - q.t);
+    for (let i = 0; i + 1 < ts.length; i++) {
+      const u = ts[i]!.n,
+        x = ts[i + 1]!.n;
+      if (u === x || adj.get(u)?.some((e) => e.to === x)) continue;
+      const pu = nodes[u]!,
+        px = nodes[x]!;
+      (adj.get(u) ?? adj.set(u, []).get(u)!).push({ to: x, wall: w, ang: Math.atan2(px[1] - pu[1], px[0] - pu[0]) });
+      (adj.get(x) ?? adj.set(x, []).get(x)!).push({ to: u, wall: w, ang: Math.atan2(pu[1] - px[1], pu[0] - px[0]) });
+    }
+  }
+  for (const l of adj.values()) l.sort((p, q) => p.ang - q.ang);
+  const area2 = (P: Vec2[]) => P.reduce((s, p, i) => s + p[0] * P[(i + 1) % P.length]![1] - P[(i + 1) % P.length]![0] * p[1], 0) / 2;
+  const inPoly = (p: Vec2, P: Vec2[]) => {
+    let c = false;
+    for (let i = 0, j = P.length - 1; i < P.length; j = i++) {
+      const a = P[i]!,
+        b = P[j]!;
+      if (a[1] > p[1] !== b[1] > p[1] && p[0] < ((b[0] - a[0]) * (p[1] - a[1])) / (b[1] - a[1]) + a[0]) c = !c;
+    }
+    return c;
+  };
+  // Walk every face: arrive at a node, leave by the edge just before the way back (the next one clockwise).
+  const seen = new Set<string>();
+  let best: { poly: number[]; ws: JoinWall[]; area: number } | null = null;
+  for (const [from, list] of adj)
+    for (const e0 of list) {
+      if (seen.has(`${from}>${e0.to}`)) continue;
+      const poly: number[] = [];
+      const ws: JoinWall[] = [];
+      let u = from,
+        e = e0,
+        ok = false;
+      for (let step = 0; step < 1000; step++) {
+        seen.add(`${u}>${e.to}`);
+        poly.push(u);
+        ws.push(e.wall);
+        const v = e.to;
+        const out = adj.get(v)!;
+        const back = out.findIndex((q) => q.to === u);
+        u = v;
+        e = out[(back - 1 + out.length) % out.length]!;
+        if (u === from && e.to === e0.to) {
+          ok = true;
+          break;
+        }
+      }
+      if (!ok || poly.length < 3) continue;
+      const P = poly.map((i) => nodes[i]!);
+      const A = area2(P);
+      if (A <= 1e-6 || !inPoly(at, P)) continue;
+      if (!best || A < best.area) best = { poly, ws, area: A };
+    }
+  if (!best) return null;
+  // Each side moved in by half its wall's thickness; corners where the moved sides meet.
+  const P = best.poly.map((i) => nodes[i]!);
+  const n = P.length;
+  const lines = P.map((p, i) => {
+    const q = P[(i + 1) % n]!;
+    const L = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1;
+    const d: Vec2 = [(q[0] - p[0]) / L, (q[1] - p[1]) / L];
+    // Inward for a positive-area ring: the left of each side.
+    const nIn: Vec2 = [-d[1], d[0]];
+    const h = best!.ws[i]!.half;
+    return { p: [p[0] + nIn[0] * h, p[1] + nIn[1] * h] as Vec2, d, nIn, h };
+  });
+  const polygon: Vec2[] = P.map((p, i) => {
+    const l0 = lines[(i - 1 + n) % n]!,
+      l1 = lines[i]!;
+    const den = l0.d[0] * l1.d[1] - l0.d[1] * l1.d[0];
+    if (Math.abs(den) < 1e-9) return [p[0] + l1.nIn[0] * l1.h, p[1] + l1.nIn[1] * l1.h];
+    const t = ((l1.p[0] - l0.p[0]) * l1.d[1] - (l1.p[1] - l0.p[1]) * l1.d[0]) / den;
+    return [l0.p[0] + l0.d[0] * t, l0.p[1] + l0.d[1] * t];
+  });
+  if (area2(polygon) <= 1e-6) return null;
+  return { polygon, wallIds: [...new Set(best.ws.map((w) => w.id))] };
+}

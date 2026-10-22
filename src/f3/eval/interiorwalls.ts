@@ -8,6 +8,20 @@ import type { Building3, ID, Interior, Vec2 } from '../model/schema';
 import type { FaceTable } from './faces';
 import { heightPrism, MeshBuilder, prismMesh } from './mesh';
 import { offsetRing, ringValid, sampleRing, signedArea2 } from '../model/plan';
+import { enclosureAt, type JoinWall } from '../model/walljoins';
+
+/** The drawn walls (Walls tool) standing on a floor of a building, as lines with half their thickness. */
+export function drawnWallsOn(b: Building3, elevation: number): JoinWall[] {
+  return b.solids.flatMap((s) =>
+    s.wallAxis && !s.hidden && s.base <= elevation + 0.1 && s.base + s.height > elevation + 0.5 ? [{ id: s.id, a: s.wallAxis[0], b: s.wallAxis[1], half: (s.wallThickness ?? 0.2) / 2 }] : [],
+  );
+}
+
+/** The room the drawn walls of a floor close around a point (model/walljoins.ts enclosureAt). */
+export function drawnWallRoomAt(b: Building3, elevation: number, at: Vec2): { polygon: Vec2[]; wallIds: ID[] } | null {
+  const ws = drawnWallsOn(b, elevation);
+  return ws.length >= 3 ? enclosureAt(ws, at) : null;
+}
 
 /** Slab thickness (m): the wall stops under the slab of the level above (eval/interior.ts). */
 const SLAB = 0.25;
@@ -643,7 +657,9 @@ export function refreshRooms(b: Building3): void {
       if (!poly || poly.length < 3) continue;
       const at = interiorPointOf(poly);
       if (!at) continue;
-      const loop = loopAround(it, at, inner);
+      // A room closed by drawn walls is found again from them.
+      const drawn = room.wallIds.some((id) => b.solids.some((s) => s.id === id && s.wallAxis));
+      const loop = drawn ? drawnWallRoomAt(b, lv.elevation, at) : loopAround(it, at, inner);
       if (!loop) continue;
       const area = Math.round(roomArea(loop.polygon) * 100) / 100;
       if (room.area === area && sameRing(room.polygon!, loop.polygon)) continue;

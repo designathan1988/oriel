@@ -273,7 +273,10 @@ export function floorPlan(b: Building3, levelIndex: number, placements: readonly
     }
     if (iw.length) walls = keep(walls.add(keep(new k.CrossSection(iw, 'Positive'))));
     // Free floor (before the openings are cut: a door does not join two rooms).
-    const floor = iw.length ? keep(inner.subtract(keep(new k.CrossSection(iw, 'Positive')))) : inner;
+    let floor = iw.length ? keep(inner.subtract(keep(new k.CrossSection(iw, 'Positive')))) : inner;
+    // Rooms closed by walls drawn with the Walls tool (no hollow volume around them): their outline is free floor.
+    const drawnRooms = (it?.rooms ?? []).filter((r) => r.polygon && r.polygon.length >= 3 && r.wallIds.some((id) => b.solids.some((s) => s.id === id && s.wallAxis)));
+    if (drawnRooms.length) floor = keep(keep(floor.add(keep(new k.CrossSection(drawnRooms.map((r) => r.polygon!.map((p) => [p[0], p[1]] as [number, number])), 'Positive')))).subtract(walls));
 
     // Openings on the facades of this floor.
     const gaps: [number, number][][] = [];

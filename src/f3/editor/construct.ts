@@ -7,7 +7,7 @@ import { tr } from '../ui/i18n';
 import { addInteriorWall, interiorDoors, type InteriorWithDoors } from '../eval/interiorwalls';
 import { offsetRing, ringValid, sampleRing, signedArea2 } from '../model/plan';
 import { type Handle } from './handles';
-import { addRoomRect, interiorOf, loopAround, roomArea } from '../eval/interiorwalls';
+import { addRoomRect, drawnWallRoomAt, interiorOf, loopAround, roomArea } from '../eval/interiorwalls';
 import { fillLevels } from '../model/quick';
 import { column, grow } from './elements';
 import { type Drag, fmt, parseLength, parseFloors } from './support';
@@ -947,6 +947,27 @@ export function roomGroundMove(ed: Editor3, e: PointerEvent): void {
   ed.showDim(`${fmt(Math.abs(c[0] - a[0]))} × ${fmt(Math.abs(c[1] - a[1]))} m`, e);
 }
 
+/** The room closed by drawn walls around a ground point (world), added to their building; false when none. */
+export function roomInDrawnWalls(ed: Editor3, w: Vec2): boolean {
+  for (const b of ed.project.buildings) {
+    if (buildingHidden(ed.project, b) || buildingLocked(ed.project, b) || !b.solids.some((s) => s.wallAxis)) continue;
+    const lv = [...b.levels].sort((p, q) => p.elevation - q.elevation)[0];
+    if (!lv) continue;
+    const loop = drawnWallRoomAt(b, lv.elevation, toLocal(b, w));
+    if (!loop) continue;
+    const n = Object.values(b.interiors).reduce((k, it) => k + it.rooms.length, 0) + 1;
+    const id = uid();
+    const area = Math.round(roomArea(loop.polygon) * 100) / 100;
+    ed.change(b.id, (x) => void interiorOf(x, lv.id).rooms.push({ id, name: tr(`Room ${n}`), wallIds: loop.wallIds, polygon: loop.polygon, area }), `Room ${n}: ${fmt(area)} m².`);
+    ed.context = b.id;
+    ed.roomSel = { level: lv.id, room: id };
+    ed.iwallSel = null;
+    ed.emit();
+    return true;
+  }
+  return false;
+}
+
 /** A room dragged on open ground: walls around it (their inner faces on the rectangle) and the room. */
 export function roomGroundUp(ed: Editor3, e: PointerEvent): void {
   const a = ed.roomGround!;
@@ -956,7 +977,12 @@ export function roomGroundUp(ed: Editor3, e: PointerEvent): void {
   if (o) ed.snapOverlay.remove(o);
   const c = ed.groundPoint(e);
   if (!c) return;
-  if (Math.abs(c[0] - a[0]) < 0.8 || Math.abs(c[1] - a[1]) < 0.8) return ed.toast('Drag a larger rectangle for the room.');
+  // A click (no drag) inside walls drawn with the Walls tool: the room they close.
+  if (Math.abs(c[0] - a[0]) < 0.8 || Math.abs(c[1] - a[1]) < 0.8) {
+    const g = ed.view.onPlane(e, 0);
+    if (g && roomInDrawnWalls(ed, [g.x, g.z])) return;
+    return ed.toast('Drag a larger rectangle for the room, or click inside closed walls.');
+  }
   const t = ed.wallThickness;
   const x0 = Math.min(a[0], c[0]) - t / 2,
     x1 = Math.max(a[0], c[0]) + t / 2,
@@ -977,7 +1003,7 @@ export function roomGroundUp(ed: Editor3, e: PointerEvent): void {
 export function roomMove(ed: Editor3, e: PointerEvent): void {
   if (ed.roomGround) return ed.roomGroundMove(e);
   const at = ed.levelPoint(e);
-  if (!at) return ed.showDim('Drag a rectangle: a room with its walls', e);
+  if (!at) return ed.showDim('Click inside walls, or drag a rectangle', e);
   const o = ed.snapOverlay.getObjectByName('room-draft');
   if (o) {
     ed.snapOverlay.remove(o);
