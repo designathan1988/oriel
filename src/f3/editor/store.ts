@@ -3,6 +3,7 @@
 import type { Building3, ID, Project3 } from '../model/schema';
 import { project as newProject, uid } from '../model/defaults';
 import { resolveBuilding } from '../model/relations';
+import { refreshRooms } from '../eval/interiorwalls';
 
 export type StoreEvent = { kind: 'change'; ids: ID[] | null; message: string } | { kind: 'history' };
 
@@ -86,6 +87,8 @@ export class Store {
     for (const b of this.project.buildings) {
       if (ids && !ids.includes(b.id)) continue;
       resolveBuilding(b, this.resolved.get(b.id), uid);
+      // Rooms follow their walls (a divider moved, deleted or added changes the room it bounds).
+      refreshRooms(b);
       this.resolved.set(b.id, structuredClone(b));
     }
   }

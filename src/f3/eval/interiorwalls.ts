@@ -7,6 +7,7 @@
 import type { Building3, ID, Interior, Vec2 } from '../model/schema';
 import type { FaceTable } from './faces';
 import { heightPrism, MeshBuilder, prismMesh } from './mesh';
+import { offsetRing, ringValid, sampleRing, signedArea2 } from '../model/plan';
 
 /** Slab thickness (m): the wall stops under the slab of the level above (eval/interior.ts). */
 const SLAB = 0.25;
@@ -619,6 +620,64 @@ export function roomCeiling(b: Building3, levelId: ID, room: { ceiling?: number 
   const free = lv.elevation + lv.height - SLAB - floorTop(b, lv.elevation);
   return Math.round(Math.min(free, room.ceiling ?? free) * 100) / 100;
 }
+
+/**
+ * Rooms follow their walls (Revit's room-bounding walls): after any edit each room is found again from a
+ * point inside its last outline, with the walls and the building's inner faces as they are now. A room
+ * whose walls no longer close keeps its outline (it is not lost; it shows again once they close).
+ */
+export function refreshRooms(b: Building3): void {
+  for (const lv of b.levels) {
+    const it = b.interiors[lv.id];
+    if (!it?.rooms.length) continue;
+    const inner = b.solids
+      .filter((s) => s.op === 'add' && !s.hidden && s.base <= lv.elevation + 0.1 && s.base + s.height > lv.elevation + 0.5)
+      .map((s) => {
+        const ring = sampleRing(s.plan.outer).pts as Vec2[];
+        const ccw = signedArea2(ring) > 0 ? ring : [...ring].reverse();
+        const r = offsetRing(ccw, ccw.map(() => s.shell ?? 0.3));
+        return ringValid(r, 1) ? r : ccw;
+      });
+    for (const room of it.rooms) {
+      const poly = room.polygon;
+      if (!poly || poly.length < 3) continue;
+      const at = interiorPointOf(poly);
+      if (!at) continue;
+      const loop = loopAround(it, at, inner);
+      if (!loop) continue;
+      const area = Math.round(roomArea(loop.polygon) * 100) / 100;
+      if (room.area === area && sameRing(room.polygon!, loop.polygon)) continue;
+      room.polygon = loop.polygon;
+      room.wallIds = loop.wallIds;
+      room.area = area;
+    }
+  }
+}
+
+/** A point well inside a polygon: the centroid, else the middle of its widest horizontal chord. */
+function interiorPointOf(poly: Vec2[]): Vec2 | null {
+  const c: Vec2 = [poly.reduce((a, p) => a + p[0], 0) / poly.length, poly.reduce((a, p) => a + p[1], 0) / poly.length];
+  if (inside(c, poly)) return c;
+  const zs = poly.map((p) => p[1]);
+  const z0 = Math.min(...zs),
+    z1 = Math.max(...zs);
+  for (let k = 1; k < 8; k++) {
+    const z = z0 + ((z1 - z0) * k) / 8;
+    const xs: number[] = [];
+    poly.forEach((p, i) => {
+      const q = poly[(i + 1) % poly.length]!;
+      if ((p[1] - z) * (q[1] - z) < 0) xs.push(p[0] + ((z - p[1]) * (q[0] - p[0])) / (q[1] - p[1]));
+    });
+    xs.sort((a, b) => a - b);
+    for (let i = 0; i + 1 < xs.length; i += 2) {
+      const m: Vec2 = [(xs[i]! + xs[i + 1]!) / 2, z];
+      if (inside(m, poly)) return m;
+    }
+  }
+  return null;
+}
+
+const sameRing = (a: Vec2[], b: Vec2[]) => a.length === b.length && a.every((p, i) => Math.hypot(p[0] - b[i]![0], p[1] - b[i]![1]) < 1e-4);
 
 /** Perimeter of a room outline (m). */
 export function roomPerimeter(poly: Vec2[]): number {
