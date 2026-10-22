@@ -1059,6 +1059,8 @@ export class Editor3 {
       this.change(b.id, (x) => {
         x.solids = x.solids.filter((s) => !del.has(s.id));
         x.items = x.items.filter((i) => !((i.host.kind === 'face' || i.host.kind === 'roof') && del.has(i.host.solid)));
+        // The walls that met a deleted wall get plain ends again (no mitre into nothing).
+        if (x.solids.some((s) => s.wallAxis)) constructMod.joinWalls(x);
       }, 'Volume deleted.');
       return this.select({ building: b.id });
     }
