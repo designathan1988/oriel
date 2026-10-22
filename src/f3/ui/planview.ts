@@ -18,7 +18,7 @@ import { loadLang, tr } from './i18n';
 const CSS = `
 .f3-plan{position:absolute;inset:0;z-index:12;display:flex;flex-direction:column;background:#f4f2ec;color:#1e2024}
 .f3-plan[hidden]{display:none}
-.f3-plan .bar{display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--panel-solid);border-bottom:1px solid var(--line);color:var(--ink);flex-wrap:wrap}
+.f3-plan .bar{display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--panel-solid);border-bottom:1px solid var(--line);color:var(--ink);flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;min-height:49px}
 .f3-plan .bar b{font-size:12.5px;font-weight:600;margin-right:6px}
 .f3-plan .bar select{height:28px;background:var(--field);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:0 6px;max-width:180px}
 .f3-plan .lv{display:flex;gap:2px;background:var(--field);border-radius:7px;padding:2px}
