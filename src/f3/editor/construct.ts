@@ -68,9 +68,20 @@ export function wallTargets(ed: Editor3): WallTarget[] {
 
 /** The centre line of a wall volume: the one it was drawn with, or that of a thin rectangle (older walls). */
 export function wallAxisOf(s: Solid): [Vec2, Vec2] | null {
-  if (s.wallAxis) return s.wallAxis;
   const o = s.plan.outer;
-  if (o.length !== 4 || o.some((v) => v.bulge || v.round || v.chamfer) || s.op !== 'add' || s.shell || s.roof.kind !== 'flat') return null;
+  const quad = o.length === 4 && !o.some((v) => v.bulge || v.round || v.chamfer) && s.op === 'add' && !s.shell && s.roof.kind === 'flat';
+  if (s.wallAxis) {
+    // The stored line still fits the plan (not moved by a vertex, a face push or a size handle since)?
+    const [a, b] = s.wallAxis;
+    const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const cx = o.reduce((t, v) => t + v.p[0], 0) / o.length,
+      cz = o.reduce((t, v) => t + v.p[1], 0) / o.length;
+    const off = L > 1e-6 ? Math.abs(((cx - a[0]) * (b[1] - a[1]) - (cz - a[1]) * (b[0] - a[0])) / L) : Infinity;
+    const along = L > 1e-6 ? ((cx - a[0]) * (b[0] - a[0]) + (cz - a[1]) * (b[1] - a[1])) / (L * L) : -1;
+    if (off < 0.15 && along > 0.3 && along < 0.7) return s.wallAxis;
+    if (!quad) return s.wallAxis;
+  }
+  if (!quad) return null;
   const P = o.map((v) => v.p);
   const len = (i: number) => Math.hypot(P[(i + 1) % 4]![0] - P[i]![0], P[(i + 1) % 4]![1] - P[i]![1]);
   const l0 = len(0),
@@ -107,7 +118,8 @@ function meet(p: Vec2, d: Vec2, q: Vec2, e: Vec2): Vec2 | null {
  */
 export function joinWalls(b: Building3): void {
   const walls = b.solids.flatMap((s) => {
-    const ax = s.hidden ? null : wallAxisOf(s);
+    // The stored line is the truth here (an end moved on purpose no longer fits the old plan).
+    const ax = s.hidden ? null : (s.wallAxis ?? wallAxisOf(s));
     if (!ax) return [];
     if (!s.wallAxis) s.wallAxis = [ax[0], ax[1]];
     return [{ s, a: ax[0], b: ax[1], h: wallThick(s, ax) / 2 }];
@@ -161,6 +173,44 @@ export function joinWalls(b: Building3): void {
     if (w.s.plan.outer.length === 4) w.s.plan.outer.forEach((v, i) => (v.p = [Math.round(ordered[i]![0] * 1e4) / 1e4, Math.round(ordered[i]![1] * 1e4) / 1e4]));
     else w.s.plan.outer = planVertices(ordered);
   }
+}
+
+/**
+ * A wall moved (or turned) by itself: the walls that met it at an end keep meeting it there (Revit's
+ * joined walls stretch), and the corners are made again.
+ */
+/** Lines of the walls brought in line with their plans (a vertex, a face or a size handle moved them). */
+export function refreshWallAxes(b: Building3): void {
+  for (const s of b.solids) {
+    if (!s.wallAxis) continue;
+    const ax = wallAxisOf(s);
+    if (ax && ax !== s.wallAxis) s.wallAxis = [ax[0], ax[1]];
+  }
+}
+
+export function followWalls(b: Building3, orig: Building3): void {
+  const moved: [Vec2, Vec2][] = [];
+  const ids = new Set<string>();
+  for (const s of b.solids) {
+    const o = orig.solids.find((q) => q.id === s.id);
+    const a1 = s.hidden ? null : (s.wallAxis ?? null),
+      a0 = o ? wallAxisOf(o) : null;
+    if (!a1 || !a0) continue;
+    for (let i = 0; i < 2; i++)
+      if (Math.hypot(a1[i]![0] - a0[i]![0], a1[i]![1] - a0[i]![1]) > 1e-4) {
+        moved.push([a0[i]!, a1[i]!]);
+        ids.add(s.id);
+      }
+  }
+  if (!moved.length) return;
+  for (const s of b.solids) {
+    if (ids.has(s.id) || !s.wallAxis) continue;
+    s.wallAxis = s.wallAxis.map((q) => {
+      const m = moved.find(([from]) => Math.hypot(from[0] - q[0], from[1] - q[1]) < 0.02);
+      return m ? [m[1][0], m[1][1]] : q;
+    }) as [Vec2, Vec2];
+  }
+  joinWalls(b);
 }
 
 /**
@@ -271,6 +321,7 @@ export function wallSegment(ed: Editor3, a: Vec2, bw: Vec2): void {
     ed.change(
       b.id,
       (x) => {
+        refreshWallAxes(x);
         x.solids.push(s);
         fix(x);
         joinWalls(x);

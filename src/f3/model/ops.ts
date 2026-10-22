@@ -206,6 +206,8 @@ export function planCenter(s: Solid): Vec2 {
 
 export function translateSolid(s: Solid, dx: number, dz: number): void {
   for (const ring of [s.plan.outer, ...s.plan.holes]) for (const v of ring) v.p = [v.p[0] + dx, v.p[1] + dz];
+  // A wall's centre line goes with its plan (the joins of the Walls tool are made from it).
+  if (s.wallAxis) s.wallAxis = s.wallAxis.map((q) => [q[0] + dx, q[1] + dz]) as [Vec2, Vec2];
 }
 
 /** Rotates the plan in degrees (three's sense: positive turns from x to −z) around c. */
@@ -219,6 +221,12 @@ export function rotateSolid(s: Solid, deg: number, c: Vec2 = planCenter(s)): voi
         z = v.p[1] - c[1];
       v.p = [c[0] + x * cos + z * sin, c[1] - x * sin + z * cos];
     }
+  if (s.wallAxis)
+    s.wallAxis = s.wallAxis.map((q) => {
+      const x = q[0] - c[0],
+        z = q[1] - c[1];
+      return [c[0] + x * cos + z * sin, c[1] - x * sin + z * cos];
+    }) as [Vec2, Vec2];
 }
 
 export function mirrorSolid(s: Solid, axis: 'x' | 'z', c: Vec2 = planCenter(s)): void {
@@ -244,6 +252,7 @@ export function mirrorSolidAbout(s: Solid, a: Vec2, d: Vec2): void {
     const fixed = rev.map((v, i) => ({ ...v, id: ids[i]!.id, bulge: ids[i]!.bulge || undefined, round: v.round, chamfer: v.chamfer }));
     ring.splice(0, ring.length, ...fixed);
   }
+  if (s.wallAxis) s.wallAxis = s.wallAxis.map((q) => reflect(q, a, d)) as [Vec2, Vec2];
 }
 
 /** Copy of a solid with new IDs (sides and rules remapped). */

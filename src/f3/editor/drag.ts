@@ -17,6 +17,7 @@ import { dimParams, partBox } from '../eval/partsize';
 import { buildingPassedThrough, mergeInto, worldParts } from '../model/compose';
 import { floorsIn, snapToFloor } from '../model/quick';
 import { type Mods, type Drag, rad, fmt, parseLength, parseFloors, floorsHeight, parseOffset, clampInside, midOf, ringCenter } from './support';
+import { followWalls } from './construct';
 import type { Editor3 } from './editor';
 
 // ── Drags ────────────────────────────────────────────────────────────
@@ -534,6 +535,8 @@ export function applyRotation(ed: Editor3, deg: number, orig: Building3): void {
       s = findSolid(b, sid);
     if (!so || !s) continue;
     s.plan = structuredClone(so.plan);
+    // The wall line comes back with the plan (else every frame's move added up on it).
+    if (so.wallAxis) s.wallAxis = structuredClone(so.wallAxis);
     rotateSolid(s, deg, cl);
   }
 }
@@ -975,6 +978,8 @@ export function updateDrag(ed: Editor3, e: PointerEvent): void {
     let t = ed.dragAlong(d, e, at, dir);
     if (!e.altKey && ed.infer.enabled) t = Math.round(t / 0.1) * 0.1;
     s.plan = structuredClone(so.plan);
+    // The wall line comes back with the plan (else every frame's move added up on it).
+    if (so.wallAxis) s.wallAxis = structuredClone(so.wallAxis);
     if (pushEdge(s, d.data.edge as ID, t)) {
       ed.lastPush = t;
       ed.store.touch([b.id]);
@@ -988,6 +993,8 @@ export function updateDrag(ed: Editor3, e: PointerEvent): void {
     ed.showSnap(snap, e);
     let l = toLocal(b, [snap.p.x, snap.p.z]);
     s.plan = structuredClone(so.plan);
+    // The wall line comes back with the plan (else every frame's move added up on it).
+    if (so.wallAxis) s.wallAxis = structuredClone(so.wallAxis);
     if (d.kind === 'bend' && !e.altKey) {
       // Curving a wall snaps to straight and to a half circle (Alt: free), like Estúdio de Construção.
       const ring = [so.plan.outer, ...so.plan.holes].find((r) => r.some((v) => v.id === d.data.edge));
@@ -1130,7 +1137,10 @@ export function applyMoveDelta(ed: Editor3, delta: THREE.Vector3, commit: boolea
     const s = findSolid(b, sid);
     const so = d ? findSolid(d.origBuilding, sid) : null;
     if (!s) continue;
-    if (so) s.plan = structuredClone(so.plan);
+    if (so) {
+      s.plan = structuredClone(so.plan);
+      if (so.wallAxis) s.wallAxis = structuredClone(so.wallAxis);
+    }
     else translateSolid(s, -dirToLocal(b, [ed.lastMoved!.delta.x, ed.lastMoved!.delta.z])[0], -dirToLocal(b, [ed.lastMoved!.delta.x, ed.lastMoved!.delta.z])[1]);
     translateSolid(s, local[0], local[1]);
   }
@@ -1286,6 +1296,8 @@ export function endDrag(ed: Editor3, d: Drag, e: PointerEvent): void {
     if (d.data.copied) ed.toast('Copied. Type 5x for more copies.');
     return;
   }
+  // Walls that met the moved wall keep meeting it (their ends follow), before the move is recorded.
+  if ((d.kind === 'move-solids' || d.kind === 'rotate') && b && d.moved && b.solids.some((x) => x.wallAxis)) followWalls(b, d.origBuilding);
   if (d.kind === 'move-solids' && b) {
     const s = findSolid(b, (d.data.ids as ID[])[0]!),
       so = findSolid(d.origBuilding, (d.data.ids as ID[])[0]!);
