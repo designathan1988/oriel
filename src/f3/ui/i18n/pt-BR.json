@@ -3366,5 +3366,7 @@
 "{0} buildings": "{0} edificações",
 "{0} elements": "{0} elementos",
 "{0} components": "{0} componentes",
-"{0} placed on the interior wall. Click again for one more; Esc finishes.": "{0}: na parede interna. Clique de novo para outra; Esc termina."
+"{0} placed on the interior wall. Click again for one more; Esc finishes.": "{0}: na parede interna. Clique de novo para outra; Esc termina.",
+"Ground floor {0} m · height {1} → {2} m.": "Térreo de {0} m · altura {1} → {2} m.",
+"Other floors {0} m · height {1} → {2} m.": "Demais pavimentos de {0} m · altura {1} → {2} m."
 }
