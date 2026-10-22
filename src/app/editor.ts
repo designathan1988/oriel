@@ -155,14 +155,14 @@ function tourPublish(): TourPublish {
     site: async () => {
       if (!account.gate('tour')) return;
       const { tour, data, runtime } = await tourParts();
-      download(tour.tourHtml(data, runtime), fileName(editor.project.name + '-tour', 'html'), 'text/html');
+      download(tour.tourHtml(data, runtime), fileName(tr(editor.project.name) + '-tour', 'html'), 'text/html');
       editor.toast('Site ready: open it in any browser, or put it on a host to share the link.');
     },
     app: async () => {
       if (!account.gate('tour')) return;
       const { tour, data, runtime } = await tourParts();
       const zip = tour.tourApp(data, runtime, { s192: await tourIcon(192), s512: await tourIcon(512) }, tr);
-      download(zip as BlobPart, fileName(editor.project.name + '-app', 'zip'), 'application/zip');
+      download(zip as BlobPart, fileName(tr(editor.project.name) + '-app', 'zip'), 'application/zip');
       editor.toast('App ready: put the folder on a host (see HOW-TO-PUBLISH); phones install it from the address.');
     },
   };
@@ -260,27 +260,27 @@ function exportMenu(anchor: HTMLElement): void {
       const glb = await optimizeGlb(new Uint8Array(await exportGLB(editor.project, { expandInstances: true })), { maxTexture: 1024 });
       const pt = loadLang() === 'pt-BR';
       const html = presentationHtml(editor.project, glb, { t: tr, decimal: pt ? ',' : '.', lang: pt ? 'pt-BR' : 'en' });
-      download(html, fileName(editor.project.name + '-presentation', 'html'), 'text/html');
+      download(html, fileName(tr(editor.project.name) + '-presentation', 'html'), 'text/html');
       editor.toast('Presentation ready: send the file to the client; it opens in any browser.');
     }, 'presentation'],
     ['Drawings', '', null],
     ['Drawing set', '.pdf', async () => {
       const b = editor.store.building(editor.sel.building ?? editor.context);
       const { drawingsPdf } = await import('../f3/io/pdf');
-      download(await drawingsPdf(editor.project, { sectionAt: b ? b.position[1] : undefined, t: tr, decimal: loadLang() === 'pt-BR' ? ',' : '.' }), fileName(editor.project.name + '-drawings', 'pdf'), 'application/pdf');
+      download(await drawingsPdf(editor.project, { sectionAt: b ? b.position[1] : undefined, t: tr, decimal: loadLang() === 'pt-BR' ? ',' : '.' }), fileName(tr(editor.project.name) + '-drawings', 'pdf'), 'application/pdf');
     }],
-    ['Site plan', '.svg', () => download(planSvg(editor.project), fileName(editor.project.name + '-site', 'svg'), 'image/svg+xml')],
+    ['Site plan', '.svg', () => download(planSvg(editor.project), fileName(tr(editor.project.name) + '-site', 'svg'), 'image/svg+xml')],
     ['Elevations for CAD', '.dxf', async () => {
       const { elevationsDxf } = await import('../f3/io/elevationdxf');
       const d = elevationsDxf(editor.project, loadLang() === 'pt-BR' ? ',' : '.', tr);
       if (!d) return editor.toast('Nothing to draw yet.');
-      download(d, fileName(editor.project.name + '-elevations', 'dxf'), 'application/dxf');
+      download(d, fileName(tr(editor.project.name) + '-elevations', 'dxf'), 'application/dxf');
     }, 'dxf'],
     ['Floor plans for CAD', '.dxf', async () => {
       const { collectFloorPlans, floorPlansToDxf } = await import('../f3/io/cadplan');
       const plans = collectFloorPlans(editor.project, (id) => editor.view.built.get(id)?.ev.placements ?? [], tr);
       if (!plans.length) return editor.toast('Nothing to draw yet.');
-      download(floorPlansToDxf(plans, decimal), fileName(editor.project.name + '-plans', 'dxf'), 'application/dxf');
+      download(floorPlansToDxf(plans, decimal), fileName(tr(editor.project.name) + '-plans', 'dxf'), 'application/dxf');
     }, 'dxf'],
     ['Floor plan', '.svg', async () => {
       const { collectFloorPlans, floorPlanSvgFile } = await import('../f3/io/cadplan');
@@ -288,12 +288,12 @@ function exportMenu(anchor: HTMLElement): void {
       const plans = collectFloorPlans(editor.project, (id) => editor.view.built.get(id)?.ev.placements ?? [], tr);
       const first = plans.find((x) => !sel || x.fp.building === sel.id) ?? plans[0];
       if (!first) return editor.toast('Nothing to draw yet.');
-      download(floorPlanSvgFile(first.fp, first.title, loadLang() === 'pt-BR' ? ',' : '.', tr, first.site), fileName(editor.project.name + '-plan', 'svg'), 'image/svg+xml');
+      download(floorPlanSvgFile(first.fp, first.title, loadLang() === 'pt-BR' ? ',' : '.', tr, first.site), fileName(tr(editor.project.name) + '-plan', 'svg'), 'image/svg+xml');
     }],
     ['Section', '.svg', () => {
       // Through the selected building, else through the middle of them all.
       const b = editor.store.building(editor.sel.building ?? editor.context);
-      download(sectionSvg(editor.project, b ? b.position[1] : undefined, loadLang() === 'pt-BR' ? ',' : '.', tr), fileName(editor.project.name + '-section', 'svg'), 'image/svg+xml');
+      download(sectionSvg(editor.project, b ? b.position[1] : undefined, loadLang() === 'pt-BR' ? ',' : '.', tr), fileName(tr(editor.project.name) + '-section', 'svg'), 'image/svg+xml');
     }],
     ['Elevations', '.zip', async () => {
       // The four sides, one SVG each, in one archive (four downloads at once would be blocked).
@@ -301,36 +301,36 @@ function exportMenu(anchor: HTMLElement): void {
       const dec = loadLang() === 'pt-BR' ? ',' : '.';
       const sides = Object.keys(ELEVATION_NAMES) as (keyof typeof ELEVATION_NAMES)[];
       const files = sides.map((s) => ({ name: fileName(`${editor.project.name}-${tr(ELEVATION_NAMES[s])}`, 'svg'), data: elevationSvg(editor.project, s, dec, tr) }));
-      download(zipStore(files) as BlobPart, fileName(editor.project.name + '-elevations', 'zip'), 'application/zip');
+      download(zipStore(files) as BlobPart, fileName(tr(editor.project.name) + '-elevations', 'zip'), 'application/zip');
     }],
     ['Quantities and cost…', '', () => openQuantities(editor)],
     ['Room schedule', '.csv', async () => {
       const { roomScheduleCsv } = await import('../f3/io/schedule');
       // A byte order mark: spreadsheets read the accents as UTF-8.
-      download('﻿' + roomScheduleCsv(editor.project, loadLang() === 'pt-BR' ? ',' : '.', tr), fileName(editor.project.name + '-rooms', 'csv'), 'text/csv');
+      download('﻿' + roomScheduleCsv(editor.project, loadLang() === 'pt-BR' ? ',' : '.', tr), fileName(tr(editor.project.name) + '-rooms', 'csv'), 'text/csv');
     }],
-    ['Areas', '.csv', () => download(['building;footprint m2;gross floor area m2;volume m3', ...areasTable(editor.project).map((r) => [r.building, r.footprint, r.gfa, r.volume].join(';'))].join('\n'), fileName(editor.project.name + '-areas', 'csv'), 'text/csv')],
+    ['Areas', '.csv', () => download(['building;footprint m2;gross floor area m2;volume m3', ...areasTable(editor.project).map((r) => [r.building, r.footprint, r.gfa, r.volume].join(';'))].join('\n'), fileName(tr(editor.project.name) + '-areas', 'csv'), 'text/csv')],
     ['BIM and 3D', '', null],
     ['BIM model', '.ifc', async () => {
       const { exportIFC } = await import('../f3/io/ifc');
-      download(exportIFC(editor.project, tr), fileName(editor.project.name, 'ifc'), 'application/x-step');
+      download(exportIFC(editor.project, tr), fileName(tr(editor.project.name), 'ifc'), 'application/x-step');
     }, 'ifc'],
-    ['3D model', '.glb', async () => download(await exportGLB(editor.project), fileName(editor.project.name, 'glb'), 'model/gltf-binary')],
+    ['3D model', '.glb', async () => download(await exportGLB(editor.project), fileName(tr(editor.project.name), 'glb'), 'model/gltf-binary')],
     ['3D model, compact', '.glb', async () => {
       const { optimizeGlb } = await import('../f3/io/glbopt');
-      download(await optimizeGlb(new Uint8Array(await exportGLB(editor.project)), { maxTexture: 1024, meshopt: true }) as BlobPart, fileName(editor.project.name + '-compact', 'glb'), 'model/gltf-binary');
+      download(await optimizeGlb(new Uint8Array(await exportGLB(editor.project)), { maxTexture: 1024, meshopt: true }) as BlobPart, fileName(tr(editor.project.name) + '-compact', 'glb'), 'model/gltf-binary');
     }, 'compact'],
-    ['Geometry', '.obj', async () => download(await exportOBJ(editor.project), fileName(editor.project.name, 'obj'), 'text/plain')],
-    ['AR on iPhone and iPad', '.usdz', async () => download((await exportUSDZ(editor.project)) as BlobPart, fileName(editor.project.name, 'usdz'), 'model/vnd.usdz+zip')],
+    ['Geometry', '.obj', async () => download(await exportOBJ(editor.project), fileName(tr(editor.project.name), 'obj'), 'text/plain')],
+    ['AR on iPhone and iPad', '.usdz', async () => download((await exportUSDZ(editor.project)) as BlobPart, fileName(tr(editor.project.name), 'usdz'), 'model/vnd.usdz+zip')],
     ['Image of the view', '.png', () => {
       editor.view.look.render();
-      editor.view.renderer.domElement.toBlob((b) => b && download(b, fileName(editor.project.name, 'png'), 'image/png'));
+      editor.view.renderer.domElement.toBlob((b) => b && download(b, fileName(tr(editor.project.name), 'png'), 'image/png'));
     }],
     ['Project', '', null],
     ['Project file', '.json', () => saveFile(editor.project)],
     ['Game engines', '', null],
-    ['Game package', '.zip', async () => download(await exportGamePackage(editor.project) as BlobPart, fileName(editor.project.name + '-game', 'zip'), 'application/zip'), 'game'],
-    ['Game data', '.json', () => download(exportGameJSON(editor.project), fileName(editor.project.name + '-game', 'json'), 'application/json'), 'game'],
+    ['Game package', '.zip', async () => download(await exportGamePackage(editor.project) as BlobPart, fileName(tr(editor.project.name) + '-game', 'zip'), 'application/zip'), 'game'],
+    ['Game data', '.json', () => download(exportGameJSON(editor.project), fileName(tr(editor.project.name) + '-game', 'json'), 'application/json'), 'game'],
   ];
   // Pro deliveries carry a badge on the free plan; choosing one opens the plans instead.
   const locked = (f?: ProFeature) => !!f && account.enabled && account.plan() !== 'pro';
