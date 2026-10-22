@@ -14,6 +14,7 @@ import { type Drag, fmt, parseLength, parseFloors } from './support';
 import type { Editor3 } from './editor';
 import type { WallHit, WallTarget } from './tools/walls';
 import { buildingHidden, buildingLocked } from '../model/layers';
+import { joinOutlines } from '../model/walljoins';
 
 /**
  * The wall chain being drawn (Walls tool): outside a building every piece is a wall volume of a building
@@ -98,6 +99,7 @@ export function wallAxisOf(s: Solid): [Vec2, Vec2] | null {
  * may already be somewhere else when a neighbour pulled its end); else twice the farthest corner from the line.
  */
 function wallThick(s: Solid, ax: [Vec2, Vec2]): number {
+  if (s.wallThickness) return s.wallThickness;
   const P = s.plan.outer.map((v) => v.p);
   if (P.length === 4 && !s.plan.outer.some((v) => v.bulge)) {
     let best = Infinity;
@@ -122,19 +124,12 @@ function wallThick(s: Solid, ax: [Vec2, Vec2]): number {
   return Math.max(0.05, 2 * Math.max(...s.plan.outer.map((v) => Math.abs((v.p[0] - a[0]) * nx + (v.p[1] - a[1]) * nz))));
 }
 
-/** Where two offset lines meet: through p along d and through q along e (null when parallel). */
-function meet(p: Vec2, d: Vec2, q: Vec2, e: Vec2): Vec2 | null {
-  const den = d[0] * e[1] - d[1] * e[0];
-  if (Math.abs(den) < 1e-6) return null;
-  const t = ((q[0] - p[0]) * e[1] - (q[1] - p[1]) * e[0]) / den;
-  return [p[0] + d[0] * t, p[1] + d[1] * t];
-}
-
 /**
- * Joins the walls of a building drawn with the Walls tool (ArchiCAD and Revit wall joins): where exactly two
- * walls meet end to end their faces are mitred (the corner closes at any angle); a free end, or an end on the
- * middle of another wall (a T), runs half the thickness past its point. The corners move in place, so the
- * vertex IDs (and the doors and windows on the faces) stay.
+ * Joins the walls of a building drawn with the Walls tool (ArchiCAD and Revit wall joins, the method of
+ * model/walljoins.ts): every wall's body is made again from its line and thickness, mitred against the walls
+ * it meets (an L, a T, an X, any angle and thickness); a free end is square at its point. The four corners
+ * keep their vertex IDs, so the doors and windows on the faces stay; a junction point closing an X is an
+ * extra vertex.
  */
 export function joinWalls(b: Building3): void {
   const walls = b.solids.flatMap((s) => {
@@ -142,56 +137,30 @@ export function joinWalls(b: Building3): void {
     const ax = s.hidden ? null : (s.wallAxis ?? wallAxisOf(s));
     if (!ax) return [];
     if (!s.wallAxis) s.wallAxis = [ax[0], ax[1]];
-    return [{ s, a: ax[0], b: ax[1], h: wallThick(s, ax) / 2 }];
+    if (!s.wallThickness) s.wallThickness = Math.round(wallThick(s, ax) * 1e4) / 1e4;
+    return [{ s, w: { id: s.id, a: ax[0], b: ax[1], half: s.wallThickness / 2 } }];
   });
-  const near = (p: Vec2, q: Vec2) => Math.hypot(p[0] - q[0], p[1] - q[1]) < 0.02;
-  for (const w of walls) {
-    const L = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]);
-    if (L < 1e-6) continue;
-    const d: Vec2 = [(w.b[0] - w.a[0]) / L, (w.b[1] - w.a[1]) / L];
-    const n: Vec2 = [-d[1], d[0]];
-    // The two corners (left, right of a → b) at end E: mitred with the one wall meeting there end to end.
-    const corners = (E: Vec2, atB: boolean): [Vec2, Vec2] => {
-      const dIn: Vec2 = atB ? d : [-d[0], -d[1]];
-      const nIn: Vec2 = [-dIn[1], dIn[0]];
-      const others = walls.filter((o) => o !== w && (near(o.a, E) || near(o.b, E)));
-      const ext = (): [Vec2, Vec2] => {
-        const c: Vec2 = [E[0] + dIn[0] * w.h, E[1] + dIn[1] * w.h];
-        const l: Vec2 = [c[0] + nIn[0] * w.h, c[1] + nIn[1] * w.h],
-          r: Vec2 = [c[0] - nIn[0] * w.h, c[1] - nIn[1] * w.h];
-        return atB ? [l, r] : [r, l];
-      };
-      if (others.length !== 1) return ext();
-      const o = others[0]!;
-      const F = near(o.a, E) ? o.b : o.a;
-      const LO = Math.hypot(F[0] - E[0], F[1] - E[1]);
-      if (LO < 1e-6) return ext();
-      const dOut: Vec2 = [(F[0] - E[0]) / LO, (F[1] - E[1]) / LO];
-      const nOut: Vec2 = [-dOut[1], dOut[0]];
-      const cross = dIn[0] * dOut[1] - dIn[1] * dOut[0],
-        dot = dIn[0] * dOut[0] + dIn[1] * dOut[1];
-      let l: Vec2 | null, r: Vec2 | null;
-      if (Math.abs(cross) < 0.02) {
-        if (dot < 0) return ext();
-        // In line: the faces meet flush at the point.
-        l = [E[0] + nIn[0] * w.h, E[1] + nIn[1] * w.h];
-        r = [E[0] - nIn[0] * w.h, E[1] - nIn[1] * w.h];
-      } else {
-        l = meet([E[0] + nIn[0] * w.h, E[1] + nIn[1] * w.h], dIn, [E[0] + nOut[0] * o.h, E[1] + nOut[1] * o.h], dOut);
-        r = meet([E[0] - nIn[0] * w.h, E[1] - nIn[1] * w.h], dIn, [E[0] - nOut[0] * o.h, E[1] - nOut[1] * o.h], dOut);
-      }
-      // A very sharp angle would send the mitre far away: the plain end instead.
-      const far = (q: Vec2 | null) => !q || Math.hypot(q[0] - E[0], q[1] - E[1]) > 6 * Math.max(w.h, o.h);
-      if (far(l) || far(r)) return ext();
-      return atB ? [l!, r!] : [r!, l!];
-    };
-    // corners() answers in a → b terms at both ends (left, right).
-    const [aL, aR] = corners(w.a, false);
-    const [bL, bR] = corners(w.b, true);
-    const ring: Vec2[] = [aL, bL, bR, aR];
-    const ordered = signedArea2(ring) > 0 ? ring : [...ring].reverse();
-    if (w.s.plan.outer.length === 4) w.s.plan.outer.forEach((v, i) => (v.p = [Math.round(ordered[i]![0] * 1e4) / 1e4, Math.round(ordered[i]![1] * 1e4) / 1e4]));
-    else w.s.plan.outer = planVertices(ordered);
+  const outlines = joinOutlines(walls.map((x) => x.w));
+  const r4 = (p: Vec2): Vec2 => [Math.round(p[0] * 1e4) / 1e4, Math.round(p[1] * 1e4) / 1e4];
+  for (const { s, w } of walls) {
+    const o = outlines.get(w.id);
+    if (!o) continue;
+    // The ring a → b: start corners, end corners, the junction points between them where they close a notch.
+    const main: Vec2[] = [o.aL, o.bL, o.bR, o.aR];
+    const ccw = signedArea2(main) > 0;
+    const ring: { p: Vec2; centre: boolean }[] = [{ p: o.aL, centre: false }, { p: o.bL, centre: false }];
+    if (o.bC) ring.push({ p: o.bC, centre: true });
+    ring.push({ p: o.bR, centre: false }, { p: o.aR, centre: false });
+    if (o.aC) ring.push({ p: o.aC, centre: true });
+    if (!ccw) ring.reverse();
+    const ids = s.plan.outer.filter((v) => !v.id.endsWith('~c0') && !v.id.endsWith('~c1')).map((v) => v.id);
+    if (ids.length !== 4 || s.plan.outer.some((v) => v.bulge || v.round || v.chamfer)) {
+      const fresh = planVertices(ring.filter((q) => !q.centre).map((q) => q.p));
+      ids.splice(0, ids.length, ...fresh.map((v) => v.id));
+    }
+    let k = 0,
+      c = 0;
+    s.plan.outer = ring.map((q) => ({ id: q.centre ? `${ids[0]}~c${c++}` : ids[k++]!, p: r4(q.p) }));
   }
 }
 
@@ -214,6 +183,7 @@ export function setWallSize(b: Building3, sid: ID, len: number | null, thick: nu
   const d: Vec2 = [(e0[0] - a[0]) / L0, (e0[1] - a[1]) / L0];
   const e: Vec2 = [a[0] + d[0] * L, a[1] + d[1] * L];
   const h = (thick ?? wallThick(s, ax)) / 2;
+  s.wallThickness = Math.round(h * 2 * 1e4) / 1e4;
   const n: Vec2 = [-d[1] * h, d[0] * h];
   const ring: Vec2[] = [
     [a[0] - d[0] * h + n[0], a[1] - d[1] * h + n[1]],
@@ -276,7 +246,7 @@ export function followWalls(b: Building3, orig: { solids: Solid[] }): void {
  * The line of a wall after its body was edited directly: the middle of its two faces along the old line, and
  * each end moved as far as that end of the body moved. Null when no two faces run along the line any more.
  */
-function axisFromBody(body: Vec2[], old: [Vec2, Vec2], was: Vec2[]): [Vec2, Vec2] | null {
+function axisFromBody(body: Vec2[], old: [Vec2, Vec2], was: Vec2[]): { axis: [Vec2, Vec2]; thick: number } | null {
   const [a, b] = old;
   const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
   if (L < 1e-6) return null;
@@ -294,10 +264,13 @@ function axisFromBody(body: Vec2[], old: [Vec2, Vec2], was: Vec2[]): [Vec2, Vec2
   const c = (Math.max(...offs) + Math.min(...offs)) / 2;
   const t0 = Math.min(...body.map(along)) - Math.min(...was.map(along)),
     t1 = Math.max(...body.map(along)) - Math.max(...was.map(along));
-  return [
-    [a[0] + d[0] * t0 + n[0] * c, a[1] + d[1] * t0 + n[1] * c],
-    [b[0] + d[0] * t1 + n[0] * c, b[1] + d[1] * t1 + n[1] * c],
-  ];
+  return {
+    axis: [
+      [a[0] + d[0] * t0 + n[0] * c, a[1] + d[1] * t0 + n[1] * c],
+      [b[0] + d[0] * t1 + n[0] * c, b[1] + d[1] * t1 + n[1] * c],
+    ],
+    thick: Math.max(...offs) - Math.min(...offs),
+  };
 }
 
 /** The drawn walls of a building as they are before a change (see keepWallsJoined). */
@@ -327,8 +300,14 @@ export function keepWallsJoined(b: Building3, before: { solids: Solid[] } | null
     if (!same(s.wallAxis, o.wallAxis) || same(body, o.plan.outer.map((v) => v.p)) || same(body, want.get(s.id) ?? [])) continue;
     const moved = axisFromBody(s.plan.outer.map((v) => v.p), o.wallAxis, o.plan.outer.map((v) => v.p));
     delete s.wallAxis;
-    const ax = moved ?? wallAxisOf(s);
-    if (ax) s.wallAxis = [ax[0], ax[1]];
+    delete s.wallThickness;
+    if (moved) {
+      s.wallAxis = moved.axis;
+      s.wallThickness = Math.round(moved.thick * 1e4) / 1e4;
+    } else {
+      const ax = wallAxisOf(s);
+      if (ax) s.wallAxis = [ax[0], ax[1]];
+    }
   }
   if (before) followWalls(b, before);
   joinWalls(b);
@@ -427,6 +406,7 @@ export function wallSegment(ed: Editor3, a: Vec2, bw: Vec2): void {
   const s = newSolid({ name: tr('Wall'), plan: { outer: planVertices(signedArea2(ring) > 0 ? ring : [...ring].reverse()), holes: [] }, height: ed.wallHeight, roof: roofSpec('flat', { parapet: 0 }) });
   s.plinth = 0;
   s.wallAxis = [la, lb];
+  s.wallThickness = t;
   (c.made ??= []).push({ sid: s.id, end: [bw[0], bw[1]] });
   const fix = (x: Building3) => {
     const ps = prevEnd && prev ? x.solids.find((q) => q.id === prev.sid) : undefined;

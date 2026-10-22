@@ -1064,6 +1064,11 @@ export function applySize(ed: Editor3, b: Building3, ids: ID[], box: number[], s
       const keepP = sx !== 0 && Math.abs(fx0(p) - ax) < Math.abs(fx0(q) - ax);
       const keepQ = sx !== 0 && !keepP;
       s.wallAxis = [keepP && fz === 1 ? p : map(p), keepQ && fz === 1 ? q : map(q)];
+      // The thickness takes the stretch of the box side across the wall (the frame may run along or across it).
+      if (s.wallThickness) {
+        const nf = toFrame([-(q[1] - p[1]), q[0] - p[0]], rot);
+        s.wallThickness = Math.round(s.wallThickness * (Math.abs(nf[0]) > Math.abs(nf[1]) ? fx : fz) * 1e4) / 1e4;
+      }
     }
   }
   if (all)

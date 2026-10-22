@@ -463,6 +463,8 @@ export interface Solid {
   openTop?: boolean;
   /** A wall drawn by the Walls tool: its centre line (building frame); new walls start and end on it. */
   wallAxis?: [Vec2, Vec2];
+  /** Thickness of a drawn wall (m): its body is made from the line and this (model/walljoins.ts). */
+  wallThickness?: number;
   /** The layers of the walls of a hollow volume, outside in (model/walltypes.ts); `shell` is their sum. */
   wallLayers?: WallLayer[];
   /** Renovation phase (Revit's phases): what stands today or is to be demolished; absent = new work. */
