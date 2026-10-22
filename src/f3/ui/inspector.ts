@@ -31,6 +31,7 @@ import { openPhoto } from './photo';
 import { decimal, tr } from './i18n';
 import { optionHidden } from '../model/layers';
 import { PROFILES } from '../eval/roofs';
+import { setWallSize, wallSizeOf } from '../editor/construct';
 import { WALL_TYPES, layersThickness } from '../model/walltypes';
 
 const ROOFS: [RoofKind, string, string][] = [
@@ -355,7 +356,8 @@ function solidPanel(ed: Editor3, b: Building3, s: Solid): string {
     ['subtract', 'subtract', 'Subtract'],
     ['intersect', 'intersect', 'Intersect'],
   ] as const;
-  return `<div class="f3-title"><input data-s="name" value="${esc(tr(s.name))}" aria-label="Volume name"><span class="f3-kind">${s.op === 'add' ? 'Volume' : s.op === 'subtract' ? 'Cutter' : 'Intersect'}</span></div>
+  const ws = wallSizeOf(s);
+  return `<div class="f3-title"><input data-s="name" value="${esc(tr(s.name))}" aria-label="Volume name"><span class="f3-kind">${ws ? 'Wall' : s.op === 'add' ? 'Volume' : s.op === 'subtract' ? 'Cutter' : 'Intersect'}</span></div>
   ${facePart}
   ${s.shell && s.op === 'add' ? `<div class="f3-sec"><h3>Walls</h3>
     ${prow('Type', 'layers', [selectCell('data-walltype', 'Wall type (its layers, outside in)', [['', 'Custom'], ...WALL_TYPES.map((t) => [t.id, t.name] as const)], WALL_TYPES.find((t) => JSON.stringify(t.layers) === JSON.stringify(s.wallLayers))?.id ?? '')], { wide: true })}
@@ -366,7 +368,7 @@ function solidPanel(ed: Editor3, b: Building3, s: Solid): string {
     ${prow('Rotate', 'rotate', [nk('spin', 'Rotate the volume by this angle', 0, gicon('rotate'), '°', 15, '0')])}
   </div>
   <div class="f3-sec"><h3>Size</h3>
-    ${prow('Size', 'scale', [nk('sizew', 'Width (X)', box.x1 - box.x0, gtext('W')), nk('sized', 'Depth (Z)', box.z1 - box.z0, gtext('D')), nk('height', 'Height', s.height, gtext('H'))], { title: 'Width, depth and height' })}
+    ${ws ? prow('Wall', 'thickness', [nk('wlen', 'Length (the end moves)', ws.len, gtext('L')), nk('wthick', 'Thickness', ws.thick, gicon('thickness'), 'm', 0.05), nk('height', 'Height', s.height, gtext('H'))], { title: 'Length, thickness and height of the wall' }) : prow('Size', 'scale', [nk('sizew', 'Width (X)', box.x1 - box.x0, gtext('W')), nk('sized', 'Depth (Z)', box.z1 - box.z0, gtext('D')), nk('height', 'Height', s.height, gtext('H'))], { title: 'Width, depth and height' })}
     <div class="f3-btns n1"><button class="f3-btn" data-act="sizelock" aria-pressed="${ed.sizeLock}" title="Keep the proportions: width, depth and height change together">${icon(ed.sizeLock ? 'lock' : 'unlock')}${ed.sizeLock ? 'Proportions kept' : 'Keep proportions'}</button></div>
     ${layerRow(ed, 'solid', s.layer)}
     <div class="f3-btns n2"><button class="f3-btn" data-act="levelsfit" title="The volume height goes to the nearest floor slab">${icon('floors')}Height to floors</button></div>
@@ -1062,6 +1064,12 @@ const fmtNum = (v: number) => decimal(+v.toFixed(2));
 const bodyTop = (x: Building3) => Math.max(0, ...x.solids.filter((q) => q.op === 'add').map((q) => q.base + q.height));
 
 function applyNumber(ed: Editor3, b: Building3, s: Solid | undefined, k: string, v: number): void {
+  if ((k === 'wlen' || k === 'wthick') && s) {
+    if (!(v > (k === 'wlen' ? 0.1 : 0.02)) || v > (k === 'wlen' ? 500 : 2)) return;
+    const sid = s.id;
+    ed.change(b.id, (x) => setWallSize(x, sid, k === 'wlen' ? v : null, k === 'wthick' ? v : null), k === 'wlen' ? `Wall ${decimal(Math.round(v * 100) / 100)} m long.` : `Wall ${decimal(Math.round(v * 100) / 100)} m thick.`);
+    return;
+  }
   if (k === 'ground' || k === 'typical') {
     // New heights: the volumes follow their floors (model/quick.ts, setLevelHeights; model/relations.ts).
     const h0 = bodyTop(b);

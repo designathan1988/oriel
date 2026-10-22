@@ -179,6 +179,45 @@ export function joinWalls(b: Building3): void {
  * A wall moved (or turned) by itself: the walls that met it at an end keep meeting it there (Revit's
  * joined walls stretch), and the corners are made again.
  */
+/**
+ * A drawn wall's length or thickness typed in the panel: its line keeps its start (the length moves the
+ * end along it), its body is made again around the line, and the walls joined to its end follow.
+ */
+export function setWallSize(b: Building3, sid: ID, len: number | null, thick: number | null): boolean {
+  const s = b.solids.find((q) => q.id === sid);
+  const ax = s && wallAxisOf(s);
+  if (!s || !ax) return false;
+  const [a, e0] = ax;
+  const L0 = Math.hypot(e0[0] - a[0], e0[1] - a[1]);
+  if (L0 < 1e-6) return false;
+  const L = len ?? L0;
+  const d: Vec2 = [(e0[0] - a[0]) / L0, (e0[1] - a[1]) / L0];
+  const e: Vec2 = [a[0] + d[0] * L, a[1] + d[1] * L];
+  const h = (thick ?? wallThick(s, ax)) / 2;
+  const n: Vec2 = [-d[1] * h, d[0] * h];
+  const ring: Vec2[] = [
+    [a[0] - d[0] * h + n[0], a[1] - d[1] * h + n[1]],
+    [e[0] + d[0] * h + n[0], e[1] + d[1] * h + n[1]],
+    [e[0] + d[0] * h - n[0], e[1] + d[1] * h - n[1]],
+    [a[0] - d[0] * h - n[0], a[1] - d[1] * h - n[1]],
+  ];
+  const ccw = signedArea2(ring) > 0 ? ring : [...ring].reverse();
+  s.plan.outer.forEach((v, i) => (v.p = ccw[i] ?? v.p));
+  if (s.plan.outer.length !== 4) s.plan.outer = planVertices(ccw);
+  // Walls that met the old end meet the new one.
+  for (const o of b.solids)
+    if (o !== s && o.wallAxis) o.wallAxis = o.wallAxis.map((q) => (Math.hypot(q[0] - e0[0], q[1] - e0[1]) < 0.02 ? [e[0], e[1]] : q)) as [Vec2, Vec2];
+  s.wallAxis = [a, e];
+  joinWalls(b);
+  return true;
+}
+
+/** Length and thickness of a drawn wall (its line and its body), or null for another volume. */
+export function wallSizeOf(s: Solid): { len: number; thick: number } | null {
+  const ax = wallAxisOf(s);
+  return ax ? { len: Math.hypot(ax[1][0] - ax[0][0], ax[1][1] - ax[0][1]), thick: wallThick(s, ax) } : null;
+}
+
 /** Lines of the walls brought in line with their plans (a vertex, a face or a size handle moved them). */
 export function refreshWallAxes(b: Building3): void {
   for (const s of b.solids) {
