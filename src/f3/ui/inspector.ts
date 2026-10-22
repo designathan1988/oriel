@@ -548,12 +548,27 @@ function paramIcon(d: ParamDef): string {
   return 'margin';
 }
 
+/** Height of a wall part above the floor it stands on (m), or null for a part not on a wall. */
+function faceSill(b: Building3, it: Building3['items'][number]): number | null {
+  if (it.host.kind !== 'face') return null;
+  const host = it.host;
+  const s = b.solids.find((q) => q.id === host.solid);
+  if (!s) return null;
+  const y = s.base + host.y;
+  const lv = [...b.levels].sort((p, q) => p.elevation - q.elevation).filter((l) => l.elevation <= y + 0.01).pop();
+  return Math.round((y - (lv?.elevation ?? 0)) * 100) / 100;
+}
+
 function itemPanel(ed: Editor3, b: Building3, id: string): string {
   const it = b.items.find((x) => x.id === id)!;
   const t = typeById(it.type, ed.project);
   const f = t && family(t.family);
   if (!t || !f) return '<div class="f3-empty">Unknown type.</div>';
   const values = resolveParams(f, t.params, it.params);
+  // On a wall the sill is where the part really is (its height above the floor it is on), not the
+  // type's default used when it was placed.
+  const hostSill = faceSill(b, it);
+  if (hostSill !== null && 'sillH' in values) values.sillH = hostSill;
   const users = ed.project.buildings.reduce((n, x) => n + x.items.filter((q) => q.type === t.id).length + x.solids.reduce((m, s) => m + s.facade.filter((r) => r.type === t.id).length, 0), 0);
   const arr = it.array;
   return `<div class="f3-title"><span style="flex:1;font-weight:600">${esc(tr(t.name))}</span><span class="f3-kind">${esc(f.name)}</span></div>

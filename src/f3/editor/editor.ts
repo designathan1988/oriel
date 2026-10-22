@@ -2796,6 +2796,19 @@ export class Editor3 {
     const b = this.activeBuilding(),
       it = this.activeItem();
     if (!b || !it) return;
+    // The sill of a part on a wall moves the part itself (its height above the floor it is on).
+    if (key === 'sillH' && it.host.kind === 'face' && typeof value === 'number') {
+      return void this.change(b.id, (x) => {
+        const y = x.items.find((q) => q.id === it.id);
+        if (!y || y.host.kind !== 'face') return false;
+        const host = y.host;
+        const s = x.solids.find((q) => q.id === host.solid);
+        if (!s) return false;
+        const at = s.base + host.y;
+        const lv = [...x.levels].sort((p, q) => p.elevation - q.elevation).filter((l) => l.elevation <= at + 0.01).pop();
+        host.y = Math.max(0, Math.round(((lv?.elevation ?? 0) + value - s.base) * 100) / 100);
+      }, `Sill ${decimal(value)} m.`);
+    }
     if (scope === 'instance') {
       this.change(b.id, (x) => {
         const y = x.items.find((q) => q.id === it.id)!;
