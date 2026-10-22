@@ -711,6 +711,8 @@ function bind(ed: Editor3, b: Building3, s: Solid | undefined): void {
       ed.changeSolid((x) => {
         const k = el.dataset.roof as RoofKind;
         x.roof.kind = k;
+        // A roof chosen on walls drawn open at the top closes them (a flat roof is a slab then).
+        delete x.openTop;
         if (k === 'flat') x.roof.parapet = x.roof.parapet || 0.6;
         if (k === 'terrace') x.roof.parapet = Math.max(1.05, x.roof.parapet);
         if (k === 'profile') {
