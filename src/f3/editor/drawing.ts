@@ -413,7 +413,7 @@ export function cutAt(ed: Editor3, e: PointerEvent, commit: boolean): void {
     ed.cutFrom = null;
     let made: ID | null = null;
     const ok = ed.change(b.id, (x) => !!(made = splitByLine(x, findSolid(x, cf.sid)!, cf.a, z.p)?.id ?? null), 'Volume cut in two (each piece is a volume of its own).');
-    if (!ok) ed.toast('That line does not cut ed top: both ends on its edge, the line inside (no holes, no curved sides).');
+    if (!ok) ed.toast('That line does not cut this top: both ends on its edge, the line inside (no holes, no curved sides).');
     // The new piece is chosen: the cut shows (nothing draws the line between two pieces of the same finish).
     else if (made) {
       ed.context = b.id;
@@ -445,7 +445,7 @@ export function cutAt(ed: Editor3, e: PointerEvent, commit: boolean): void {
       const k = Math.max(2, Math.ceil(len / 0.5));
       show(Array.from({ length: k + 1 }, (_, i) => W(at((len * i) / k), s.base + y)));
       // From the ground first (audit B2: 7.8 m on a volume raised 20 m read as the height).
-      ed.showDim(`${fmt(s.base + y)} m from the ground (${fmt(y)} m up ed volume) · ${fmt(s.height - y)} m above`, e);
+      ed.showDim(`${fmt(s.base + y)} m from the ground (${fmt(y)} m up this volume) · ${fmt(s.height - y)} m above`, e);
       const apply = (v: number) => {
         let made: ID | null = null;
         const ok = ed.change(b.id, (x) => !!(made = splitAtHeight(x, findSolid(x, s.id)!, v)?.id ?? null), `Volume cut at ${fmt(v)} m.`);

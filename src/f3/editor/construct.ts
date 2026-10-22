@@ -395,7 +395,7 @@ export function iwallAt(ed: Editor3, e: PointerEvent, commit: boolean): void {
   if (e.shiftKey) {
     // A door on the nearest interior wall of this level.
     const it = b.interiors[lv.id];
-    if (!it) return ed.toast('No interior wall on ed floor yet.');
+    if (!it) return ed.toast('No interior wall on this floor yet.');
     const node = new Map(it.nodes.map((n) => [n.id, n.p]));
     let best: { id: ID; u: number; d: number } | null = null;
     for (const wl of it.walls) {
@@ -905,7 +905,7 @@ export function roomUp(ed: Editor3, e: PointerEvent): void {
       return ringValid(r, 1) ? r : ccw;
     });
   const loop = it ? loopAround(it, p, inner) : inner.length ? loopAround({ nodes: [], walls: [], rooms: [] }, p, inner) : null;
-  if (!loop) return ed.toast('The walls do not close around ed point: draw the missing wall, or drag a rectangle.');
+  if (!loop) return ed.toast('The walls do not close around this point: draw the missing wall, or drag a rectangle.');
   const id = uid();
   const area = Math.round(roomArea(loop.polygon) * 100) / 100;
   ed.change(b.id, (x) => void interiorOf(x, lv.id).rooms.push({ id, name: tr(`Room ${n}`), wallIds: loop.wallIds, polygon: loop.polygon, area }), `Room ${n}: ${fmt(area)} m².`);

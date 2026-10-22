@@ -12,7 +12,7 @@ import { stairClashes } from '../eval/clashes';
 import { modifierCopies } from '../eval/modifiers';
 import { TOOL_GROUPS, toolForKey, type ToolDef } from './commands';
 import { terrainField, type TerrainField } from '../model/terrain';
-import { adoptOffsetSides, sideCurve, stackOnTop, edgeLength, extrudeSide, hostedFrame, insetSide, insetTop, offsetCopy, offsetSolid, setSideDepth, setSolidSize, splitAtHeight, splitByLine, splitSideAt } from '../model/modeling';
+import { adoptOffsetSides, sideCurve, stackOnTop, edgeLength, extrudeSide, hostedFrame, insetSide, insetTop, offsetCopy, offsetSolid, setSideDepth, setSolidSize, splitAtHeight, splitByLine, splitSideAt, planBox } from '../model/modeling';
 import { activeLayer, buildingHidden, buildingLocked, ensureLayers, explodeGap, itemHidden, itemLocked, solidHidden, solidLocked, viewOf, optionHidden } from '../model/layers';
 import { boxPicks, combine, marqueeRect, selMode } from './selection';
 import { convertSub, segDistance, subElements, type ElemMode, type SubEdge, type SubVertex } from '../eval/subelements';
@@ -2399,7 +2399,27 @@ export class Editor3 {
     const s = this.activeSolid() ?? b.solids.find((q) => q.op === 'add');
     // On the floor, near the middle, never in a courtyard (model/structure.ts).
     const c: Vec2 = s ? (freeSpot(b, s, 4) ?? planCenter(s)) : [0, 0];
-    const it = stairBetween(b, lv[i]!.id, lv[i + 1]!.id, c, 0);
+    let it = stairBetween(b, lv[i]!.id, lv[i + 1]!.id, c, 0);
+    // A place where the flight crosses no wall (interior or outer): around the middle, in four turns.
+    if (s) {
+      const box = planBox(s);
+      const clashes = (cand: Item) => stairClashes({ ...b, items: [cand] }).length > 0;
+      if (clashes(it)) {
+        search: for (let k = 1; k <= 6; k++)
+          for (let gx = -k; gx <= k; gx++)
+            for (let gz = -k; gz <= k; gz++) {
+              if (Math.max(Math.abs(gx), Math.abs(gz)) !== k) continue;
+              const p: Vec2 = [c[0] + ((box.x1 - box.x0) / 14) * gx, c[1] + ((box.z1 - box.z0) / 14) * gz];
+              for (const rot of [0, 90, 180, 270]) {
+                const cand = stairBetween(b, lv[i]!.id, lv[i + 1]!.id, p, rot);
+                if (!clashes(cand)) {
+                  it = cand;
+                  break search;
+                }
+              }
+            }
+      }
+    }
     this.change(b.id, (x) => void x.items.push(it), `Stair from floor ${i + 1} to floor ${i + 2}: move it where it goes.`);
     this.context = b.id;
     this.select({ building: b.id, item: it.id });

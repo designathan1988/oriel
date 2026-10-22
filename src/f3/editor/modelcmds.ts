@@ -332,7 +332,7 @@ export function curtainWall(ed: Editor3): void {
     const so = findSolid(x, s.id)!;
     (so.edges[edge] ??= {}).blank = true;
     x.items.push(it);
-  }, 'Curtain wall on ed side.');
+  }, 'Curtain wall on this side.');
   ed.select({ building: b.id, item: it.id });
 }
 
@@ -468,7 +468,7 @@ export function cornerWindow(ed: Editor3, width = 1.6): void {
   const ln = edgeLength(s, next),
     lp = edgeLength(s, prev);
   const w = Math.min(width, ln - 0.3, lp - 0.3);
-  if (w < 0.6) return ed.toast('The sides at ed corner are too short.');
+  if (w < 0.6) return ed.toast('The sides at this corner are too short.');
   const lv = ed.workLevel(b);
   const y = Math.max(0, (lv?.elevation ?? s.base) + 0.9 - s.base);
   const mk = (edge: ID, u: number): Item => ({ id: uid(), type: 'win-casement', params: { width: Math.round(w * 100) / 100, trim: 0, shutters: 'none' }, host: { kind: 'face', solid: s.id, edge, u: Math.round(u * 1000) / 1000, y } });
@@ -748,7 +748,7 @@ export function repeatOnFacade(ed: Editor3): void {
     const so = findSolid(x, s.id)!;
     so.facade.push(rule);
     x.items = x.items.filter((q) => q.id !== it.id);
-  }, 'Repeated on every floor of ed side (a facade rule).');
+  }, 'Repeated on every floor of this side (a facade rule).');
   ed.select({ building: b.id, solids: [s.id], face: { kind: 'side', edge: h.edge } });
 }
 
@@ -785,10 +785,10 @@ export function replicateFloor(ed: Editor3): void {
   const b = ed.store.building(ed.context) ?? ed.activeBuilding();
   if (!b) return ed.toast('Select a building first.');
   const lv = ed.workLevel(b);
-  if (!lv || !b.interiors[lv.id]?.walls.length) return ed.toast('No interior walls on ed floor to copy.');
+  if (!lv || !b.interiors[lv.id]?.walls.length) return ed.toast('No interior walls on this floor to copy.');
   const above = b.levels.filter((l) => l.elevation > lv.elevation + 0.1).map((l) => l.id);
-  if (!above.length) return ed.toast('No floor above ed one.');
-  ed.change(b.id, (x) => replicateLevel(x, lv.id, above, uid), `Walls of ed floor copied to ${above.length} floor(s) above.`);
+  if (!above.length) return ed.toast('No floor above this one.');
+  ed.change(b.id, (x) => replicateLevel(x, lv.id, above, uid), `Walls of this floor copied to ${above.length} floor(s) above.`);
 }
 
 /**
@@ -843,7 +843,7 @@ export async function importOsm(ed: Editor3, radius = 200): Promise<void> {
   }
   const lid = layer.id;
   const bs = osmToBuildings(json as { elements?: [] }, sun.latitude, sun.longitude, lid);
-  if (!bs.length) return ed.toast('OpenStreetMap has no buildings mapped around ed place.');
+  if (!bs.length) return ed.toast('OpenStreetMap has no buildings mapped around this place.');
   p.buildings = p.buildings.filter((b) => b.layer !== lid).concat(bs);
   ed.store.commit(null, `${bs.length} buildings from OpenStreetMap.`);
   ed.toast(`${bs.length} buildings from OpenStreetMap (© OpenStreetMap contributors, ODbL), on the locked layer "OpenStreetMap".`);

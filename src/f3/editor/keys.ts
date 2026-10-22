@@ -44,7 +44,15 @@ export function bindKeys(ed: Editor3): void {
       ed.command('palette');
       return;
     }
-    if (target.closest('input,select,textarea')) return;
+    if (target.closest('input,select,textarea')) {
+      // Esc in a field of a panel gives the keyboard back to the view (the tool keys work again).
+      if (e.key === 'Escape' && target !== vcb && ed.shell.root.contains(target)) {
+        (target as HTMLElement).blur();
+        ed.view.renderer.domElement.focus();
+        e.preventDefault();
+      }
+      return;
+    }
     // Walking owns the keyboard (WASD, Shift, Space, Esc).
     if (ed.walk.active) return;
     const k = e.key.toLowerCase();

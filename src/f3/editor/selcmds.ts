@@ -182,7 +182,7 @@ export function isolateSelection(ed: Editor3): void {
   if (b && ed.sel.solids.length) {
     const ids = ed.sel.solids;
     // Hidden cutters keep cutting, so only adding volumes are hidden.
-    if (!b.solids.some((q) => !ids.includes(q.id) && q.op === 'add' && !q.hidden)) return ed.toast('Nothing else to hide in ed building (cutters keep cutting, so they stay).');
+    if (!b.solids.some((q) => !ids.includes(q.id) && q.op === 'add' && !q.hidden)) return ed.toast('Nothing else to hide in this building (cutters keep cutting, so they stay).');
     ed.change(b.id, (x) => {
       for (const q of x.solids) if (!ids.includes(q.id) && q.op === 'add') q.hidden = true;
     }, 'Selection isolated · Alt+H shows everything.');

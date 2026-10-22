@@ -317,7 +317,7 @@ export function paintAt(ed: Editor3, e: PointerEvent): void {
       const r = room ? it.rooms.find((q) => q.id === room[2]) : under;
       if (r) r.finish = m;
       else it.finishes = { ...(it.finishes ?? {}), [inner!]: m };
-    }, room ? 'Room floor painted.' : inner === 'walls' ? 'Inside of the walls painted (ed floor).' : inner === 'ceiling' ? 'Ceiling painted (ed floor).' : 'Floor painted (ed floor).');
+    }, room ? 'Room floor painted.' : inner === 'walls' ? 'Inside of the walls painted (this floor).' : inner === 'ceiling' ? 'Ceiling painted (this floor).' : 'Floor painted (this floor).');
   }
   const s = findSolid(b, f.solid);
   if (!s) return;
@@ -379,5 +379,5 @@ export function paintPart(ed: Editor3, b: Building3, tag: { family: string; rule
       const r = findSolid(x, tag.solid!)!.facade.find((f) => f.id === rule.id)!;
       set((r.params ??= {}) as Record<string, unknown>);
     } else set((x.items.find((i) => i.id === item!.id)!.params ??= {}) as Record<string, unknown>);
-  }, rule ? `${t?.name ?? 'Parts'} painted: every one of ed facade rule.` : `${t?.name ?? 'Part'} painted.`);
+  }, rule ? `${t?.name ?? 'Parts'} painted: every one of this facade rule.` : `${t?.name ?? 'Part'} painted.`);
 }

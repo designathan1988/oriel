@@ -250,7 +250,7 @@ export function beginHandle(ed: Editor3, h: Handle, e: PointerEvent): void {
       const v = parseLength(txt);
       if (v === null || v <= 0) return false;
       const w = Math.max(pr.min, Math.min(pr.max, v));
-      return ed.change(b.id, (x) => write(x, w), `${pr.label} ${fmt(w)} m at ed position only (Back to rule undoes).`);
+      return ed.change(b.id, (x) => write(x, w), `${pr.label} ${fmt(w)} m at this position only (Back to rule undoes).`);
     });
     return;
   }

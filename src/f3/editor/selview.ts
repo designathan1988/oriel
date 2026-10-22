@@ -343,7 +343,7 @@ export function drawSelection(ed: Editor3): void {
             }
             const at = new THREE.Vector3(...q).applyMatrix4(F);
             const dir = axes[d.axis]!.clone().multiplyScalar(side).transformDirection(F);
-            handles.push({ kind: 'pdim', at, dir, color: '#e2702a', label: `${d.label}: drag ed side (type the value)`, square: true, param: { key: d.key, slope: d.slope, min: d.min, max: d.max, label: d.label, up: d.up, down: d.down, side, axis: d.axis } });
+            handles.push({ kind: 'pdim', at, dir, color: '#e2702a', label: `${d.label}: drag this side (type the value)`, square: true, param: { key: d.key, slope: d.slope, min: d.min, max: d.max, label: d.label, up: d.up, down: d.down, side, axis: d.axis } });
           }
         }
         // Scale it all together: the top corner (every size parameter by the same ratio).
@@ -409,7 +409,7 @@ export function drawSelection(ed: Editor3): void {
           if (!n) return;
           const mid = midOf(v, ring[(k + 1) % ring.length]!);
           const dir = new THREE.Vector3(n[0], 0, n[1]).transformDirection(M);
-          handles.push({ kind: 'push', at: W(mid, s0.base + s0.height / 2), dir, normal: dir.clone(), solid: s0.id, edge: v.id, color: HANDLE_COLORS.push, label: 'Push/pull ed side (Ctrl: extrude)' });
+          handles.push({ kind: 'push', at: W(mid, s0.base + s0.height / 2), dir, normal: dir.clone(), solid: s0.id, edge: v.id, color: HANDLE_COLORS.push, label: 'Push/pull this side (Ctrl: extrude)' });
         });
     }
     // Top chosen: orange push/pull arrow, like the side faces (Ctrl: extrude).
