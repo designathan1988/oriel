@@ -940,6 +940,18 @@ export function beginIwallHandle(ed: Editor3, h: Handle, e: PointerEvent): void 
   ed.startDrag('iwallnode', b, e, { handle: 'vertex', level: iw.level, node: iw.node }, true);
 }
 
+/** Deletes an interior wall with its doors and the corners no wall uses any more. */
+export function deleteInteriorWall(ed: Editor3, bid: ID, level: ID, wall: ID): boolean {
+  return ed.change(bid, (x) => {
+    const it = x.interiors[level] as InteriorWithDoors | undefined;
+    if (!it || !it.walls.some((w) => w.id === wall)) return false;
+    it.walls = it.walls.filter((w) => w.id !== wall);
+    if (it.doors) it.doors = it.doors.filter((d) => d.wall !== wall);
+    const used = new Set(it.walls.flatMap((w) => [w.a, w.b]));
+    it.nodes = it.nodes.filter((n) => used.has(n.id));
+  }, 'Interior wall deleted.');
+}
+
 /** The level plane point (building frame) under the pointer, for the interior tools. */
 export function levelPoint(ed: Editor3, e: { clientX: number; clientY: number }): { b: Building3; lv: { id: ID; elevation: number; height: number }; p: Vec2 } | null {
   // The building under the pointer (on its floor shown), not the one last edited.

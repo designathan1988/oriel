@@ -175,7 +175,7 @@ export function clearPathDraft(ed: Editor3): void {
 }
 
 /** The interior wall of the floor shown under the pointer (within 40 cm of its line), if any. */
-function interiorWallUnder(ed: Editor3, e: { clientX: number; clientY: number }): { b: Building3; level: ID; wall: ID; u: number; len: number } | null {
+export function interiorWallUnder(ed: Editor3, e: { clientX: number; clientY: number }): { b: Building3; level: ID; wall: ID; u: number; len: number } | null {
   const b = ed.buildingUnderWall(e);
   const lv = b && ed.workLevel(b);
   const it = b && lv ? b.interiors[lv.id] : undefined;

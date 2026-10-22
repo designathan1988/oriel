@@ -46,6 +46,37 @@ export function drawSelection(ed: Editor3): void {
     ed.placeCtxBar();
     return;
   }
+  // An interior wall selected with Select: its line drawn over it and its two ends to drag.
+  if (ed.iwallSel && ed.tool === 'select') {
+    const wb = ed.store.building(ed.context) ?? b;
+    const it = wb?.interiors[ed.iwallSel.level];
+    const wl = it?.walls.find((w) => w.id === ed.iwallSel!.wall);
+    const lv = wb?.levels.find((l) => l.id === ed.iwallSel!.level);
+    if (wb && it && wl && lv) {
+      const IM = ed.view.buildingMatrix(wb);
+      const pos = new Map(it.nodes.map((n) => [n.id, n.p]));
+      const pa = pos.get(wl.a),
+        pb = pos.get(wl.b);
+      if (pa && pb) {
+        const y0 = lv.elevation + 0.05,
+          y1 = lv.elevation + Math.min(lv.height, 1.4);
+        const pts = [
+          [pa, y0], [pb, y0], [pb, y1], [pa, y1], [pa, y0],
+        ].map(([q, y]) => new THREE.Vector3((q as Vec2)[0], y as number, (q as Vec2)[1]).applyMatrix4(IM));
+        const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: '#2f7de1', depthTest: false }));
+        line.renderOrder = 30;
+        ed.selOverlay.add(line);
+        const hs: Handle[] = [wl.a, wl.b].map((nid) => {
+          const q = pos.get(nid)!;
+          return { kind: 'vertex', at: new THREE.Vector3(q[0], y0, q[1]).applyMatrix4(IM), color: HANDLE_COLORS.vertex, label: 'Wall end: drag it', iwall: { level: lv.id, node: nid } } as Handle;
+        });
+        ed.handles.set(hs);
+        ed.placeCtxBar();
+        ed.view.mark();
+        return;
+      }
+    }
+  }
   // Interior walls tool: the nodes of the walls of the floor shown (drag) and each wall's middle
   // (Alt+click deletes the wall), in the building being edited.
   const iwb = ed.tool === 'iwall' || ed.tool === 'walls' ? (ed.store.building(ed.context) ?? b) : undefined;

@@ -1040,6 +1040,14 @@ export class Editor3 {
   }
 
   remove(): void {
+    // An interior wall selected (its panel open): that wall goes, not the building around it.
+    if (this.iwallSel) {
+      const bi = this.store.building(this.context) ?? this.activeBuilding();
+      const ws = this.iwallSel;
+      this.iwallSel = null;
+      if (bi) constructMod.deleteInteriorWall(this, bi.id, ws.level, ws.wall);
+      return;
+    }
     const b = this.activeBuilding();
     if (!b) return;
     if (this.context === b.id && this.sel.verts?.length) {

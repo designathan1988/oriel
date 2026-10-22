@@ -12,6 +12,7 @@ import type { FaceInfo } from '../eval/faces';
 import { between, column, row } from './elements';
 import { type Selection, type Mods, type Drag, faceSelOf, simplifyClosed } from './support';
 import { startWallChain } from './construct';
+import { interiorWallUnder } from './place';
 import type { Editor3 } from './editor';
 
 // ── Pointer ──────────────────────────────────────────────────────────
@@ -206,6 +207,7 @@ export function onDown(ed: Editor3, e: PointerEvent): void {
   if (ed.tool === 'select' && ed.elemMode !== 'object' && ed.context && ed.subDown(e)) return;
   if (ed.selectLike() || ed.pushLike()) {
     const h = ed.handles.hit(e);
+    if (h?.iwall) return ed.beginIwallHandle(h, e);
     if (h) {
       ed.beginHandle(h, e);
       if (ed.drag) ed.drag.data.viaHandle = true;
@@ -239,6 +241,20 @@ export function onDown(ed: Editor3, e: PointerEvent): void {
       ed.setMeasure('Scale (factor)', (t) => ed.scaleSelection(t));
       ed.toast('Type a factor (2 doubles it; 2;1 the plan only) and Enter, or drag a corner.');
       return;
+    }
+    // Select on a divider of the floor shown (the floor cut open): that interior wall is selected (its
+    // panel: thickness, length, doors; Delete removes it), not the building's outer walls around it.
+    if (ed.tool === 'select' && ed.project.view?.cutLevel !== undefined && !e.shiftKey && !e.ctrlKey) {
+      const iw = interiorWallUnder(ed, e);
+      if (iw) {
+        ed.context = iw.b.id;
+        ed.select({ building: iw.b.id });
+        ed.iwallSel = { level: iw.level, wall: iw.wall };
+        ed.roomSel = null;
+        ed.drawSelection();
+        ed.emit();
+        return;
+      }
     }
     // Rotate tool on an object (not only on its ring): it turns about its centre, dragged or clicked
     // and then clicked again or a typed angle (before, it was moved instead, and a typed 30 moved it 30 m).
