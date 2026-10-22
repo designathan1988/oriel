@@ -93,8 +93,28 @@ export function wallAxisOf(s: Solid): [Vec2, Vec2] | null {
   return l0 < l1 ? [m(3), m(1)] : [m(0), m(2)];
 }
 
-/** Thickness of a wall volume: twice the farthest corner from its centre line. */
+/**
+ * Thickness of a wall volume: the gap between its two parallel faces (it does not depend on the line, which
+ * may already be somewhere else when a neighbour pulled its end); else twice the farthest corner from the line.
+ */
 function wallThick(s: Solid, ax: [Vec2, Vec2]): number {
+  const P = s.plan.outer.map((v) => v.p);
+  if (P.length === 4 && !s.plan.outer.some((v) => v.bulge)) {
+    let best = Infinity;
+    for (const i of [0, 1]) {
+      const p0 = P[i]!,
+        p1 = P[i + 1]!,
+        q0 = P[(i + 3) % 4]!,
+        q1 = P[i + 2]!;
+      const l1 = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]),
+        l2 = Math.hypot(q1[0] - q0[0], q1[1] - q0[1]);
+      if (l1 < 1e-6 || l2 < 1e-6) continue;
+      const u: Vec2 = [(p1[0] - p0[0]) / l1, (p1[1] - p0[1]) / l1];
+      if (Math.abs(u[0] * (q1[1] - q0[1]) / l2 - u[1] * (q1[0] - q0[0]) / l2) > 0.01) continue;
+      best = Math.min(best, Math.abs((q0[0] - p0[0]) * u[1] - (q0[1] - p0[1]) * u[0]));
+    }
+    if (best < Infinity) return Math.max(0.05, best);
+  }
   const [a, b] = ax;
   const L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
   const nx = -(b[1] - a[1]) / L,
@@ -227,7 +247,7 @@ export function refreshWallAxes(b: Building3): void {
   }
 }
 
-export function followWalls(b: Building3, orig: Building3): void {
+export function followWalls(b: Building3, orig: { solids: Solid[] }): void {
   const moved: [Vec2, Vec2][] = [];
   const ids = new Set<string>();
   for (const s of b.solids) {
@@ -249,6 +269,68 @@ export function followWalls(b: Building3, orig: Building3): void {
       return m ? [m[1][0], m[1][1]] : q;
     }) as [Vec2, Vec2];
   }
+  joinWalls(b);
+}
+
+/**
+ * The line of a wall after its body was edited directly: the middle of its two faces along the old line, and
+ * each end moved as far as that end of the body moved. Null when no two faces run along the line any more.
+ */
+function axisFromBody(body: Vec2[], old: [Vec2, Vec2], was: Vec2[]): [Vec2, Vec2] | null {
+  const [a, b] = old;
+  const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  if (L < 1e-6) return null;
+  const d: Vec2 = [(b[0] - a[0]) / L, (b[1] - a[1]) / L];
+  const n: Vec2 = [-d[1], d[0]];
+  const along = (p: Vec2) => (p[0] - a[0]) * d[0] + (p[1] - a[1]) * d[1];
+  const across = (p: Vec2) => (p[0] - a[0]) * n[0] + (p[1] - a[1]) * n[1];
+  const offs: number[] = [];
+  body.forEach((p, i) => {
+    const q = body[(i + 1) % body.length]!;
+    const l = Math.hypot(q[0] - p[0], q[1] - p[1]);
+    if (l > 1e-6 && Math.abs(((q[0] - p[0]) * n[0] + (q[1] - p[1]) * n[1]) / l) < 0.01) offs.push((across(p) + across(q)) / 2);
+  });
+  if (offs.length < 2 || Math.max(...offs) - Math.min(...offs) < 0.02) return null;
+  const c = (Math.max(...offs) + Math.min(...offs)) / 2;
+  const t0 = Math.min(...body.map(along)) - Math.min(...was.map(along)),
+    t1 = Math.max(...body.map(along)) - Math.max(...was.map(along));
+  return [
+    [a[0] + d[0] * t0 + n[0] * c, a[1] + d[1] * t0 + n[1] * c],
+    [b[0] + d[0] * t1 + n[0] * c, b[1] + d[1] * t1 + n[1] * c],
+  ];
+}
+
+/** The drawn walls of a building as they are before a change (see keepWallsJoined). */
+export function wallState(b: Building3): { solids: Solid[] } | null {
+  const ws = b.solids.filter((s) => s.wallAxis);
+  return ws.length ? { solids: structuredClone(ws) } : null;
+}
+
+/**
+ * Keeps the drawn walls joined after any change of the building (ArchiCAD and Revit keep wall joins through
+ * every edit): a wall whose body was edited directly (a vertex, a face, a size field) takes its line from the
+ * new body, or is a plain volume when it no longer is a wall; walls whose ends moved (move, rotate, mirror,
+ * a position field) pull the walls that met them; copies, pasted walls and arrays join where they touch.
+ */
+export function keepWallsJoined(b: Building3, before: { solids: Solid[] } | null): void {
+  if (!b.solids.some((s) => s.wallAxis)) return;
+  const was = new Map((before?.solids ?? []).map((s) => [s.id, s]));
+  const same = (p: Vec2[], q: Vec2[]) => p.length === q.length && p.every((v, i) => Math.hypot(v[0] - q[i]![0], v[1] - q[i]![1]) < 1e-3);
+  // The bodies the current lines give; a body that differs from both that and its old self was edited.
+  const joined = { ...b, solids: structuredClone(b.solids.filter((s) => s.wallAxis)) };
+  joinWalls(joined);
+  const want = new Map(joined.solids.map((s) => [s.id, s.plan.outer.map((v) => v.p)]));
+  for (const s of b.solids) {
+    const o = was.get(s.id);
+    if (!s.wallAxis || !o?.wallAxis) continue;
+    const body = s.plan.outer.map((v) => v.p);
+    if (!same(s.wallAxis, o.wallAxis) || same(body, o.plan.outer.map((v) => v.p)) || same(body, want.get(s.id) ?? [])) continue;
+    const moved = axisFromBody(s.plan.outer.map((v) => v.p), o.wallAxis, o.plan.outer.map((v) => v.p));
+    delete s.wallAxis;
+    const ax = moved ?? wallAxisOf(s);
+    if (ax) s.wallAxis = [ax[0], ax[1]];
+  }
+  if (before) followWalls(b, before);
   joinWalls(b);
 }
 

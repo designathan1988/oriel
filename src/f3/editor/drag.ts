@@ -1,7 +1,7 @@
 // Dragging in the editor: handles (move, size, rotate, push, vertices), moving buildings, volumes and parts, copies while dragging, and the end of a drag.
 import * as THREE from 'three';
 import type { Building3, ID, Item, Solid, Vec2, Vec3 } from '../model/schema';
-import { bendEdge, cloneBuilding, cloneSolid, dirToLocal, edgeNormal, findSolid, moveVertex, planCenter, planValid as planValidOps, pushEdge, rotateSolid, toLocal, topRing, toWorld, translateSolid } from '../model/ops';
+import { bendEdge, cloneBuilding, cloneSolid, dirToLocal, edgeNormal, findSolid, moveVertex, planCenter, planValid as planValidOps, pushEdge, rotateSolid, toLocal, topRing, toWorld, translateSolid, toFrame, fromFrame } from '../model/ops';
 import { solidRings } from '../eval/body';
 import { edgeLength, extrudeSide, hostedFrame, insetTop, setSideDepth } from '../model/modeling';
 import { buildingHidden, explodeGap } from '../model/layers';
@@ -17,7 +17,7 @@ import { dimParams, partBox } from '../eval/partsize';
 import { buildingPassedThrough, mergeInto, worldParts } from '../model/compose';
 import { floorsIn, snapToFloor } from '../model/quick';
 import { type Mods, type Drag, rad, fmt, parseLength, parseFloors, floorsHeight, parseOffset, clampInside, midOf, ringCenter } from './support';
-import { followWalls } from './construct';
+import { keepWallsJoined, wallState } from './construct';
 import type { Editor3 } from './editor';
 
 // ── Drags ────────────────────────────────────────────────────────────
@@ -127,24 +127,28 @@ export function beginHandle(ed: Editor3, h: Handle, e: PointerEvent): void {
   if (h.kind === 'size') {
     const ids = inCtx ? (s ? [s.id] : []) : b.solids.filter((x) => x.op === 'add').map((x) => x.id);
     if (!ids.length) return;
+    // A box in a turned frame (the volume's own): every x and z below are that frame's.
+    const rot = h.frame ?? 0;
+    const F = (p: Vec2): Vec2 => (rot ? toFrame(p, rot) : p);
     let x0 = Infinity,
       x1 = -Infinity,
       z0 = Infinity,
       z1 = -Infinity;
     for (const id of ids)
       for (const v of findSolid(b, id)!.plan.outer) {
-        x0 = Math.min(x0, v.p[0]);
-        x1 = Math.max(x1, v.p[0]);
-        z0 = Math.min(z0, v.p[1]);
-        z1 = Math.max(z1, v.p[1]);
+        const p = F(v.p);
+        x0 = Math.min(x0, p[0]);
+        x1 = Math.max(x1, p[0]);
+        z0 = Math.min(z0, p[1]);
+        z1 = Math.max(z1, p[1]);
       }
     const all = !inCtx;
     // The handle sits on the real box (overhang, balconies); the size is of the plan. How far the
     // grabbed point is outside the plan edge is discounted in the drag: the first move does not jump.
     const p0 = ed.view.onPlane(e, h.at.y);
-    const l0 = p0 ? toLocal(b, [p0.x, p0.z]) : null;
+    const l0 = p0 ? F(toLocal(b, [p0.x, p0.z])) : null;
     const grab: Vec2 = l0 ? [h.sx ? l0[0] - (h.sx > 0 ? x1 : x0) : 0, h.sz ? l0[1] - (h.sz > 0 ? z1 : z0) : 0] : [0, 0];
-    ed.startDrag('size', b, e, { handle: 'size', sx: h.sx, sz: h.sz, box: [x0, x1, z0, z1], y: h.at.y, ids, all, grab }, true);
+    ed.startDrag('size', b, e, { handle: 'size', sx: h.sx, sz: h.sz, box: [x0, x1, z0, z1], y: h.at.y, ids, all, grab, rot }, true);
     ed.preview.add(b.id);
     ed.setMeasure(h.sx && h.sz ? 'Size' : h.sx ? 'Width' : 'Depth', (t) => {
       const m = /^\s*([\d.,]+)\s*(?:[x*;\s]\s*([\d.,]+))?\s*$/.exec(t);
@@ -158,16 +162,17 @@ export function beginHandle(ed: Editor3, h: Handle, e: PointerEvent): void {
       [x0, x1, z0, z1] = [Infinity, -Infinity, Infinity, -Infinity];
       for (const id of ids)
         for (const v of findSolid(nb, id)?.plan.outer ?? []) {
-          x0 = Math.min(x0, v.p[0]);
-          x1 = Math.max(x1, v.p[0]);
-          z0 = Math.min(z0, v.p[1]);
-          z1 = Math.max(z1, v.p[1]);
+          const p = F(v.p);
+          x0 = Math.min(x0, p[0]);
+          x1 = Math.max(x1, p[0]);
+          z0 = Math.min(z0, p[1]);
+          z1 = Math.max(z1, p[1]);
         }
       const W0 = x1 - x0,
         D0 = z1 - z0;
       const wantW = h.sx ? a : W0,
         wantD = h.sz ? (h.sx ? (Number.isFinite(c) ? c : (a / W0) * D0) : a) : D0;
-      return ed.change(b.id, (x) => ed.applySize(x, ids, [x0, x1, z0, z1], h.sx ?? 0, h.sz ?? 0, wantW / W0, wantD / D0, all), `Size ${fmt(wantW)} × ${fmt(wantD)} m.`);
+      return ed.change(b.id, (x) => ed.applySize(x, ids, [x0, x1, z0, z1], h.sx ?? 0, h.sz ?? 0, wantW / W0, wantD / D0, all, rot), `Size ${fmt(wantW)} × ${fmt(wantD)} m.`);
     });
     return;
   }
@@ -557,7 +562,8 @@ export function updateDrag(ed: Editor3, e: PointerEvent): void {
     if (!p) return;
     const [x0, x1, z0, z1] = d.data.box as number[];
     const grab = (d.data.grab as Vec2 | undefined) ?? [0, 0];
-    const l0 = toLocal(b, [p.x, p.z]);
+    const rot = (d.data.rot as number | undefined) ?? 0;
+    const l0 = rot ? toFrame(toLocal(b, [p.x, p.z]), rot) : toLocal(b, [p.x, p.z]);
     const l: Vec2 = [l0[0] - grab[0], l0[1] - grab[1]];
     const g = !e.altKey && ed.infer.enabled ? ed.infer.grid : 0;
     const q = (v: number) => (g ? Math.round(v / g) * g : v);
@@ -567,14 +573,15 @@ export function updateDrag(ed: Editor3, e: PointerEvent): void {
       D0 = z1! - z0!;
     let w = sx > 0 ? q(l[0] - x0!) : sx < 0 ? q(x1! - l[0]) : W0;
     let dd = sz > 0 ? q(l[1] - z0!) : sz < 0 ? q(z1! - l[1]) : D0;
-    w = Math.max(0.3, w);
-    dd = Math.max(0.3, dd);
+    // Only what is pulled has a least size (a wall 0.25 m thick pulled by its end stays 0.25 m thick).
+    if (sx) w = Math.max(0.3, w);
+    if (sz) dd = Math.max(0.3, dd);
     let fx = w / W0,
       fz = dd / D0;
     if (e.shiftKey && sx && sz) fx = fz = Math.max(fx, fz);
     b.solids = structuredClone(orig.solids);
     b.items = structuredClone(orig.items);
-    if (ed.applySize(b, d.data.ids as ID[], [x0!, x1!, z0!, z1!], sx, sz, fx, fz, !!d.data.all)) ed.store.touch([b.id]);
+    if (ed.applySize(b, d.data.ids as ID[], [x0!, x1!, z0!, z1!], sx, sz, fx, fz, !!d.data.all, rot)) ed.store.touch([b.id]);
     ed.showDim(`${fmt(W0 * fx)} × ${fmt(D0 * fz)} m`, e);
     ed.drawSelection();
     return;
@@ -1024,12 +1031,17 @@ export function updateDrag(ed: Editor3, e: PointerEvent): void {
  * Scales the volume plans by the box, with the side opposite to the handle
  * fixed (anchor). On the whole building, the free parts follow.
  */
-export function applySize(ed: Editor3, b: Building3, ids: ID[], box: number[], sx: number, sz: number, fx: number, fz: number, all: boolean): boolean {
+export function applySize(ed: Editor3, b: Building3, ids: ID[], box: number[], sx: number, sz: number, fx: number, fz: number, all: boolean, rot = 0): boolean {
   const [x0, x1, z0, z1] = box as [number, number, number, number];
   const ax = sx > 0 ? x0 : sx < 0 ? x1 : (x0 + x1) / 2;
   const az = sz > 0 ? z0 : sz < 0 ? z1 : (z0 + z1) / 2;
   const k = Math.min(fx, fz);
-  const map = (p: Vec2): Vec2 => [ax + (p[0] - ax) * fx, az + (p[1] - az) * fz];
+  // The box is in a frame turned by `rot` (the volume's own): stretched there, back to the plan after.
+  const map = (p0: Vec2): Vec2 => {
+    const p = rot ? toFrame(p0, rot) : p0;
+    const q: Vec2 = [ax + (p[0] - ax) * fx, az + (p[1] - az) * fz];
+    return rot ? fromFrame(q, rot) : q;
+  };
   for (const id of ids) {
     const s = findSolid(b, id);
     if (!s) continue;
@@ -1043,6 +1055,15 @@ export function applySize(ed: Editor3, b: Building3, ids: ID[], box: number[], s
     if (!planValidOps(s.plan)) {
       s.plan = before;
       return false;
+    }
+    // A wall's line is stretched with it (it stays the middle of the wall); the end on the side that stays
+    // does not move at all (the wall joined there stays joined).
+    if (s.wallAxis) {
+      const [p, q] = s.wallAxis;
+      const fx0 = (r: Vec2) => (rot ? toFrame(r, rot) : r)[0];
+      const keepP = sx !== 0 && Math.abs(fx0(p) - ax) < Math.abs(fx0(q) - ax);
+      const keepQ = sx !== 0 && !keepP;
+      s.wallAxis = [keepP && fz === 1 ? p : map(p), keepQ && fz === 1 ? q : map(q)];
     }
   }
   if (all)
@@ -1296,8 +1317,9 @@ export function endDrag(ed: Editor3, d: Drag, e: PointerEvent): void {
     if (d.data.copied) ed.toast('Copied. Type 5x for more copies.');
     return;
   }
-  // Walls that met the moved wall keep meeting it (their ends follow), before the move is recorded.
-  if ((d.kind === 'move-solids' || d.kind === 'rotate') && b && d.moved && b.solids.some((x) => x.wallAxis)) followWalls(b, d.origBuilding);
+  // Walls stay joined through any drag before it is recorded: the ends that met a moved wall follow it, and a
+  // wall whose body was dragged (a vertex, a face, a size handle) takes its line from the new body.
+  if (b && d.origBuilding && b.solids.some((x) => x.wallAxis)) keepWallsJoined(b, wallState(d.origBuilding));
   if (d.kind === 'move-solids' && b) {
     const s = findSolid(b, (d.data.ids as ID[])[0]!),
       so = findSolid(d.origBuilding, (d.data.ids as ID[])[0]!);

@@ -22,6 +22,8 @@ export interface Handle {
   /** Size handle: which side of the box it pulls (-1, 0 or 1 in local x and z). */
   sx?: number;
   sz?: number;
+  /** Size handle of a box in a turned frame (frameAngle, radians): x and z are that frame's. */
+  frame?: number;
   /** Face handle: outward normal (world); hidden when the face turns its back to the camera. */
   normal?: THREE.Vector3;
   /** Plane square (move on the ground): the two plane axes; it sits between the arrows, off center. */

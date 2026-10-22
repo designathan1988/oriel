@@ -18,14 +18,19 @@ const cache = new WeakMap<Evaluated, Map<string, Bounds | null>>();
  * the parts attached to them (`partOf` says which solid a part belongs to);
  * without `solids`, the whole building counts; `bodyOnly` leaves the parts out. Nothing in view returns null.
  */
-export function evaluatedBounds(ev: Evaluated, solids?: ReadonlySet<ID>, partOf?: (tag: PartTag) => ID | undefined, bodyOnly = false): Bounds | null {
-  const key = (solids ? [...solids].sort().join(',') : '*') + (bodyOnly ? '|body' : '');
+export function evaluatedBounds(ev: Evaluated, solids?: ReadonlySet<ID>, partOf?: (tag: PartTag) => ID | undefined, bodyOnly = false, angle = 0): Bounds | null {
+  const key = (solids ? [...solids].sort().join(',') : '*') + (bodyOnly ? '|body' : '') + (angle ? `|${angle}` : '');
+  // In a turned frame (a volume's own, see frameAngle): x along it, z across it.
+  const cs = Math.cos(angle),
+    sn = Math.sin(angle);
   let per = cache.get(ev);
   if (!per) cache.set(ev, (per = new Map()));
   if (per.has(key)) return per.get(key)!;
   const min: [number, number, number] = [Infinity, Infinity, Infinity];
   const max: [number, number, number] = [-Infinity, -Infinity, -Infinity];
-  const add = (x: number, y: number, z: number) => {
+  const add = (x0: number, y: number, z0: number) => {
+    const x = angle ? x0 * cs + z0 * sn : x0,
+      z = angle ? -x0 * sn + z0 * cs : z0;
     if (x < min[0]) min[0] = x;
     if (y < min[1]) min[1] = y;
     if (z < min[2]) min[2] = z;

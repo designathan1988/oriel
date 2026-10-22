@@ -3378,5 +3378,6 @@
 "3D view · F3": "Vista 3D · F3",
 "Length (the end moves)": "Comprimento (a ponta se move)",
 "Length, thickness and height of the wall": "Comprimento, espessura e altura da parede",
-"Sill {0} m.": "Peitoril de {0} m."
+"Sill {0} m.": "Peitoril de {0} m.",
+"Wall length: drag the end (type the value)": "Comprimento da parede: arraste a ponta (ou digite o valor)"
 }

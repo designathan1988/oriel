@@ -204,6 +204,68 @@ export function planCenter(s: Solid): Vec2 {
   return [x / o.length, z / o.length];
 }
 
+/**
+ * Angle (radians, plan x toward z) of a volume's own frame, the one its box is drawn in (SketchUp draws a
+ * component's box along the component's axes, not the world's): a drawn wall runs along its line; another
+ * volume takes the side direction of the smallest rectangle around its plan (a turned block gets a box that
+ * fits it), the plain axes when they fit about as well.
+ */
+export function frameAngle(s: Solid): number {
+  const q = Math.PI / 2;
+  const norm = (a: number) => {
+    const m = ((a % q) + q) % q;
+    return m > q / 2 + 1e-9 ? m - q : m;
+  };
+  if (s.wallAxis) {
+    const [a, b] = s.wallAxis;
+    if (Math.hypot(b[0] - a[0], b[1] - a[1]) > 1e-6) return norm(Math.atan2(b[1] - a[1], b[0] - a[0]));
+  }
+  const P = s.plan.outer.map((v) => v.p);
+  if (P.length < 3) return 0;
+  const area = (t: number) => {
+    let u0 = Infinity,
+      u1 = -Infinity,
+      w0 = Infinity,
+      w1 = -Infinity;
+    for (const p of P) {
+      const [u, w] = toFrame(p, t);
+      u0 = Math.min(u0, u);
+      u1 = Math.max(u1, u);
+      w0 = Math.min(w0, w);
+      w1 = Math.max(w1, w);
+    }
+    return (u1 - u0) * (w1 - w0);
+  };
+  const plain = area(0);
+  let best = 0,
+    min = plain;
+  P.forEach((p, i) => {
+    const n = P[(i + 1) % P.length]!;
+    if (Math.hypot(n[0] - p[0], n[1] - p[1]) < 1e-6) return;
+    const t = norm(Math.atan2(n[1] - p[1], n[0] - p[0]));
+    const a = area(t);
+    if (a < min - 1e-9) {
+      min = a;
+      best = t;
+    }
+  });
+  return plain <= min * 1.005 ? 0 : best;
+}
+
+/** A plan point in a frame turned by `t` (frameAngle): x along the frame, z across it. */
+export function toFrame(p: Vec2, t: number): Vec2 {
+  const c = Math.cos(t),
+    n = Math.sin(t);
+  return [p[0] * c + p[1] * n, -p[0] * n + p[1] * c];
+}
+
+/** Back from a frame turned by `t` to the plan. */
+export function fromFrame(p: Vec2, t: number): Vec2 {
+  const c = Math.cos(t),
+    n = Math.sin(t);
+  return [p[0] * c - p[1] * n, p[0] * n + p[1] * c];
+}
+
 export function translateSolid(s: Solid, dx: number, dz: number): void {
   for (const ring of [s.plan.outer, ...s.plan.holes]) for (const v of ring) v.p = [v.p[0] + dx, v.p[1] + dz];
   // A wall's centre line goes with its plan (the joins of the Walls tool are made from it).

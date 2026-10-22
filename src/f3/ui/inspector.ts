@@ -368,7 +368,7 @@ function solidPanel(ed: Editor3, b: Building3, s: Solid): string {
     ${prow('Rotate', 'rotate', [nk('spin', 'Rotate the volume by this angle', 0, gicon('rotate'), '°', 15, '0')])}
   </div>
   <div class="f3-sec"><h3>Size</h3>
-    ${ws ? prow('Wall', 'thickness', [nk('wlen', 'Length (the end moves)', ws.len, gtext('L')), nk('wthick', 'Thickness', ws.thick, gicon('thickness'), 'm', 0.05), nk('height', 'Height', s.height, gtext('H'))], { title: 'Length, thickness and height of the wall' }) : prow('Size', 'scale', [nk('sizew', 'Width (X)', box.x1 - box.x0, gtext('W')), nk('sized', 'Depth (Z)', box.z1 - box.z0, gtext('D')), nk('height', 'Height', s.height, gtext('H'))], { title: 'Width, depth and height' })}
+    ${ws ? prow('Wall', 'thickness', [nk('wlen', 'Length (the end moves)', ws.len, gtext('L')), nk('wthick', 'Thickness', ws.thick, gicon('thickness'), '', 0.05), nk('height', 'Height', s.height, gtext('H'))], { title: 'Length, thickness and height of the wall' }) : prow('Size', 'scale', [nk('sizew', 'Width (X)', box.x1 - box.x0, gtext('W')), nk('sized', 'Depth (Z)', box.z1 - box.z0, gtext('D')), nk('height', 'Height', s.height, gtext('H'))], { title: 'Width, depth and height' })}
     <div class="f3-btns n1"><button class="f3-btn" data-act="sizelock" aria-pressed="${ed.sizeLock}" title="Keep the proportions: width, depth and height change together">${icon(ed.sizeLock ? 'lock' : 'unlock')}${ed.sizeLock ? 'Proportions kept' : 'Keep proportions'}</button></div>
     ${layerRow(ed, 'solid', s.layer)}
     <div class="f3-btns n2"><button class="f3-btn" data-act="levelsfit" title="The volume height goes to the nearest floor slab">${icon('floors')}Height to floors</button></div>

@@ -1,7 +1,7 @@
 // What the editor draws for the selection: outlines, handles, the dimensions of the selection (editable on the label) and the hover highlight.
 import * as THREE from 'three';
 import type { Building3, ID, Solid, Vec2 } from '../model/schema';
-import { inside, edgeNormal, findSolid, planCenter, pushEdge } from '../model/ops';
+import { inside, edgeNormal, findSolid, planCenter, pushEdge, frameAngle } from '../model/ops';
 import { solidRings } from '../eval/body';
 import { hostedFrame } from '../model/modeling';
 import { explodeGap } from '../model/layers';
@@ -172,10 +172,12 @@ export function drawSelection(ed: Editor3): void {
     };
     if (hi <= lo) continue;
     line(lo === r.base ? r.outer.pts.map((p) => W(p, r.base)) : at(lo), color, true, op);
-    // Selected: the box wraps everything the volume generates (roof, overhang, parts).
+    // Selected: the box wraps everything the volume generates (roof, overhang, parts), in the volume's own
+    // frame (a wall's box runs along the wall, a turned block's box is turned with it).
     if (sel) {
-      const bb = ed.boundsOf(b, [s.id]);
-      if (bb) boxLines(bb, color);
+      const t = ed.sel.solids.length === 1 ? frameAngle(s) : 0;
+      const bb = ed.boundsOf(b, [s.id], false, t);
+      if (bb) boxLines(bb, color, t ? M.clone().multiply(new THREE.Matrix4().makeRotationY(-t)) : M);
     } else line(hi === r.top ? r.topOuter.map((p) => W(p, r.top)) : at(hi), color, true, op);
   }
   // Whole building selected: the box of the real bounds.
@@ -392,7 +394,12 @@ export function drawSelection(ed: Editor3): void {
       if (ed.tool === 'move') handles.push({ kind: 'move-y', at: over.clone(), dir: new THREE.Vector3(0, 1, 0), liftPx: 46, color: HANDLE_COLORS.y, label: 'Move vertically: base elevation (snaps to tops, bases and floors; Alt: free)' });
       handles.push({ kind: 'height', at: over.clone(), square: true, color: '#ffffff', label: 'Volume height: drag the top (floor by floor; Alt: free; type the value)' });
       // Corners resize; each side has its own push/pull arrow (below).
-      if (sb) handles.push(...ed.sizeHandles(b, sb).filter((h) => h.sx && h.sz));
+      const ft = frameAngle(s0);
+      const fb = ft ? ed.boundsOf(b, [s0.id], false, ft) : sb;
+      // A wall has its length pulled at its two ends (Revit's drag controls), not corners that also
+      // change its thickness; another volume, the corners of its box.
+      if (fb && s0.wallAxis) handles.push(...ed.sizeHandles(b, fb, ft).filter((h) => h.sx && !h.sz).map((h) => ({ ...h, label: 'Wall length: drag the end (type the value)' })));
+      else if (fb) handles.push(...ed.sizeHandles(b, fb, ft).filter((h) => h.sx && h.sz));
       // Made on a face: one depth arrow on its free face, measured from the wall (out adds, in cuts);
       // the wall side has none (pulling it only stretched a cutter into the air).
       const hf = hostedFrame(s0);

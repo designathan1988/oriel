@@ -6,7 +6,7 @@
 import * as THREE from 'three';
 import type { Building3, ID, Item, MaterialRef, Project3, Solid, Vec2, Vec3, NoteRef } from '../model/schema';
 import { building as newBuilding, circlePlan, facadeRule, levelsFor, planVertices, project as newProject, roofSpec, solid as newSolid, uid } from '../model/defaults';
-import { bendEdge, cloneBuilding, inside, mirrorSolidAbout, reflect, locateVertex, cloneSolid, dirToLocal, edgeNormal, findSolid, mirrorSolid, moveVertex, planCenter, planValid as planValidOps, pushEdge, removeVertex, rotateSolid, splitEdge, toLocal, topRing, toWorld, topAt, translateSolid } from '../model/ops';
+import { bendEdge, cloneBuilding, inside, mirrorSolidAbout, reflect, locateVertex, cloneSolid, dirToLocal, edgeNormal, findSolid, mirrorSolid, moveVertex, planCenter, planValid as planValidOps, pushEdge, removeVertex, rotateSolid, splitEdge, toLocal, topRing, toWorld, topAt, translateSolid, toFrame } from '../model/ops';
 import { solidRings } from '../eval/body';
 import { stairClashes } from '../eval/clashes';
 import { modifierCopies } from '../eval/modifiers';
@@ -465,7 +465,9 @@ export class Editor3 {
     const b = this.store.building(bid);
     if (!b) return false;
     const known = new Set([...b.solids.map((x) => x.id), ...b.items.map((x) => x.id)]);
+    const walls = constructMod.wallState(b);
     const r = fn(b);
+    if (r !== false) constructMod.keepWallsJoined(b, walls);
     // What was born in this change goes to the active layer.
     const layer = activeLayer(this.project);
     if (layer && r !== false) for (const x of [...b.solids, ...b.items]) if (!known.has(x.id) && !x.layer) x.layer = layer;
@@ -659,10 +661,11 @@ export class Editor3 {
    * Size handles on the bounding box (building axes): sides pull one axis,
    * corners both; the opposite side stays put. Shift keeps the proportion.
    */
-  sizeHandles(b: Building3, bb: Bounds): Handle[] {
+  sizeHandles(b: Building3, bb: Bounds, angle = 0): Handle[] {
     const [x0, y, z0] = [bb.min[0], bb.max[1], bb.min[2]],
       [x1, z1] = [bb.max[0], bb.max[2]];
-    const M = this.view.buildingMatrix(b);
+    // A box in a turned frame (a volume's own): its handles there too.
+    const M = this.view.buildingMatrix(b).clone().multiply(new THREE.Matrix4().makeRotationY(-angle));
     const out: Handle[] = [];
     // At the corners and midpoints of the real box top (where the box is drawn).
     for (const sx of [-1, 0, 1])
@@ -670,7 +673,7 @@ export class Editor3 {
         if (!sx && !sz) continue;
         const x = sx < 0 ? x0 : sx > 0 ? x1 : (x0 + x1) / 2;
         const z = sz < 0 ? z0 : sz > 0 ? z1 : (z0 + z1) / 2;
-        out.push({ kind: 'size', at: new THREE.Vector3(x, y, z).applyMatrix4(M), sx, sz, color: '#ffffff', label: sx && sz ? 'Size (drag the corner; Shift keeps the proportion; type 12x8)' : sx ? 'Width (drag; type the value)' : 'Depth (drag; type the value)' });
+        out.push({ kind: 'size', at: new THREE.Vector3(x, y, z).applyMatrix4(M), sx, sz, ...(angle ? { frame: angle } : {}), color: '#ffffff', label: sx && sz ? 'Size (drag the corner; Shift keeps the proportion; type 12x8)' : sx ? 'Width (drag; type the value)' : 'Depth (drag; type the value)' });
       }
     return out;
   }
@@ -725,7 +728,7 @@ export class Editor3 {
     return best;
   }
 
-  boundsOf(b: Building3, solids?: ID[], bodyOnly = false): Bounds | null {
+  boundsOf(b: Building3, solids?: ID[], bodyOnly = false, angle = 0): Bounds | null {
     const built = this.view.built.get(b.id);
     const set = solids ? new Set(solids) : undefined;
     // A free part attached to a face or roof belongs to the solid that hosts it.
@@ -735,10 +738,10 @@ export class Editor3 {
     };
     // A cutter is edited for what it is (the cutting prism), not for the hole it left.
     const cutters = !!solids && solids.every((id) => b.solids.find((s) => s.id === id)?.op !== 'add');
-    const bb = built && !cutters ? evaluatedBounds(built.ev, set, host, bodyOnly) : null;
+    const bb = built && !cutters ? evaluatedBounds(built.ev, set, host, bodyOnly, angle) : null;
     if (bb) return bb;
     // Cutter (not in the shell) or not evaluated yet: the declared prism.
-    return this.prismBounds(b, solids ? b.solids.filter((s) => set!.has(s.id)) : b.solids.filter((s) => s.op === 'add'));
+    return this.prismBounds(b, solids ? b.solids.filter((s) => set!.has(s.id)) : b.solids.filter((s) => s.op === 'add'), angle);
   }
 
   /** Orbit pivot: the model under the cursor, else the active building, else every visible building. */
@@ -769,16 +772,17 @@ export class Editor3 {
   }
 
   /** Declared prism of the solids: plan outline, from the base to the top of the walls. */
-  prismBounds(_b: Building3, solids: Solid[]): Bounds | null {
+  prismBounds(_b: Building3, solids: Solid[], angle = 0): Bounds | null {
     if (!solids.length) return null;
     const min: Bounds['min'] = [Infinity, Infinity, Infinity],
       max: Bounds['max'] = [-Infinity, -Infinity, -Infinity];
     for (const s of solids)
       for (const v of s.plan.outer) {
-        min[0] = Math.min(min[0], v.p[0]);
-        max[0] = Math.max(max[0], v.p[0]);
-        min[2] = Math.min(min[2], v.p[1]);
-        max[2] = Math.max(max[2], v.p[1]);
+        const p = angle ? toFrame(v.p, angle) : v.p;
+        min[0] = Math.min(min[0], p[0]);
+        max[0] = Math.max(max[0], p[0]);
+        min[2] = Math.min(min[2], p[1]);
+        max[2] = Math.max(max[2], p[1]);
         min[1] = Math.min(min[1], s.base);
         max[1] = Math.max(max[1], s.base + s.height);
       }
